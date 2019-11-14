@@ -15,12 +15,6 @@ permissions and limitations under the License.
 
 'use strict';
 
-
-var AWS = require('aws-sdk');
-var config = require('./config');
 var producer = require('./twitter_stream_producer');
 
-// var kinesis = new AWS.Kinesis({region: config.kinesis.region});
-var kinesis_firehose = new AWS.Firehose({apiVersion: '2015-08-04', region: config.region});
-// console.log(kinesis_firehose.listDeliveryStreams());
-producer(kinesis_firehose).run();
+producer().run();

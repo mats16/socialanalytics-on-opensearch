@@ -15,49 +15,50 @@ permissions and limitations under the License.
 
 'use strict';
 
+var AWS = require('aws-sdk');
 var config = require('./config');
 var twitter_config = require('./twitter_reader_config.js');
 var Twit = require('twit');
 var util = require('util');
 var logger = require('./util/logger');
 
-function twitterStreamProducer(firehose) {
+function twitterStreamProducer() {
   var log = logger().getLogger('producer');
   var waitBetweenPutRecordsCallsInMilliseconds = config.waitBetweenPutRecordsCallsInMilliseconds;
   var T = new Twit(twitter_config.twitter)
 
   function _sendToFirehose() {
-
-    var stream = T.stream('statuses/filter', { track: twitter_config.topics , language: twitter_config.languages });
-
+    var firehose = new AWS.Firehose({ apiVersion: '2015-08-04' });
+    var stream = T.stream('statuses/filter', { track: twitter_config.topics, language: twitter_config.languages, filter_level: twitter_config.filter_level });
 
     var records = [];
     var record = {};
     var recordParams = {};
+    log.info('start streaming...')
     stream.on('tweet', function (tweet) {
-		var tweetString = JSON.stringify(tweet)
-              	recordParams = {
-                  DeliveryStreamName: twitter_config.kinesis_delivery,
-                  Record: {
-                    Data: tweetString +'\n'
-                  }
-              	};
-              firehose.putRecord(recordParams, function(err, data) {
-                if (err) {
-                  console.log(err);
-                }
-              });
-	}
+      var tweetString = JSON.stringify(tweet)
+      recordParams = {
+        DeliveryStreamName: twitter_config.kinesis_delivery,
+        Record: {
+          Data: tweetString + '\n'
+        }
+      };
+      firehose.putRecord(recordParams, function (err, data) {
+        if (err) {
+          log.error(err);
+        }
+      });
+    }
     );
   }
 
 
   return {
-    run: function() {
+    run: function () {
       log.info(util.format('Configured wait between consecutive PutRecords call in milliseconds: %d',
-          waitBetweenPutRecordsCallsInMilliseconds));
-        _sendToFirehose();
-      }
+        waitBetweenPutRecordsCallsInMilliseconds));
+      _sendToFirehose();
+    }
   }
 }
 

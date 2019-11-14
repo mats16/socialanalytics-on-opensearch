@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: '(SO0057) - AI-Driven Social Media Dashboard. Template Version 1'
+Description: '(Serverless) - AI-Driven Social Media Dashboard. Template Version 1'
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -22,17 +22,14 @@ Metadata:
           - AuthConsumerKey
           - AuthConsumerSecret
 Parameters:
-  InstanceKeyName:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: The name of the private key file to use for SSH/RDP access.  You shouldn't need to do any SSH access, but just in case.
   TwitterTermList:
     Description: List of terms for twitter to listen to
-    Type: String
-    Default: "'AWS', 'VPC', 'EC2', 'RDS', 'S3'"
+    Type: CommaDelimitedList
+    Default: "AWS,EC2,RDS,S3"
   TwitterLanguages:
     Description: List of languages to use for the twitter streaming reader
-    Type: String
-    Default: "'en', 'es', 'de', 'fr', 'ar', 'pt'"
+    Type: CommaDelimitedList
+    Default: "en,es,fr,de,it,pt,ar,hi,ja,ko,zh"
   AuthConsumerKey:
     Description: Consumer key for access twitter
     Type: String
@@ -50,7 +47,8 @@ Parameters:
   ApplicationName:
     Description: Name of the application for naming or tagging AWS resources created by this solution
     Type: String
-    Default: AI-Driven-Social-Media
+    Default: ai-driven-social-media
+    AllowedPattern: ^[a-z\-]*$
   VpcCIDR:
     Description: Please enter the IP range (CIDR notation) for this VPC
     Type: String
@@ -59,10 +57,6 @@ Parameters:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
     Default: 10.193.10.0/24
-  LatestAmiId:
-    Description: DO NOT EDIT, looks up latest Amazon Linux AMI
-    Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
-    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
 
 Mappings:
   Function:
@@ -72,10 +66,6 @@ Mappings:
     AddTriggerForFunction:
       S3Bucket: solutions
       S3Key: ai-driven-social-media-dashboard/v1.0.0/addtriggerfunction.zip
-  Code:
-    EC2Twitter:
-      S3Bucket: solutions
-      S3Key: ai-driven-social-media-dashboard/v1.0.0/ec2_twitter_reader.tar
 
 Resources:
 
@@ -107,14 +97,14 @@ Resources:
       SecretString:
         !Ref AuthAccessToken
 
-  TweetsEC2SecurityGroup:
+  TwitterReaderSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security Group for EC2 Twitter Reader
       VpcId: !Ref VPC
       Tags:
       - Key: Name
-        Value: TweetsEC2SecurityGroup
+        Value: TwitterReaderSecurityGroup
       - Key: ResourceGroup
         Value: CloudFormationResource
       - Key: Project
@@ -123,7 +113,7 @@ Resources:
       - CidrIp: 0.0.0.0/0
         IpProtocol: "-1"
 
-  SocialMediaAnalyticsEC2Role:
+  TwitterReaderTaskRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -132,12 +122,12 @@ Resources:
           -
             Effect: Allow
             Principal:
-              Service: ec2.amazonaws.com
+              Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
       Path: '/'
       Policies:
         -
-          PolicyName: socialmedia-policy
+          PolicyName: put-tweets
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -149,8 +139,27 @@ Resources:
                     - 'firehose:PutRecordBatch'
                     - 'firehose:UpdateDestination'
                 Resource: [!GetAtt [IngestionFirehoseStream, Arn]]
-              -
-                Effect: Allow
+
+  TwitterReaderTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Path: '/'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+      Policies:
+        -
+          PolicyName: twitter-auth-secrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
                 Action:
                     - 'secretsmanager:GetSecretValue'
                 Resource:
@@ -158,6 +167,7 @@ Resources:
                   - !Ref AuthAccessTokenSecretManagerSecret
                   - !Ref AuthConsumerManagerSecret
                   - !Ref AuthAccessTokenManagerSecret
+
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -227,77 +237,72 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: "AES256"
 
-  TwitterStreamingInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
+  TwitterStreamingReaderTaskDef: 
+    Type: AWS::ECS::TaskDefinition
     Properties:
-      Path: '/'
-      Roles:
-        - !Ref SocialMediaAnalyticsEC2Role
+      Family: twitter-streaming-reader
+      RequiresCompatibilities: 
+        - "FARGATE"
+      NetworkMode: awsvpc
+      Cpu: "512"
+      Memory: "1024"
+      TaskRoleArn: !Ref TwitterReaderTaskRole
+      ExecutionRoleArn: !Ref TwitterReaderTaskExecutionRole
+      ContainerDefinitions: 
+        - 
+          Name: twitter-to-firehose
+          Image: 983035974902.dkr.ecr.us-east-1.amazonaws.com/ai-driven-social-media-dashboard/twitter-reader:latest
+          Essential: "true"
+          Environment:
+            - Name: TWITTER_TOPICS
+              Value: !Join [',', !Ref TwitterTermList]
+            - Name: TWITTER_LANGUAGES
+              Value: !Join [',', !Ref TwitterLanguages]
+            - Name: KINESIS_DELIVERY
+              Value: !Ref IngestionFirehoseStream
+          Secrets:
+            - Name: CONSUMER_KEY
+              ValueFrom: !Ref AuthConsumerManagerSecret
+            - Name: CONSUMER_SECRET
+              ValueFrom: !Ref AuthConsumerSecretManagerSecret
+            - Name: ACCESS_TOKEN
+              ValueFrom: !Ref AuthAccessTokenManagerSecret
+            - Name: ACCESS_TOKEN_SECRET
+              ValueFrom: !Ref AuthAccessTokenSecretManagerSecret
+          ReadonlyRootFilesystem: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref TwitterStreamingReaderLogGroup
+              awslogs-stream-prefix: twitter-streaming-reader
 
-  TwitterStreamingReaderServer:
-    Type: AWS::EC2::Instance
+  TwitterStreamingReaderLogGroup: 
+    Type: AWS::Logs::LogGroup
     Properties:
-      ImageId : !Ref LatestAmiId
-      InstanceType: t2.medium
-      KeyName: !Ref InstanceKeyName
-      SecurityGroupIds:
-      - !Ref TweetsEC2SecurityGroup
-      IamInstanceProfile: !Ref TwitterStreamingInstanceProfile
-      SubnetId: !Ref PublicSubnet1
-      BlockDeviceMappings: 
-      - DeviceName: "/dev/xvda"
-        Ebs: 
-          Encrypted: True
-          VolumeType: gp2
-          DeleteOnTermination: True
-          VolumeSize: 8
-      Tags:
-      - Key: Name
-        Value: !Join ['-', [!Ref 'ApplicationName', 'DeployGroup', !Ref 'AWS::Region']]
-      - Key: Project
-        Value: !Join ['-', [!Ref 'ApplicationName', !Ref 'AWS::Region']]
-      UserData:
-        Fn::Base64:
-          Fn::Sub:
-          - |     # No more Fn::Join needed
-            #!/bin/bash -ex
-            sleep 60
+      LogGroupName: !Sub /ecs/${ApplicationName}
+      RetentionInDays: 7
 
-            curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.32.1/install.sh | bash
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install 10.15.3
-            npm install --registry=https://registry.npmjs.org/
-            npm install --registry=https://custom.npm.registry.com/
-            npm install node-sass request@2.81.0
+  TwitterStreamingReaderCluster:
+    Type: AWS::ECS::Cluster
+    Properties: 
+      ClusterName: !Ref ApplicationName
 
-            echo "var twitter_config = module.exports = {
-            twitter: {
-                consumer_key: '`aws secretsmanager get-secret-value --secret-id AuthConsumerManagerSecret --query SecretString --output text --region ${Region}`',
-                consumer_secret: '`aws secretsmanager get-secret-value --secret-id AuthConsumerSecretManagerSecret --query SecretString --output text --region ${Region}`',
-                access_token: '`aws secretsmanager get-secret-value --secret-id AuthAccessTokenManagerSecret --query SecretString --output text --region ${Region}`',
-                access_token_secret: '`aws secretsmanager get-secret-value --secret-id AuthAccessTokenSecretManagerSecret --query SecretString --output text --region ${Region}`'
-              },
-            topics: [${TwitterTerms}],
-            languages: [${TwitterLanguages}],
-            kinesis_delivery: '${KinesisIngestionFirehose}'
-            }" > /home/ec2-user/twitter_reader_config.js
-
-            wget ${EC2TwitterCode}
-
-            tar --warning=no-unknown-keyword -xf ec2_twitter_reader.tar -C /home/ec2-user/
-
-            cd /home/ec2-user
-            nohup node twitter_stream_producer_app.js &
-
-            echo "Service started."
-          - {
-              EC2TwitterCode: !Join ['', ['https://s3.', !Ref 'AWS::Region', '.amazonaws.com/', !Join ['-', [!FindInMap [ Code, EC2Twitter, S3Bucket], !Ref 'AWS::Region']], '/', !FindInMap [ Code, EC2Twitter, S3Key]]],
-              Region: !Ref 'AWS::Region',
-              TwitterTerms: !Ref TwitterTermList,
-              TwitterLanguages: !Ref TwitterLanguages ,
-              KinesisIngestionFirehose: !Ref IngestionFirehoseStream
-            }
+  TwitterStreamingReaderService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref TwitterStreamingReaderCluster
+      ServiceName: twitter-streaming-reader
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration: 
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref TwitterReaderSecurityGroup
+          Subnets:
+            - !Ref PublicSubnet1
+      TaskDefinition: !Ref TwitterStreamingReaderTaskDef
 
   IngestionFirehoseStream:
     Type: AWS::KinesisFirehose::DeliveryStream
