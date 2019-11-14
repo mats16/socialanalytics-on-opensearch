@@ -67,6 +67,7 @@ Mappings:
       S3Bucket: solutions
       S3Key: ai-driven-social-media-dashboard/v1.0.0/addtriggerfunction.zip
 
+Transform: "AWS::Serverless-2016-10-31"
 Resources:
 
   AuthConsumerSecretManagerSecret:
@@ -384,95 +385,129 @@ Resources:
             Resource:
             - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
 
-  SocialMediaAnalyticLambdaFuntionLambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: [lambda.amazonaws.com]
-          Action: ['sts:AssumeRole']
-      Path: /
-      Policies:
-      - PolicyName: SocialMediaAnalyticLambdaFuntionExecutionPolicy
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Sid: CloudWatchAccess
-            Effect: Allow
-            Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents']
-            Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+#  SocialMediaAnalyticLambdaFuntionLambdaRole:
+#    Type: AWS::IAM::Role
+#    Properties:
+#      AssumeRolePolicyDocument:
+#        Version: '2012-10-17'
+#        Statement:
+#        - Effect: Allow
+#          Principal:
+#            Service: [lambda.amazonaws.com]
+#          Action: ['sts:AssumeRole']
+#      Path: /
+#      Policies:
+#      - PolicyName: SocialMediaAnalyticLambdaFuntionExecutionPolicy
+#        PolicyDocument:
+#          Version: '2012-10-17'
+#          Statement:
+#          - Sid: CloudWatchAccess
+#            Effect: Allow
+#            Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents']
+#            Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+#
+#          - Sid: S3Access
+#            Effect: Allow
+#            Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
+#            Resource: [!GetAtt [TweetsBucket, Arn],
+#                      !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
+#          - Sid: FirehoseAccess
+#            Effect: Allow
+#            Action: ['firehose:ListDeliveryStreams', 'firehose:PutRecord', 'firehose:PutRecordBatch']
+#            Resource: [!GetAtt [SentimentFirehoseStream, Arn],
+#                       !GetAtt [EntitiesFirehoseStream, Arn]]
+#          - Sid: ComprehendAccess
+#            Effect: Allow
+#            Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment']
+#            Resource: '*'
+#          - Sid: TranslateAccess
+#            Effect: Allow
+#            Action: ['translate:TranslateText']
+#            Resource: '*'
 
-          - Sid: S3Access
-            Effect: Allow
-            Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
-            Resource: [!GetAtt [TweetsBucket, Arn],
-                      !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
-          - Sid: FirehoseAccess
-            Effect: Allow
-            Action: ['firehose:ListDeliveryStreams', 'firehose:PutRecord', 'firehose:PutRecordBatch']
-            Resource: [!GetAtt [SentimentFirehoseStream, Arn],
-                       !GetAtt [EntitiesFirehoseStream, Arn]]
-          - Sid: ComprehendAccess
-            Effect: Allow
-            Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment']
-            Resource: '*'
-          - Sid: TranslateAccess
-            Effect: Allow
-            Action: ['translate:TranslateText']
-            Resource: '*'
+#  AttachPolicyCustomResourceLambdaRole:
+#    Type: AWS::IAM::Role
+#    Properties:
+#      AssumeRolePolicyDocument:
+#        Version: '2012-10-17'
+#        Statement:
+#        - Effect: Allow
+#          Principal:
+#            Service: [lambda.amazonaws.com]
+#          Action: ['sts:AssumeRole']
+#      Path: /
+#      Policies:
+#      - PolicyName: SocialMediaAnalyticLambdaFuntionExecutionPolicy
+#        PolicyDocument:
+#          Version: '2012-10-17'
+#          Statement:
+#          - Sid: CloudWatchAccess
+#            Effect: Allow
+#            Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents']
+#            Resource:
+#              - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+#          - Sid: S3Access
+#            Effect: Allow
+#            Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
+#            Resource: [!GetAtt [TweetsBucket, Arn],
+#                      !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
+#          - Sid: LambdaAddPermission
+#            Effect: Allow
+#            Action: ['lambda:AddPermission']
+#            Resource: !GetAtt [SocialMediaAnalyticsLambda, Arn]
 
-  AttachPolicyCustomResourceLambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: [lambda.amazonaws.com]
-          Action: ['sts:AssumeRole']
-      Path: /
-      Policies:
-      - PolicyName: SocialMediaAnalyticLambdaFuntionExecutionPolicy
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Sid: CloudWatchAccess
-            Effect: Allow
-            Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents']
-            Resource:
-              - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
-          - Sid: S3Access
-            Effect: Allow
-            Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
-            Resource: [!GetAtt [TweetsBucket, Arn],
-                      !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
-          - Sid: LambdaAddPermission
-            Effect: Allow
-            Action: ['lambda:AddPermission']
-            Resource: !GetAtt [SocialMediaAnalyticsLambda, Arn]
+#  SocialMediaAnalyticsLambda:
+#    Type: AWS::Lambda::Function
+#    Properties:
+#      Handler: index.lambda_handler
+#      Runtime: python3.6
+#      MemorySize: 256
+#      Timeout: 300
+#      Role:
+#        Fn::GetAtt:
+#        - SocialMediaAnalyticLambdaFuntionLambdaRole
+#        - Arn
+#      Environment:
+#        Variables:
+#          SENTIMENT_STREAM: !Ref SentimentFirehoseStream
+#          ENTITY_STREAM: !Ref EntitiesFirehoseStream
+#      Code:
+#        S3Bucket: !Join ['-', [!FindInMap [ Function, SocialMediaMLFunction, S3Bucket], !Ref 'AWS::Region']]
+#        S3Key: !FindInMap [ Function, SocialMediaMLFunction, S3Key]
 
   SocialMediaAnalyticsLambda:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
+      CodeUri: source/socialmediafunction/
       Handler: index.lambda_handler
       Runtime: python3.6
       MemorySize: 256
       Timeout: 300
-      Role:
-        Fn::GetAtt:
-        - SocialMediaAnalyticLambdaFuntionLambdaRole
-        - Arn
       Environment:
         Variables:
           SENTIMENT_STREAM: !Ref SentimentFirehoseStream
           ENTITY_STREAM: !Ref EntitiesFirehoseStream
-      Code:
-        S3Bucket: !Join ['-', [!FindInMap [ Function, SocialMediaMLFunction, S3Bucket], !Ref 'AWS::Region']]
-        S3Key: !FindInMap [ Function, SocialMediaMLFunction, S3Key]
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: S3Access
+              Effect: Allow
+              Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
+              Resource: [!GetAtt [TweetsBucket, Arn],
+                        !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
+            - Sid: FirehoseAccess
+              Effect: Allow
+              Action: ['firehose:ListDeliveryStreams', 'firehose:PutRecord', 'firehose:PutRecordBatch']
+              Resource: [!GetAtt [SentimentFirehoseStream, Arn],
+                         !GetAtt [EntitiesFirehoseStream, Arn]]
+            - Sid: ComprehendAccess
+              Effect: Allow
+              Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment']
+              Resource: '*'
+            - Sid: TranslateAccess
+              Effect: Allow
+              Action: ['translate:TranslateText']
+              Resource: '*'
 
   SocialMediaGlueDB:
     Type: "AWS::Glue::Database"
@@ -614,20 +649,43 @@ Resources:
       ServiceToken: !GetAtt LambdaS3EventCreationCustomResource.Arn
 
   LambdaS3EventCreationCustomResource:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
+      CodeUri: source/addtriggerfunction/
       Handler: index.lambda_handler
-      Role: !GetAtt AttachPolicyCustomResourceLambdaRole.Arn
       Runtime: python3.6
       Timeout: 300
-      Environment :
+      Environment:
         Variables:
           lambda_arn: !GetAtt SocialMediaAnalyticsLambda.Arn
           account_number: !Ref 'AWS::AccountId'
           s3_bucket: !Ref 'TweetsBucket'
-      Code:
-        S3Bucket: !Join ['-', [!FindInMap [ Function, AddTriggerForFunction, S3Bucket], !Ref 'AWS::Region']]
-        S3Key: !FindInMap [ Function, AddTriggerForFunction, S3Key]
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: S3Access
+              Effect: Allow
+              Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
+              Resource: [!GetAtt [TweetsBucket, Arn],
+                        !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
+            - Sid: LambdaAddPermission
+              Effect: Allow
+              Action: ['lambda:AddPermission']
+              Resource: !GetAtt [SocialMediaAnalyticsLambda, Arn]
+#    Type: AWS::Lambda::Function
+#    Properties:
+#      Handler: index.lambda_handler
+#      Role: !GetAtt AttachPolicyCustomResourceLambdaRole.Arn
+#      Runtime: python3.6
+#      Timeout: 300
+#      Environment :
+#        Variables:
+#          lambda_arn: !GetAtt SocialMediaAnalyticsLambda.Arn
+#          account_number: !Ref 'AWS::AccountId'
+#          s3_bucket: !Ref 'TweetsBucket'
+#      Code:
+#        S3Bucket: !Join ['-', [!FindInMap [ Function, AddTriggerForFunction, S3Bucket], !Ref 'AWS::Region']]
+#        S3Key: !FindInMap [ Function, AddTriggerForFunction, S3Key]
 
 Outputs:
 
