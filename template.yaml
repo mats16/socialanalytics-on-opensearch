@@ -9,6 +9,7 @@ Metadata:
           - TwitterTermList
           - TwitterLanguages
           - TwitterFilterLevel
+          - TwitterReaderDockerImage
       - Label:
           default: AWS Environment Parameters
         Parameters:
