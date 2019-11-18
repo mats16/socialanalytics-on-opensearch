@@ -8,6 +8,7 @@ Metadata:
         Parameters:
           - TwitterTermList
           - TwitterLanguages
+          - TwitterFilterLevel
       - Label:
           default: AWS Environment Parameters
         Parameters:
@@ -30,6 +31,18 @@ Parameters:
     Description: List of languages to use for the twitter streaming reader
     Type: CommaDelimitedList
     Default: "en,es,fr,de,it,pt,ar,hi,ja,ko,zh"
+  TwitterFilterLevel:
+    Description: https://developer.twitter.com/en/docs/tweets/filter-realtime/api-reference/post-statuses-filter
+    Type: String
+    Default: none
+    AllowedValues:
+      - none
+      - low
+      - medium
+  TwitterReaderDockerImage:
+    Description: Twitter Streaming Reader 
+    Type: String
+    Default: 983035974902.dkr.ecr.us-east-1.amazonaws.com/ai-driven-social-media-dashboard/twitter-reader:latest
   AuthConsumerKey:
     Description: Consumer key for access twitter
     Type: String
@@ -57,6 +70,10 @@ Parameters:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
     Default: 10.193.10.0/24
+  ElasticsearchDomainArn:
+    Description: Amazon ELasticsearch Service ARN
+    Type: String
+    Default: 'arn:aws:es:us-east-1:983035974902:domain/social-media-dashboard'
 
 Mappings:
   Function:
@@ -251,14 +268,16 @@ Resources:
       ExecutionRoleArn: !Ref TwitterReaderTaskExecutionRole
       ContainerDefinitions: 
         - 
-          Name: twitter-to-firehose
-          Image: 983035974902.dkr.ecr.us-east-1.amazonaws.com/ai-driven-social-media-dashboard/twitter-reader:latest
+          Name: twitter-reader
+          Image: !Ref TwitterReaderDockerImage
           Essential: "true"
           Environment:
             - Name: TWITTER_TOPICS
               Value: !Join [',', !Ref TwitterTermList]
             - Name: TWITTER_LANGUAGES
               Value: !Join [',', !Ref TwitterLanguages]
+            - Name: TWITTER_FILTER_LEVEL
+              Value: !Ref TwitterFilterLevel
             - Name: KINESIS_DELIVERY
               Value: !Ref IngestionFirehoseStream
           Secrets:
@@ -341,6 +360,30 @@ Resources:
         CompressionFormat: 'UNCOMPRESSED'
         RoleARN: !GetAtt IngestionFirehoseRole.Arn
 
+  EnrichedFirehoseStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      ElasticsearchDestinationConfiguration:
+        BufferingHints: 
+          IntervalInSeconds: 60
+          SizeInMBs: 5
+        DomainARN: !Ref ElasticsearchDomainArn
+        IndexName: tweets
+        IndexRotationPeriod: OneDay
+        RetryOptions: 
+          DurationInSeconds: 300
+        RoleARN: !GetAtt IngestionFirehoseRole.Arn
+        S3BackupMode: AllDocuments
+        S3Configuration: 
+          BucketARN: !Join ['', ['arn:aws:s3:::', !Ref TweetsBucket]]
+          BufferingHints:
+            IntervalInSeconds: 60
+            SizeInMBs: 5
+          Prefix: 'enriched/'
+          CompressionFormat: 'UNCOMPRESSED'
+          RoleARN: !GetAtt IngestionFirehoseRole.Arn
+        TypeName: ''
+
   IngestionFirehoseRole:
     Type: AWS::IAM::Role
     Properties:
@@ -384,6 +427,38 @@ Resources:
               - logs:DescribeLogStreams
             Resource:
             - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
+
+  ElasticsearchFirehosePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ElasticsearchFirehosePolicy
+      Roles:
+        - !Ref IngestionFirehoseRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - es:DescribeElasticsearchDomain
+              - es:DescribeElasticsearchDomains
+              - es:DescribeElasticsearchDomainConfig
+              - es:ESHttpPost
+              - es:ESHttpPut
+            Resource:
+              - !Sub '${ElasticsearchDomainArn}'
+              - !Sub '${ElasticsearchDomainArn}/*'
+          - Effect: Allow
+            Action:
+              - es:ESHttpGet
+            Resource:
+              - !Sub '${ElasticsearchDomainArn}/_all/_settings'
+              - !Sub '${ElasticsearchDomainArn}/_cluster/stats'
+              - !Sub '${ElasticsearchDomainArn}/index-name*/_mapping/type-name'
+              - !Sub '${ElasticsearchDomainArn}/_nodes'
+              - !Sub '${ElasticsearchDomainArn}/_nodes/stats'
+              - !Sub '${ElasticsearchDomainArn}/_nodes/*/stats'
+              - !Sub '${ElasticsearchDomainArn}/_stats'
+              - !Sub '${ElasticsearchDomainArn}/index-name*/_stats'
 
 #  SocialMediaAnalyticLambdaFuntionLambdaRole:
 #    Type: AWS::IAM::Role
@@ -483,11 +558,14 @@ Resources:
       Runtime: python3.6
       MemorySize: 256
       Timeout: 300
+      Tracing: Active
       Environment:
         Variables:
           SENTIMENT_STREAM: !Ref SentimentFirehoseStream
           ENTITY_STREAM: !Ref EntitiesFirehoseStream
+          ENRICHED_STREAM: !Ref EnrichedFirehoseStream
       Policies:
+        #- AWSXRayDaemonWriteAccess
         - Version: "2012-10-17"
           Statement:
             - Sid: S3Access
@@ -499,10 +577,11 @@ Resources:
               Effect: Allow
               Action: ['firehose:ListDeliveryStreams', 'firehose:PutRecord', 'firehose:PutRecordBatch']
               Resource: [!GetAtt [SentimentFirehoseStream, Arn],
-                         !GetAtt [EntitiesFirehoseStream, Arn]]
+                         !GetAtt [EntitiesFirehoseStream, Arn],
+                         !GetAtt [EnrichedFirehoseStream, Arn]]
             - Sid: ComprehendAccess
               Effect: Allow
-              Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment']
+              Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment', 'comprehend:DetectKeyPhrases']
               Resource: '*'
             - Sid: TranslateAccess
               Effect: Allow
