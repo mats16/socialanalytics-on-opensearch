@@ -13,23 +13,24 @@ try:
 except Exception as e:
     helper.init_failure(e)
 
+
 @helper.create
-@helper.update
 def create(event, context):
-    logger.info('RequestType is {0}.'.format(event['RequestType']))
+    statement_id = event['LogicalResourceId']
     bucket_name = event['ResourceProperties']['BucketName']
     events = event['ResourceProperties']['Events']
     prefix = event['ResourceProperties']['Prefix']
     function_arn = event['ResourceProperties']['FunctionArn']
-    response1 = boto3.client('lambda').add_permission(
+    account_id = context.invoked_function_arn.split(':')[4]
+    boto3.client('lambda').add_permission(
         FunctionName=function_arn,
-        StatementId='S3callingLambdaForSocialMedia',
+        StatementId=statement_id,
         Action='lambda:InvokeFunction',
         Principal='s3.amazonaws.com',
         SourceArn='arn:aws:s3:::{0}'.format(bucket_name),
+        SourceAccount=account_id,
     )
-    logger.info(response1)
-    response2 = boto3.client('s3').put_bucket_notification_configuration(
+    boto3.client('s3').put_bucket_notification_configuration(
         Bucket=bucket_name,
         NotificationConfiguration={
             'LambdaFunctionConfigurations': [
@@ -50,10 +51,57 @@ def create(event, context):
             ]
         }
     )
-    logger.info(response2)
+
+@helper.update
+def update(event, context):
+    statement_id = event['LogicalResourceId']
+    bucket_name = event['ResourceProperties']['BucketName']
+    events = event['ResourceProperties']['Events']
+    prefix = event['ResourceProperties']['Prefix']
+    function_arn = event['ResourceProperties']['FunctionArn']
+    account_id = context.invoked_function_arn.split(':')[4]
+    boto3.client('lambda').remove_permission(
+        FunctionName=function_arn,
+        StatementId=statement_id,
+    )
+    boto3.client('lambda').add_permission(
+        FunctionName=function_arn,
+        StatementId=statement_id,
+        Action='lambda:InvokeFunction',
+        Principal='s3.amazonaws.com',
+        SourceArn='arn:aws:s3:::{0}'.format(bucket_name),
+        SourceAccount=account_id,
+    )
+    boto3.client('s3').put_bucket_notification_configuration(
+        Bucket=bucket_name,
+        NotificationConfiguration={
+            'LambdaFunctionConfigurations': [
+                {
+                    'LambdaFunctionArn': function_arn,
+                    'Events': events,
+                    'Filter': {
+                        'Key': {
+                            'FilterRules': [
+                                {
+                                    'Name': 'prefix',
+                                    'Value': prefix
+                                },
+                            ]
+                        }
+                    }
+                },
+            ]
+        }
+    )
 
 @helper.delete
 def delete(event, context):
+    statement_id = event['LogicalResourceId']
+    function_arn = event['ResourceProperties']['FunctionArn']
+    boto3.client('lambda').remove_permission(
+        FunctionName=function_arn,
+        StatementId=statement_id,
+    )
     logger.info("There is nothing to do, because the API to delete is not supported yet. https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html")
 
 def handler(event, context):

@@ -232,28 +232,6 @@ Resources:
           RouteTableId: !Ref PublicRouteTable
           SubnetId: !Ref PublicSubnet1
 
-#  RawBucket:
-#    Type: AWS::S3::Bucket
-#    Properties:
-#      PublicAccessBlockConfiguration:
-#        BlockPublicAcls: true
-#        IgnorePublicAcls: true
-#        BlockPublicPolicy: true
-#        RestrictPublicBuckets: true
-#      BucketEncryption:
-#        ServerSideEncryptionConfiguration:
-#          - ServerSideEncryptionByDefault:
-#              SSEAlgorithm: "AES256"
-#      NotificationConfiguration:
-#        LambdaConfigurations:
-#          - Event: 's3:ObjectCreated:*'
-#            Filter:
-#              S3Key:
-#                Rules: 
-#                  - Name: prefix
-#                    Value: queue/
-#            Function: !GetAtt AnalyticsLambda.Arn
-
   TweetsBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -466,7 +444,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: source/socialmediafunction/
-      Handler: index.lambda_handler
+      Handler: index.handler
       Runtime: python3.6
       MemorySize: 256
       Timeout: 300
@@ -670,7 +648,9 @@ Resources:
                 - !GetAtt TweetsBucket.Arn
             - Sid: LambdaAddPermission
               Effect: Allow
-              Action: 'lambda:AddPermission'
+              Action:
+                - 'lambda:AddPermission'
+                - 'lambda:RemovePermission'
               Resource: !GetAtt AnalyticsLambda.Arn
 
   Elasticsearch:

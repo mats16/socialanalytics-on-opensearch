@@ -12,7 +12,7 @@ comprehend = boto3.client('comprehend')
 translate = boto3.client('translate')
 firehose = boto3.client('firehose')
 
-def lambda_handler(event, context):
+def handler(event, context):
     print(event)
     
     for record in event['Records']:
