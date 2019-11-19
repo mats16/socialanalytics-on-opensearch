@@ -37,7 +37,6 @@ def create(event, context):
         body=body,
     )
     logger.info(response)
-    return '{0}/_template/{1}'.format(host, name)
 
 @helper.delete
 def delete(event, context):

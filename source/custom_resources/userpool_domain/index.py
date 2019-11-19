@@ -22,7 +22,6 @@ def create(event, context):
         UserPoolId=user_pool_id,
     )
     logger.info(response)
-    return response['CloudFrontDomain']
 
 @helper.update
 def update(event, context):
@@ -33,7 +32,6 @@ def update(event, context):
         UserPoolId=user_pool_id,
     )
     logger.info(response)
-    return response['CloudFrontDomain']
 
 @helper.delete
 def delete(event, context):
