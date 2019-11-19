@@ -128,7 +128,7 @@ def lambda_handler(event, context):
             if 'coordinates' in tweet:
                 enriched_record['coordinates'] = tweet['coordinates']
             response = firehose.put_record(
-                DeliveryStreamName=os.environ['ENRICHED_STREAM'],
+                DeliveryStreamName=os.environ['ANALYTICS_STREAM'],
                 Record={
                     'Data': json.dumps(enriched_record) + '\n'
                 }

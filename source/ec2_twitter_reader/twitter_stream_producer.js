@@ -29,7 +29,7 @@ function twitterStreamProducer() {
 
   function _sendToFirehose() {
     var firehose = new AWS.Firehose({ apiVersion: '2015-08-04' });
-    var stream = T.stream('statuses/filter', { track: twitter_config.topics, language: twitter_config.languages, filter_level: twitter_config.filter_level });
+    var stream = T.stream('statuses/filter', { track: twitter_config.topics, language: twitter_config.languages, filter_level: twitter_config.filter_level, stall_warnings: true });
 
     var records = [];
     var record = {};

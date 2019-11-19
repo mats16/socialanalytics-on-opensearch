@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: '(Serverless) - AI-Driven Social Media Dashboard. Template Version 1'
+Description: 'AI-Driven Social Media Dashboard-Kibana. Template Version 1'
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -19,10 +19,10 @@ Metadata:
       - Label:
           default: Twitter API Parameters
         Parameters:
-          - AuthAccessToken
-          - AuthAccessTokenSecret
           - AuthConsumerKey
           - AuthConsumerSecret
+          - AuthAccessToken
+          - AuthAccessTokenSecret
 Parameters:
   TwitterTermList:
     Description: List of terms for twitter to listen to
@@ -44,13 +44,6 @@ Parameters:
     Description: Twitter Streaming Reader 
     Type: String
     Default: 983035974902.dkr.ecr.us-east-1.amazonaws.com/ai-driven-social-media-dashboard/twitter-reader:latest
-  AuthConsumerKey:
-    Description: Consumer key for access twitter
-    Type: String
-  AuthConsumerSecret:
-    Description: Consumer Secret for access twitter
-    Type: String
-    NoEcho: True
   AuthAccessToken:
     Description: Access Token for calling twitter
     Type: String
@@ -58,11 +51,20 @@ Parameters:
     Description: Access Token Secret for calling twitter
     Type: String
     NoEcho: True
+  AuthConsumerKey:
+    Description: Consumer key for access twitter
+    Type: String
+  AuthConsumerSecret:
+    Description: Consumer Secret for access twitter
+    Type: String
+    NoEcho: True
   ApplicationName:
     Description: Name of the application for naming or tagging AWS resources created by this solution
     Type: String
-    Default: ai-driven-social-media
+    Default: social-media-dashboard
     AllowedPattern: ^[a-z\-]*$
+    MaxLength: 28
+    MinLength: 3
   VpcCIDR:
     Description: Please enter the IP range (CIDR notation) for this VPC
     Type: String
@@ -71,19 +73,6 @@ Parameters:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
     Default: 10.193.10.0/24
-  ElasticsearchDomainArn:
-    Description: Amazon ELasticsearch Service ARN
-    Type: String
-    Default: 'arn:aws:es:us-east-1:983035974902:domain/social-media-dashboard'
-
-Mappings:
-  Function:
-    SocialMediaMLFunction:
-      S3Bucket: solutions
-      S3Key: ai-driven-social-media-dashboard/v1.0.0/socialmediafunction.zip
-    AddTriggerForFunction:
-      S3Bucket: solutions
-      S3Key: ai-driven-social-media-dashboard/v1.0.0/addtriggerfunction.zip
 
 Transform: "AWS::Serverless-2016-10-31"
 Resources:
@@ -243,6 +232,28 @@ Resources:
           RouteTableId: !Ref PublicRouteTable
           SubnetId: !Ref PublicSubnet1
 
+#  RawBucket:
+#    Type: AWS::S3::Bucket
+#    Properties:
+#      PublicAccessBlockConfiguration:
+#        BlockPublicAcls: true
+#        IgnorePublicAcls: true
+#        BlockPublicPolicy: true
+#        RestrictPublicBuckets: true
+#      BucketEncryption:
+#        ServerSideEncryptionConfiguration:
+#          - ServerSideEncryptionByDefault:
+#              SSEAlgorithm: "AES256"
+#      NotificationConfiguration:
+#        LambdaConfigurations:
+#          - Event: 's3:ObjectCreated:*'
+#            Filter:
+#              S3Key:
+#                Rules: 
+#                  - Name: prefix
+#                    Value: queue/
+#            Function: !GetAtt AnalyticsLambda.Arn
+
   TweetsBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -329,11 +340,11 @@ Resources:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       ExtendedS3DestinationConfiguration:
-        BucketARN: !Join ['', ['arn:aws:s3:::', !Ref TweetsBucket]]
+        BucketARN: !GetAtt TweetsBucket.Arn
         BufferingHints:
           IntervalInSeconds: 60
           SizeInMBs: 5
-        Prefix: 'raw/'
+        Prefix: 'raw_queue/'
         CompressionFormat: 'UNCOMPRESSED'
         RoleARN: !GetAtt IngestionFirehoseRole.Arn
 
@@ -341,7 +352,7 @@ Resources:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       ExtendedS3DestinationConfiguration:
-        BucketARN: !Join ['', ['arn:aws:s3:::', !Ref TweetsBucket]]
+        BucketARN: !GetAtt TweetsBucket.Arn
         BufferingHints:
           IntervalInSeconds: 60
           SizeInMBs: 5
@@ -353,7 +364,7 @@ Resources:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       ExtendedS3DestinationConfiguration:
-        BucketARN: !Join ['', ['arn:aws:s3:::', !Ref TweetsBucket]]
+        BucketARN: !GetAtt TweetsBucket.Arn
         BufferingHints:
           IntervalInSeconds: 60
           SizeInMBs: 5
@@ -361,14 +372,15 @@ Resources:
         CompressionFormat: 'UNCOMPRESSED'
         RoleARN: !GetAtt IngestionFirehoseRole.Arn
 
-  EnrichedFirehoseStream:
+  AnalyticsFirehoseStream:
     Type: AWS::KinesisFirehose::DeliveryStream
+    DependsOn: ElasticsearchTemplate
     Properties:
       ElasticsearchDestinationConfiguration:
         BufferingHints: 
           IntervalInSeconds: 60
           SizeInMBs: 5
-        DomainARN: !Ref ElasticsearchDomainArn
+        DomainARN: !GetAtt Elasticsearch.Arn
         IndexName: tweets
         IndexRotationPeriod: OneDay
         RetryOptions: 
@@ -376,11 +388,11 @@ Resources:
         RoleARN: !GetAtt IngestionFirehoseRole.Arn
         S3BackupMode: AllDocuments
         S3Configuration: 
-          BucketARN: !Join ['', ['arn:aws:s3:::', !Ref TweetsBucket]]
+          BucketARN: !GetAtt TweetsBucket.Arn
           BufferingHints:
             IntervalInSeconds: 60
             SizeInMBs: 5
-          Prefix: 'enriched/'
+          Prefix: 'elasticsearch/'
           CompressionFormat: 'UNCOMPRESSED'
           RoleARN: !GetAtt IngestionFirehoseRole.Arn
         TypeName: ''
@@ -399,159 +411,58 @@ Resources:
             Condition:
               StringEquals:
                 sts:ExternalId: !Ref 'AWS::AccountId'
+      Policies:
+        - PolicyName: TweetIngestion
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                Resource:
+                  - !Sub '${TweetsBucket.Arn}'
+                  - !Sub '${TweetsBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource:
+                - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
+        - PolicyName: PutElasticsearch
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - es:DescribeElasticsearchDomain
+                  - es:DescribeElasticsearchDomains
+                  - es:DescribeElasticsearchDomainConfig
+                  - es:ESHttpPost
+                  - es:ESHttpPut
+                Resource:
+                  - !Sub '${Elasticsearch.Arn}'
+                  - !Sub '${Elasticsearch.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - es:ESHttpGet
+                Resource:
+                  - !Sub '${Elasticsearch.Arn}/_all/_settings'
+                  - !Sub '${Elasticsearch.Arn}/_cluster/stats'
+                  - !Sub '${Elasticsearch.Arn}/index-name*/_mapping/type-name'
+                  - !Sub '${Elasticsearch.Arn}/_nodes'
+                  - !Sub '${Elasticsearch.Arn}/_nodes/stats'
+                  - !Sub '${Elasticsearch.Arn}/_nodes/*/stats'
+                  - !Sub '${Elasticsearch.Arn}/_stats'
+                  - !Sub '${Elasticsearch.Arn}/index-name*/_stats'
 
-  IngestionFirehosePolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: TweetIngestionFirehosePolicy
-      Roles:
-        - !Ref IngestionFirehoseRole
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - s3:AbortMultipartUpload
-              - s3:GetBucketLocation
-              - s3:GetObject
-              - s3:ListBucket
-              - s3:ListBucketMultipartUploads
-              - s3:PutObject
-            Resource:
-              - !Join ['', ['arn:aws:s3:::', !Ref TweetsBucket]]
-              - !Join ['', ['arn:aws:s3:::', !Ref TweetsBucket, '/*']]
-          - Effect: Allow
-            Action:
-              - logs:CreateLogGroup
-              - logs:CreateLogStream
-              - logs:PutLogEvents
-              - logs:DescribeLogStreams
-            Resource:
-            - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
-
-  ElasticsearchFirehosePolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: ElasticsearchFirehosePolicy
-      Roles:
-        - !Ref IngestionFirehoseRole
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - es:DescribeElasticsearchDomain
-              - es:DescribeElasticsearchDomains
-              - es:DescribeElasticsearchDomainConfig
-              - es:ESHttpPost
-              - es:ESHttpPut
-            Resource:
-              - !Sub '${ElasticsearchDomainArn}'
-              - !Sub '${ElasticsearchDomainArn}/*'
-          - Effect: Allow
-            Action:
-              - es:ESHttpGet
-            Resource:
-              - !Sub '${ElasticsearchDomainArn}/_all/_settings'
-              - !Sub '${ElasticsearchDomainArn}/_cluster/stats'
-              - !Sub '${ElasticsearchDomainArn}/index-name*/_mapping/type-name'
-              - !Sub '${ElasticsearchDomainArn}/_nodes'
-              - !Sub '${ElasticsearchDomainArn}/_nodes/stats'
-              - !Sub '${ElasticsearchDomainArn}/_nodes/*/stats'
-              - !Sub '${ElasticsearchDomainArn}/_stats'
-              - !Sub '${ElasticsearchDomainArn}/index-name*/_stats'
-
-#  SocialMediaAnalyticLambdaFuntionLambdaRole:
-#    Type: AWS::IAM::Role
-#    Properties:
-#      AssumeRolePolicyDocument:
-#        Version: '2012-10-17'
-#        Statement:
-#        - Effect: Allow
-#          Principal:
-#            Service: [lambda.amazonaws.com]
-#          Action: ['sts:AssumeRole']
-#      Path: /
-#      Policies:
-#      - PolicyName: SocialMediaAnalyticLambdaFuntionExecutionPolicy
-#        PolicyDocument:
-#          Version: '2012-10-17'
-#          Statement:
-#          - Sid: CloudWatchAccess
-#            Effect: Allow
-#            Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents']
-#            Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
-#
-#          - Sid: S3Access
-#            Effect: Allow
-#            Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
-#            Resource: [!GetAtt [TweetsBucket, Arn],
-#                      !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
-#          - Sid: FirehoseAccess
-#            Effect: Allow
-#            Action: ['firehose:ListDeliveryStreams', 'firehose:PutRecord', 'firehose:PutRecordBatch']
-#            Resource: [!GetAtt [SentimentFirehoseStream, Arn],
-#                       !GetAtt [EntitiesFirehoseStream, Arn]]
-#          - Sid: ComprehendAccess
-#            Effect: Allow
-#            Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment']
-#            Resource: '*'
-#          - Sid: TranslateAccess
-#            Effect: Allow
-#            Action: ['translate:TranslateText']
-#            Resource: '*'
-
-#  AttachPolicyCustomResourceLambdaRole:
-#    Type: AWS::IAM::Role
-#    Properties:
-#      AssumeRolePolicyDocument:
-#        Version: '2012-10-17'
-#        Statement:
-#        - Effect: Allow
-#          Principal:
-#            Service: [lambda.amazonaws.com]
-#          Action: ['sts:AssumeRole']
-#      Path: /
-#      Policies:
-#      - PolicyName: SocialMediaAnalyticLambdaFuntionExecutionPolicy
-#        PolicyDocument:
-#          Version: '2012-10-17'
-#          Statement:
-#          - Sid: CloudWatchAccess
-#            Effect: Allow
-#            Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents']
-#            Resource:
-#              - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
-#          - Sid: S3Access
-#            Effect: Allow
-#            Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
-#            Resource: [!GetAtt [TweetsBucket, Arn],
-#                      !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
-#          - Sid: LambdaAddPermission
-#            Effect: Allow
-#            Action: ['lambda:AddPermission']
-#            Resource: !GetAtt [SocialMediaAnalyticsLambda, Arn]
-
-#  SocialMediaAnalyticsLambda:
-#    Type: AWS::Lambda::Function
-#    Properties:
-#      Handler: index.lambda_handler
-#      Runtime: python3.6
-#      MemorySize: 256
-#      Timeout: 300
-#      Role:
-#        Fn::GetAtt:
-#        - SocialMediaAnalyticLambdaFuntionLambdaRole
-#        - Arn
-#      Environment:
-#        Variables:
-#          SENTIMENT_STREAM: !Ref SentimentFirehoseStream
-#          ENTITY_STREAM: !Ref EntitiesFirehoseStream
-#      Code:
-#        S3Bucket: !Join ['-', [!FindInMap [ Function, SocialMediaMLFunction, S3Bucket], !Ref 'AWS::Region']]
-#        S3Key: !FindInMap [ Function, SocialMediaMLFunction, S3Key]
-
-  SocialMediaAnalyticsLambda:
+  AnalyticsLambda:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: source/socialmediafunction/
@@ -564,22 +475,31 @@ Resources:
         Variables:
           SENTIMENT_STREAM: !Ref SentimentFirehoseStream
           ENTITY_STREAM: !Ref EntitiesFirehoseStream
-          ENRICHED_STREAM: !Ref EnrichedFirehoseStream
+          ANALYTICS_STREAM: !Ref AnalyticsFirehoseStream
       Policies:
-        #- AWSXRayDaemonWriteAccess
         - Version: "2012-10-17"
           Statement:
             - Sid: S3Access
               Effect: Allow
-              Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
-              Resource: [!GetAtt [TweetsBucket, Arn],
-                        !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
+              Action:
+                - 's3:GetObject'
+                - 's3:PutObject'
+                - 's3:PutBucketNotification'
+                - 's3:ListBucket'
+                - 's3:DeleteObject'
+              Resource:
+                - !Sub '${TweetsBucket.Arn}'
+                - !Sub '${TweetsBucket.Arn}/*'
             - Sid: FirehoseAccess
               Effect: Allow
-              Action: ['firehose:ListDeliveryStreams', 'firehose:PutRecord', 'firehose:PutRecordBatch']
-              Resource: [!GetAtt [SentimentFirehoseStream, Arn],
-                         !GetAtt [EntitiesFirehoseStream, Arn],
-                         !GetAtt [EnrichedFirehoseStream, Arn]]
+              Action:
+                - 'firehose:ListDeliveryStreams'
+                - 'firehose:PutRecord'
+                - 'firehose:PutRecordBatch'
+              Resource:
+                - !GetAtt SentimentFirehoseStream.Arn
+                - !GetAtt EntitiesFirehoseStream.Arn
+                - !GetAtt AnalyticsFirehoseStream.Arn
             - Sid: ComprehendAccess
               Effect: Allow
               Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment', 'comprehend:DetectKeyPhrases']
@@ -593,7 +513,7 @@ Resources:
     Type: "AWS::Glue::Database"
     Properties:
       DatabaseInput:
-        Name: ai_driven_social_media_dashboard
+        Name: !Ref ApplicationName
       CatalogId: !Ref AWS::AccountId
 
   tweets:
@@ -606,7 +526,7 @@ Resources:
           InputFormat: org.apache.hadoop.mapred.TextInputFormat
           NumberOfBuckets: -1
           OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          Location: !Join ['', ['s3://', !Ref 'TweetsBucket', /raw/]]
+          Location: !Sub 's3://${TweetsBucket}/raw/'
           SerdeInfo:
             SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
           Columns:
@@ -672,7 +592,7 @@ Resources:
           InputFormat: org.apache.hadoop.mapred.TextInputFormat
           NumberOfBuckets: -1
           OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          Location: !Join ['', ['s3://', !Ref 'TweetsBucket', /sentiment/]]
+          Location: !Sub 's3://${TweetsBucket}/sentiment/'
           SerdeInfo:
             SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
           Columns:
@@ -693,9 +613,8 @@ Resources:
           - Name: sentimentmixedscore
             Type: double
         Parameters: {'classification': 'json'}
-      DatabaseName: ai_driven_social_media_dashboard
+      DatabaseName: !Ref SocialMediaGlueDB
       CatalogId: !Ref AWS::AccountId
-    DependsOn: SocialMediaGlueDB
 
   tweetentities:
     Type: "AWS::Glue::Table"
@@ -707,7 +626,7 @@ Resources:
           InputFormat: org.apache.hadoop.mapred.TextInputFormat
           NumberOfBuckets: -1
           OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          Location: !Join ['', ['s3://', !Ref 'TweetsBucket', /entities/]]
+          Location: !Sub 's3://${TweetsBucket}/entities/'
           SerdeInfo:
             SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
           Columns:
@@ -723,64 +642,287 @@ Resources:
       DatabaseName: !Ref SocialMediaGlueDB
       CatalogId: !Ref AWS::AccountId
 
-  S3NotificationResource:
-    Type: Custom::Notification
+  S3events:
+    Type: Custom::S3events
+    Version: 1.0
     Properties:
-      ServiceToken: !GetAtt LambdaS3EventCreationCustomResource.Arn
-
-  LambdaS3EventCreationCustomResource:
+      ServiceToken: !GetAtt S3eventsFunction.Arn
+      BucketName: !Ref TweetsBucket
+      Events:
+        - 's3:ObjectCreated:*'
+      Prefix: raw_queue/
+      FunctionArn: !GetAtt AnalyticsLambda.Arn
+  S3eventsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: source/addtriggerfunction/
-      Handler: index.lambda_handler
+      CodeUri: source/custom_resources/s3events/
+      Handler: index.handler
       Runtime: python3.6
-      Timeout: 300
-      Environment:
-        Variables:
-          lambda_arn: !GetAtt SocialMediaAnalyticsLambda.Arn
-          account_number: !Ref 'AWS::AccountId'
-          s3_bucket: !Ref 'TweetsBucket'
+      Timeout: 10
       Policies:
         - Version: "2012-10-17"
           Statement:
             - Sid: S3Access
               Effect: Allow
-              Action: ['s3:GetObject', 's3:PutObject', 's3:PutBucketNotification', 's3:ListBucket', 's3:DeleteObject']
-              Resource: [!GetAtt [TweetsBucket, Arn],
-                        !Join ['', [!GetAtt [TweetsBucket, Arn], /*]]]
+              Action:
+                - 's3:PutBucketNotification'
+              Resource:
+                - !GetAtt TweetsBucket.Arn
             - Sid: LambdaAddPermission
               Effect: Allow
-              Action: ['lambda:AddPermission']
-              Resource: !GetAtt [SocialMediaAnalyticsLambda, Arn]
-#    Type: AWS::Lambda::Function
-#    Properties:
-#      Handler: index.lambda_handler
-#      Role: !GetAtt AttachPolicyCustomResourceLambdaRole.Arn
-#      Runtime: python3.6
-#      Timeout: 300
-#      Environment :
-#        Variables:
-#          lambda_arn: !GetAtt SocialMediaAnalyticsLambda.Arn
-#          account_number: !Ref 'AWS::AccountId'
-#          s3_bucket: !Ref 'TweetsBucket'
-#      Code:
-#        S3Bucket: !Join ['-', [!FindInMap [ Function, AddTriggerForFunction, S3Bucket], !Ref 'AWS::Region']]
-#        S3Key: !FindInMap [ Function, AddTriggerForFunction, S3Key]
+              Action: 'lambda:AddPermission'
+              Resource: !GetAtt AnalyticsLambda.Arn
+
+  Elasticsearch:
+    Type: AWS::Elasticsearch::Domain
+    DependsOn: KibanaUserPoolDomain
+    DeletionPolicy: Retain
+    Properties:
+      ElasticsearchClusterConfig: 
+        DedicatedMasterEnabled: true
+        DedicatedMasterType: t2.small.elasticsearch
+        DedicatedMasterCount: 3
+        InstanceType: i3.large.elasticsearch
+        InstanceCount: 2
+        ZoneAwarenessConfig:
+           AvailabilityZoneCount: 2
+        ZoneAwarenessEnabled: true
+      ElasticsearchVersion: 7.1
+      CognitoOptions:
+        Enabled: true
+        UserPoolId: !Ref KibanaUserPool
+        IdentityPoolId: !Ref KibanaIdentityPool
+        RoleArn: !GetAtt CognitoAccessForAmazonES.Arn
+      #DomainEndpointOptions:  # Not supported yet
+      #  EnforceHTTPS: true
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: true
+      AccessPolicies: !Sub |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": [
+                  "${AWS::AccountId}"
+                ]
+              },
+              "Action": [
+                "es:*"
+              ],
+              "Resource": "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ApplicationName}/*"
+            }
+          ]
+        }
+
+  CognitoAccessForAmazonES:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: 'Amazon Elasticsearch role for Kibana authentication.'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/AmazonESCognitoAccess
+      Path: /service-role/
+
+  KibanaUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Required: true
+
+  KibanaIdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      AllowUnauthenticatedIdentities: true
+      # CognitoIdentityProviders:
+      #   - ClientId: !Ref UserPoolClient
+      #     ProviderName: !Sub "cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}"
+
+  KibanaIdentityRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref KibanaIdentityPool
+              ForAnyValue:StringLike:
+                "cognito-identity.amazonaws.com:amr": authenticated
+      Policies:
+        - PolicyName: AuthenticatedPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "es:ESHttp*"
+                Resource:
+                  - "*"
+
+  RoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref KibanaIdentityPool
+      Roles:
+        authenticated: !GetAtt KibanaIdentityRole.Arn
+
+  KibanaUserPoolDomain:
+    Type: Custom::UserPoolDomain
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt UserPoolDomainFunction.Arn
+      Domain: !Ref ApplicationName
+      UserPoolId: !Ref KibanaUserPool
+  UserPoolDomainFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: source/custom_resources/userpool_domain/
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 10
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "cognito-idp:CreateUserPoolDomain"
+                - "cognito-idp:DeleteUserPoolDomain"
+              Resource:
+                - !GetAtt KibanaUserPool.Arn
+
+  ElasticsearchTemplate:
+    Type: Custom::ElasticsearchTemplate
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchTemplateFunction.Arn
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Name: tweet
+      Body: '
+        {
+          "index_patterns": ["tweets-*"],
+          "mappings": {
+            "_source": {
+              "enabled": true
+            },
+            "properties": {
+              "tweetid": {
+                "type": "keyword"
+              },
+              "text": {
+                "type": "text"
+              },
+              "source": {
+                "type": "keyword"
+              },
+              "filter_level": {
+                "type": "keyword"
+              },
+              "timestamp": {
+                "type": "date",
+                "format": "epoch_millis"
+              },
+              "lang": {
+                "type": "keyword"
+              },
+              "hashtags": {
+                "type": "keyword"
+              },
+              "url": {
+                "type": "keyword"
+              },
+              "comprehend": {
+                "properties": {
+                  "text": {
+                    "type": "text"
+                  },
+                  "lang": {
+                    "type": "keyword"
+                  },
+                  "sentiment": {
+                    "type": "keyword"
+                  },
+                  "sentiment_score": {
+                    "properties": {
+                      "positive": { "type": "double" },
+                      "negative":  { "type": "double" },
+                      "neutral":  { "type": "double" },
+                      "mixed":  { "type": "double" }
+                    }
+                  },
+                  "entities": {
+                    "type": "keyword"
+                  },
+                  "key_phrases": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "coordinates":{
+                "type": "geo_point"
+              }
+            }
+          }
+        }'
+  ElasticsearchTemplateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: source/custom_resources/elasticsearch_template/
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 10
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - es:ESHttpPut
+                - es:ESHttpDelete
+              Resource:
+                - !Sub '${Elasticsearch.Arn}/_template/*'
 
 Outputs:
 
   S3ConsoleURL:
     Description: URL to the Lambda Function console
-    Value: !Join ['', ['https://s3.console.aws.amazon.com/s3/buckets/', !Ref 'TweetsBucket', '/?region=', !Ref "AWS::Region", '&tab=overview']]
+    Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${TweetsBucket}/?region=${AWS::Region}&tab=overview'
 
   TwitterRawLocation:
     Description: S3 Twitter Raw location.
-    Value: !Join ['', ['s3://', !Ref 'TweetsBucket', /raw/]]
+    Value: !Sub 's3://${TweetsBucket}/raw/'
 
   TwitterEntitiesLocation:
     Description: S3 Twitter Entities location.
-    Value: !Join ['', ['s3://', !Ref 'TweetsBucket', /entities/]]
+    Value: !Sub 's3://${TweetsBucket}/entities/'
 
   TwitterSentimentLocation:
     Description: S3 Twitter Sentiment location.
-    Value: !Join ['', ['s3://', !Ref 'TweetsBucket', /sentiment/]]
+    Value: !Sub 's3://${TweetsBucket}/sentiment/'
+
+  KibanaURL:
+    Description: URL to the Kibana
+    Value: !Sub 'https://${Elasticsearch.DomainEndpoint}/_plugin/kibana/'
