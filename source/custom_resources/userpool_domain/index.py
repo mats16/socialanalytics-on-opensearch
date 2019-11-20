@@ -15,33 +15,35 @@ except Exception as e:
 
 @helper.create
 def create(event, context):
-    domain = event['ResourceProperties']['Domain']
     user_pool_id = event['ResourceProperties']['UserPoolId']
-    response = client.create_user_pool_domain(
-        Domain=domain,
+    domain = event['ResourceProperties']['Domain']
+    client.create_user_pool_domain(
         UserPoolId=user_pool_id,
+        Domain=domain,
     )
-    logger.info(response)
 
 @helper.update
 def update(event, context):
-    domain = event['ResourceProperties']['Domain']
     user_pool_id = event['ResourceProperties']['UserPoolId']
-    response = client.update_user_pool_domain(
-        Domain=domain,
+    domain = event['ResourceProperties']['Domain']
+    old_domain = event['OldResourceProperties']['Domain']
+    client.delete_user_pool_domain(
         UserPoolId=user_pool_id,
+        Domain=old_domain,
     )
-    logger.info(response)
+    client.create_user_pool_domain(
+        UserPoolId=user_pool_id,
+        Domain=domain,
+    )
 
 @helper.delete
 def delete(event, context):
-    domain = event['ResourceProperties']['Domain']
     user_pool_id = event['ResourceProperties']['UserPoolId']
-    response = client.delete_user_pool_domain(
-        Domain=domain,
+    domain = event['ResourceProperties']['Domain']
+    client.delete_user_pool_domain(
         UserPoolId=user_pool_id,
+        Domain=domain,
     )
-    logger.info(response)
 
 def handler(event, context):
     print(json.dumps(event))

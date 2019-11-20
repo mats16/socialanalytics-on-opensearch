@@ -776,7 +776,7 @@ Resources:
     Version: 1.0
     Properties:
       ServiceToken: !GetAtt UserPoolDomainFunction.Arn
-      Domain: !Ref ApplicationName
+      Domain: !Sub '${ApplicationName}-${AWS::AccountId}'
       UserPoolId: !Ref KibanaUserPool
   UserPoolDomainFunction:
     Type: AWS::Serverless::Function
