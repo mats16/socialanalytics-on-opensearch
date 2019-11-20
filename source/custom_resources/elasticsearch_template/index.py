@@ -19,6 +19,10 @@ try:
 except Exception as e:
     helper.init_failure(e)
 
+def lambda_handler(event, context):
+    print(json.dumps(event))
+    helper(event, context)
+
 @helper.create
 @helper.update
 def create(event, context):
@@ -53,7 +57,3 @@ def delete(event, context):
         name=name,
     )
     logger.info(response)
-
-def handler(event, context):
-    print(json.dumps(event))
-    helper(event, context)

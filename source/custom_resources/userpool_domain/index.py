@@ -13,6 +13,10 @@ try:
 except Exception as e:
     helper.init_failure(e)
 
+def lambda_handler(event, context):
+    print(json.dumps(event))
+    helper(event, context)
+
 @helper.create
 def create(event, context):
     user_pool_id = event['ResourceProperties']['UserPoolId']
@@ -44,7 +48,3 @@ def delete(event, context):
         UserPoolId=user_pool_id,
         Domain=domain,
     )
-
-def handler(event, context):
-    print(json.dumps(event))
-    helper(event, context)

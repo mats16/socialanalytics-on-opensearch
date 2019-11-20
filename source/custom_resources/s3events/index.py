@@ -13,6 +13,9 @@ try:
 except Exception as e:
     helper.init_failure(e)
 
+def lambda_handler(event, context):
+    print(json.dumps(event))
+    helper(event, context)
 
 @helper.create
 def create(event, context):
@@ -103,7 +106,3 @@ def delete(event, context):
         StatementId=statement_id,
     )
     logger.info("There is nothing to do, because the API to delete is not supported yet. https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html")
-
-def handler(event, context):
-    print(json.dumps(event))
-    helper(event, context)
