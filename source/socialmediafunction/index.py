@@ -134,5 +134,8 @@ def handler(event, context):
                 }
             )
         print(json.dumps(status))
+        new_s3_key = s3_key.replace('raw_queue', 'raw')
+        s3.Bucket(s3_bucket).Object(new_s3_key).copy({'Bucket': s3_bucket, 'Key': s3_key})
+        obj.delete()
 
     return 'true'
