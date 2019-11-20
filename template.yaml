@@ -633,6 +633,7 @@ Resources:
   S3eventsFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Description: 'Custom Resource - modify S3 events with Lambda'
       CodeUri: source/custom_resources/s3events/
       Handler: index.handler
       Runtime: python3.6
@@ -781,6 +782,7 @@ Resources:
   UserPoolDomainFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Description: 'Custom Resource - modify a domain prefix for the sign-in page hosted by Amazon Cognito'
       CodeUri: source/custom_resources/userpool_domain/
       Handler: index.handler
       Runtime: python3.6
@@ -871,6 +873,7 @@ Resources:
   ElasticsearchTemplateFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Description: 'Custom Resource - modify a mapping template of Amazon Elasticsearch Service'
       CodeUri: source/custom_resources/elasticsearch_template/
       Handler: index.handler
       Runtime: python3.6
