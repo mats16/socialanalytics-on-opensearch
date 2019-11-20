@@ -16,9 +16,9 @@ translate = boto3.client('translate')
 firehose = boto3.client('firehose')
 
 def normalize(text):
-    text = neologdn.normalize(text)
     text = re.sub(r'https?(:\/\/[-_\.!~*\'()a-zA-Z0-9;\/?:\@&=\+\$,%#]+)', '', text)  # remove URL
     text = re.sub(r'@[a-zA-Z0-9_]+(\s)', '', text)  # remove twitter_account
+    text = neologdn.normalize(text)
     return text
 
 def lambda_handler(event, context):
@@ -142,9 +142,10 @@ def lambda_handler(event, context):
             if len(key_phrases) > 0:
                 enriched_record['comprehend']['key_phrases'] = list(set(key_phrases))
 
-            hashtags = [hashtag['text'] for hashtag in tweet['entities']['hashtags']]
-            if len(hashtags) > 0:
-                enriched_record['hashtags'] = hashtags
+            if 'hashtags' in tweet['entities']:
+                hashtags = [hashtag['text'].lower() for hashtag in tweet['entities']['hashtags']]
+                if len(hashtags) > 0:
+                    enriched_record['hashtags'] = hashtags
 
             if 'coordinates' in tweet:
                 enriched_record['coordinates'] = tweet['coordinates']
