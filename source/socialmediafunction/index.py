@@ -18,7 +18,7 @@ firehose = boto3.client('firehose')
 def normalize(text):
     text = neologdn.normalize(text)
     text = re.sub(r'https?(:\/\/[-_\.!~*\'()a-zA-Z0-9;\/?:\@&=\+\$,%#]+)', '', text)  # remove URL
-    #text = re.sub(r'@[a-zA-Z0-9_]+', '', text)  # remove twitter_account
+    text = re.sub(r'@[a-zA-Z0-9_]+(\s)', '', text)  # remove twitter_account
     return text
 
 def lambda_handler(event, context):
@@ -127,7 +127,7 @@ def lambda_handler(event, context):
             }
             entities = []
             for entity in entities_response['Entities']:
-                if entity['Type'] in ['QUANTITY', 'DATE', 'PERSON']:
+                if entity['Type'] in ['QUANTITY', 'DATE']:
                     continue
                 elif len(entity['Text']) < 2:
                     continue
