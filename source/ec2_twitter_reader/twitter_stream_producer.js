@@ -28,7 +28,7 @@ function twitterStreamProducer() {
   var T = new Twit(twitter_config.twitter)
 
   function _sendToFirehose() {
-    var firehose = new AWS.Firehose({ apiVersion: '2015-08-04' });
+    var kinesis = new AWS.Kinesis({apiVersion: '2013-12-02'});
     var stream = T.stream('statuses/filter', { track: twitter_config.topics, language: twitter_config.languages, filter_level: twitter_config.filter_level, stall_warnings: true });
 
     var records = [];
@@ -38,12 +38,11 @@ function twitterStreamProducer() {
     stream.on('tweet', function (tweet) {
       var tweetString = JSON.stringify(tweet)
       recordParams = {
-        DeliveryStreamName: twitter_config.kinesis_delivery,
-        Record: {
-          Data: tweetString + '\n'
-        }
+        Data: tweetString,
+        PartitionKey: tweet.id_str,
+        StreamName: twitter_config.kinesis_stream_name,
       };
-      firehose.putRecord(recordParams, function (err, data) {
+      kinesis.putRecord(recordParams, function (err, data) {
         if (err) {
           log.error(err);
         }

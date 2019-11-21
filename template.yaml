@@ -132,26 +132,22 @@ Resources:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-          -
-            Effect: Allow
+          - Effect: Allow
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
       Path: '/'
       Policies:
-        -
-          PolicyName: put-tweets
+        - PolicyName: PutTweets
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              -
+              - Sid: KinesisAccess
                 Effect: Allow
                 Action:
-                    - 'firehose:DeleteDeliveryStream'
-                    - 'firehose:PutRecord'
-                    - 'firehose:PutRecordBatch'
-                    - 'firehose:UpdateDestination'
-                Resource: [!GetAtt [IngestionFirehoseStream, Arn]]
+                  - 'kinesis:PutRecord'
+                  - 'kinesis:PutRecords'
+                Resource: !GetAtt AnalyzeKinesisStream.Arn
 
   TwitterReaderTaskExecutionRole:
     Type: AWS::IAM::Role
@@ -167,8 +163,7 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
       Policies:
-        -
-          PolicyName: twitter-auth-secrets
+        - PolicyName: twitter-auth-secrets
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -273,8 +268,8 @@ Resources:
               Value: !Join [',', !Ref TwitterLanguages]
             - Name: TWITTER_FILTER_LEVEL
               Value: !Ref TwitterFilterLevel
-            - Name: KINESIS_DELIVERY
-              Value: !Ref IngestionFirehoseStream
+            - Name: ANALYZE_STREAM
+              Value: !Ref AnalyzeKinesisStream
           Secrets:
             - Name: CONSUMER_KEY
               ValueFrom: !Ref AuthConsumerManagerSecret
@@ -354,6 +349,15 @@ Resources:
         Prefix: 'sentiment/'
         CompressionFormat: 'UNCOMPRESSED'
         RoleARN: !GetAtt IngestionFirehoseRole.Arn
+
+  AnalyzeKinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties: 
+      RetentionPeriodHours: 24
+      ShardCount: 1
+      StreamEncryption: 
+        EncryptionType: KMS
+        KeyId: alias/aws/kinesis
 
   AnalyticsFirehoseStream:
     Type: AWS::KinesisFirehose::DeliveryStream
@@ -444,6 +448,80 @@ Resources:
                   - !Sub '${Elasticsearch.Arn}/_nodes/*/stats'
                   - !Sub '${Elasticsearch.Arn}/_stats'
                   - !Sub '${Elasticsearch.Arn}/index-name*/_stats'
+
+  RouterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Tweets routing function - S3 to Kinesis Data Stream'
+      CodeUri: source/router_function/
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      MemorySize: 256
+      Timeout: 300
+      Tracing: Active
+      Environment:
+        Variables:
+          ANALYZE_STREAM: !Ref AnalyzeKinesisStream
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: S3Access
+              Effect: Allow
+              Action:
+                - 's3:GetObject'
+                - 's3:PutObject'
+                - 's3:ListBucket'
+                - 's3:DeleteObject'
+              Resource:
+                - !Sub '${TweetsBucket.Arn}'
+                - !Sub '${TweetsBucket.Arn}/*'
+            - Sid: KinesisAccess
+              Effect: Allow
+              Action:
+                - 'kinesis:PutRecord'
+                - 'kinesis:PutRecords'
+              Resource:
+                - !GetAtt AnalyzeKinesisStream.Arn
+
+  AnalyzeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Function to analyze tweets  - KinesisStream to KinesisFirehose '
+      CodeUri: source/analyze_function/
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      MemorySize: 256
+      Timeout: 300
+      Tracing: Active
+      Environment:
+        Variables:
+          ANALYTICS_STREAM: !Ref AnalyticsFirehoseStream
+          COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt AnalyzeKinesisStream.Arn
+            BatchSize: 100
+            StartingPosition: LATEST
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: FirehoseAccess
+              Effect: Allow
+              Action:
+                - 'firehose:ListDeliveryStreams'
+                - 'firehose:PutRecord'
+                - 'firehose:PutRecordBatch'
+              Resource: !GetAtt AnalyticsFirehoseStream.Arn
+            - Sid: ComprehendAccess
+              Effect: Allow
+              Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment', 'comprehend:DetectKeyPhrases']
+              Resource: '*'
+            - Sid: TranslateAccess
+              Effect: Allow
+              Action: ['translate:TranslateText']
+              Resource: '*'
 
   AnalyticsLambda:
     Type: AWS::Serverless::Function
@@ -635,7 +713,9 @@ Resources:
       Events:
         - 's3:ObjectCreated:*'
       Prefix: queued/
-      FunctionArn: !GetAtt AnalyticsLambda.Arn
+      # test
+      #FunctionArn: !GetAtt AnalyticsLambda.Arn
+      FunctionArn: !GetAtt RouterFunction.Arn
   S3eventsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -658,7 +738,7 @@ Resources:
               Action:
                 - 'lambda:AddPermission'
                 - 'lambda:RemovePermission'
-              Resource: !GetAtt AnalyticsLambda.Arn
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-*'
 
   Elasticsearch:
     Type: AWS::Elasticsearch::Domain
