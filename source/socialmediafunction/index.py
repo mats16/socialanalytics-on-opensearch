@@ -8,7 +8,8 @@ import re
 from aws_xray_sdk.core import patch
 patch(['boto3'])
 
-entity_score_hreshold = 0.7
+src_prefix = 'queued/'
+dest_prefix = 'processed/'
 
 s3 = boto3.resource('s3')
 comprehend = boto3.client('comprehend')
@@ -17,7 +18,7 @@ firehose = boto3.client('firehose')
 
 def normalize(text):
     text = re.sub(r'https?(:\/\/[-_\.!~*\'()a-zA-Z0-9;\/?:\@&=\+\$,%#]+)', '', text)  # remove URL
-    text = re.sub(r'@[a-zA-Z0-9_]+(\s)', '', text)  # remove twitter_account
+    #text = re.sub(r'@[a-zA-Z0-9_]+(\s)', '', text)  # remove twitter_account
     text = neologdn.normalize(text)
     return text
 
@@ -60,51 +61,62 @@ def lambda_handler(event, context):
                 Text=comprehend_text,
                 LanguageCode=comprehend_lang
             )
-            sentiment_record = {
-                'tweetid': tweet['id_str'],
-                'text': comprehend_text,
-                'originaltext': tweet['text'],
-                'sentiment': sentiment_response['Sentiment'],
-                'sentimentposscore': sentiment_response['SentimentScore']['Positive'],
-                'sentimentnegscore': sentiment_response['SentimentScore']['Negative'],
-                'sentimentneuscore': sentiment_response['SentimentScore']['Neutral'],
-                'sentimentmixedscore': sentiment_response['SentimentScore']['Mixed']
-            }
-            response = firehose.put_record(
-                DeliveryStreamName=os.environ['SENTIMENT_STREAM'],
-                Record={
-                    'Data': json.dumps(sentiment_record) + '\n'
-                }
-            )
+            #sentiment_record = {
+            #    'tweetid': tweet['id_str'],
+            #    'text': comprehend_text,
+            #    'originaltext': tweet['text'],
+            #    'sentiment': sentiment_response['Sentiment'],
+            #    'sentimentposscore': sentiment_response['SentimentScore']['Positive'],
+            #    'sentimentnegscore': sentiment_response['SentimentScore']['Negative'],
+            #    'sentimentneuscore': sentiment_response['SentimentScore']['Neutral'],
+            #    'sentimentmixedscore': sentiment_response['SentimentScore']['Mixed']
+            #}
+            #response = firehose.put_record(
+            #    DeliveryStreamName=os.environ['SENTIMENT_STREAM'],
+            #    Record={
+            #        'Data': json.dumps(sentiment_record) + '\n'
+            #    }
+            #)
 
+            entities = []
             entities_response = comprehend.detect_entities(
                 Text=comprehend_text,
                 LanguageCode=comprehend_lang
             )
             print(entities_response)
-            seen_entities = []
             for entity in entities_response['Entities']:
-                id = entity['Text'] + '-' + entity['Type']
-                if (id in seen_entities) == False:
-                    entity_record = {
-                        'tweetid': tweet['id_str'],
-                        'entity': entity['Text'],
-                        'type': entity['Type'],
-                        'score': entity['Score']
-                    }
-                    
-                    response = firehose.put_record(
-                        DeliveryStreamName=os.environ['ENTITY_STREAM'],
-                        Record={
-                            'Data': json.dumps(entity_record) + '\n'
-                        }
-                    )
-                    seen_entities.append(id)
+                if entity['Type'] in ['QUANTITY', 'DATE']:
+                    continue
+                elif len(entity['Text']) < 2:
+                    continue
+                elif entity['Score'] >= float(os.environ['COMPREHEND_ENTITY_SCORE_THRESHOLD']):
+                    entities.append(entity['Text'])
+            #seen_entities = []
+            #for entity in entities_response['Entities']:
+            #    id = entity['Text'] + '-' + entity['Type']
+            #    if (id in seen_entities) == False:
+            #        entity_record = {
+            #            'tweetid': tweet['id_str'],
+            #            'entity': entity['Text'],
+            #            'type': entity['Type'],
+            #            'score': entity['Score']
+            #        }
+            #        response = firehose.put_record(
+            #            DeliveryStreamName=os.environ['ENTITY_STREAM'],
+            #            Record={
+            #                'Data': json.dumps(entity_record) + '\n'
+            #            }
+            #        )
+            #        seen_entities.append(id)
 
+            key_phrases = []
             key_phrases_response = comprehend.detect_key_phrases(
                 Text=comprehend_text,
                 LanguageCode=comprehend_lang
             )
+            for key_phrase in key_phrases_response['KeyPhrases']:
+                key_phrases.append(key_phrase['Text'])
+
             enriched_record = {
                 'tweetid': tweet['id_str'],
                 'text': tweet['text'],
@@ -125,20 +137,10 @@ def lambda_handler(event, context):
                     }
                 }
             }
-            entities = []
-            for entity in entities_response['Entities']:
-                if entity['Type'] in ['QUANTITY', 'DATE']:
-                    continue
-                elif len(entity['Text']) < 2:
-                    continue
-                elif entity['Score'] >= entity_score_hreshold:
-                    entities.append(entity['Text'])
+
             if len(entities) > 0:
                 enriched_record['comprehend']['entities'] = list(set(entities))
 
-            key_phrases = []
-            for key_phrase in key_phrases_response['KeyPhrases']:
-                key_phrases.append(key_phrase['Text'])
             if len(key_phrases) > 0:
                 enriched_record['comprehend']['key_phrases'] = list(set(key_phrases))
 
@@ -157,7 +159,7 @@ def lambda_handler(event, context):
                 }
             )
         print(json.dumps(status))
-        new_s3_key = s3_key.replace('raw_queue', 'raw')
+        new_s3_key = s3_key.replace(src_prefix, dest_prefix)
         s3.Bucket(s3_bucket).Object(new_s3_key).copy({'Bucket': s3_bucket, 'Key': s3_key})
         obj.delete()
 

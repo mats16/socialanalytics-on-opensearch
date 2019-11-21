@@ -73,6 +73,11 @@ Parameters:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
     Default: 10.193.10.0/24
+  ComprehendEntityScoreThreshold:
+    Type: Number
+    Default: 0.7
+    MaxValue: 1
+    MinValue: 0
 
 Transform: "AWS::Serverless-2016-10-31"
 Resources:
@@ -322,7 +327,7 @@ Resources:
         BufferingHints:
           IntervalInSeconds: 60
           SizeInMBs: 5
-        Prefix: 'raw_queue/'
+        Prefix: 'queued/raw/'
         CompressionFormat: 'UNCOMPRESSED'
         RoleARN: !GetAtt IngestionFirehoseRole.Arn
 
@@ -454,6 +459,7 @@ Resources:
           SENTIMENT_STREAM: !Ref SentimentFirehoseStream
           ENTITY_STREAM: !Ref EntitiesFirehoseStream
           ANALYTICS_STREAM: !Ref AnalyticsFirehoseStream
+          COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -504,7 +510,7 @@ Resources:
           InputFormat: org.apache.hadoop.mapred.TextInputFormat
           NumberOfBuckets: -1
           OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          Location: !Sub 's3://${TweetsBucket}/raw/'
+          Location: !Sub 's3://${TweetsBucket}/processed/raw/'
           SerdeInfo:
             SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
           Columns:
@@ -628,7 +634,7 @@ Resources:
       BucketName: !Ref TweetsBucket
       Events:
         - 's3:ObjectCreated:*'
-      Prefix: raw_queue/
+      Prefix: queued/
       FunctionArn: !GetAtt AnalyticsLambda.Arn
   S3eventsFunction:
     Type: AWS::Serverless::Function
@@ -896,15 +902,7 @@ Outputs:
 
   TwitterRawLocation:
     Description: S3 Twitter Raw location.
-    Value: !Sub 's3://${TweetsBucket}/raw/'
-
-  TwitterEntitiesLocation:
-    Description: S3 Twitter Entities location.
-    Value: !Sub 's3://${TweetsBucket}/entities/'
-
-  TwitterSentimentLocation:
-    Description: S3 Twitter Sentiment location.
-    Value: !Sub 's3://${TweetsBucket}/sentiment/'
+    Value: !Sub 's3://${TweetsBucket}/processed/raw/'
 
   KibanaURL:
     Description: URL to the Kibana

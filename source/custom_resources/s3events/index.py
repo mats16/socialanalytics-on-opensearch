@@ -19,7 +19,7 @@ def lambda_handler(event, context):
 
 @helper.create
 def create(event, context):
-    statement_id = event['LogicalResourceId']
+    resource_id = event['LogicalResourceId']
     bucket_name = event['ResourceProperties']['BucketName']
     events = event['ResourceProperties']['Events']
     prefix = event['ResourceProperties']['Prefix']
@@ -27,7 +27,7 @@ def create(event, context):
     account_id = context.invoked_function_arn.split(':')[4]
     boto3.client('lambda').add_permission(
         FunctionName=function_arn,
-        StatementId=statement_id,
+        StatementId=resource_id,
         Action='lambda:InvokeFunction',
         Principal='s3.amazonaws.com',
         SourceArn='arn:aws:s3:::{0}'.format(bucket_name),
@@ -38,6 +38,7 @@ def create(event, context):
         NotificationConfiguration={
             'LambdaFunctionConfigurations': [
                 {
+                    'Id': resource_id,
                     'LambdaFunctionArn': function_arn,
                     'Events': events,
                     'Filter': {
@@ -57,7 +58,7 @@ def create(event, context):
 
 @helper.update
 def update(event, context):
-    statement_id = event['LogicalResourceId']
+    resource_id = event['LogicalResourceId']
     bucket_name = event['ResourceProperties']['BucketName']
     events = event['ResourceProperties']['Events']
     prefix = event['ResourceProperties']['Prefix']
@@ -65,11 +66,11 @@ def update(event, context):
     account_id = context.invoked_function_arn.split(':')[4]
     boto3.client('lambda').remove_permission(
         FunctionName=function_arn,
-        StatementId=statement_id,
+        StatementId=resource_id,
     )
     boto3.client('lambda').add_permission(
         FunctionName=function_arn,
-        StatementId=statement_id,
+        StatementId=resource_id,
         Action='lambda:InvokeFunction',
         Principal='s3.amazonaws.com',
         SourceArn='arn:aws:s3:::{0}'.format(bucket_name),
@@ -80,6 +81,7 @@ def update(event, context):
         NotificationConfiguration={
             'LambdaFunctionConfigurations': [
                 {
+                    'Id': resource_id,
                     'LambdaFunctionArn': function_arn,
                     'Events': events,
                     'Filter': {
@@ -99,10 +101,10 @@ def update(event, context):
 
 @helper.delete
 def delete(event, context):
-    statement_id = event['LogicalResourceId']
+    resource_id = event['LogicalResourceId']
     function_arn = event['ResourceProperties']['FunctionArn']
     boto3.client('lambda').remove_permission(
         FunctionName=function_arn,
-        StatementId=statement_id,
+        StatementId=resource_id,
     )
     logger.info("There is nothing to do, because the API to delete is not supported yet. https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html")
