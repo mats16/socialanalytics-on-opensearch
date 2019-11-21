@@ -64,8 +64,9 @@ def update(event, context):
     prefix = event['ResourceProperties']['Prefix']
     function_arn = event['ResourceProperties']['FunctionArn']
     account_id = context.invoked_function_arn.split(':')[4]
+    old_function_arn = event['OldResourceProperties']['FunctionArn']
     boto3.client('lambda').remove_permission(
-        FunctionName=function_arn,
+        FunctionName=old_function_arn,
         StatementId=resource_id,
     )
     boto3.client('lambda').add_permission(
