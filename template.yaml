@@ -359,6 +359,65 @@ Resources:
         EncryptionType: KMS
         KeyId: alias/aws/kinesis
 
+  ArchivesFirehoseStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamType: KinesisStreamAsSource
+      KinesisStreamSourceConfiguration:
+        KinesisStreamARN: !GetAtt AnalyzeKinesisStream.Arn
+        RoleARN: !GetAtt ArchivesFirehoseRole.Arn
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !GetAtt TweetsBucket.Arn
+        BufferingHints:
+          IntervalInSeconds: 300
+          SizeInMBs: 128
+        Prefix: 'processed/raw/'
+        CompressionFormat: 'UNCOMPRESSED'
+        RoleARN: !GetAtt ArchivesFirehoseRole.Arn
+
+  ArchivesFirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref 'AWS::AccountId'
+      Policies:
+        - PolicyName: KinesisStream-to-S3
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'kinesis:Get*'
+                  - 'kinesis:DescribeStream'
+                Resource: !GetAtt AnalyzeKinesisStream.Arn
+              - Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                Resource:
+                  - !Sub '${TweetsBucket.Arn}'
+                  - !Sub '${TweetsBucket.Arn}/processed/*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource:
+                - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
+
   AnalyticsFirehoseStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     DependsOn: ElasticsearchTemplate
