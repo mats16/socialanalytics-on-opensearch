@@ -1,7 +1,8 @@
-import json
-import boto3
-import os
 import base64
+import json
+import os
+import boto3
+from botocore.config import Config
 from bs4 import BeautifulSoup
 import neologdn
 import re
@@ -10,17 +11,14 @@ from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch
 patch(('boto3',))
 
-from datetime import datetime
-from elasticsearch import Elasticsearch, RequestsHttpConnection
-from elasticsearch.client import IndicesClient
-from requests_aws4auth import AWS4Auth
-
 comprehend_entity_score_threshold = float(os.environ['COMPREHEND_ENTITY_SCORE_THRESHOLD'])
-es_host = os.environ['ELASTICSEARCH_HOST']
-region = os.environ['AWS_REGION']
+indexing_stream = os.environ['INDEXING_STREAM']
 
-comprehend = boto3.client('comprehend')
-translate = boto3.client('translate')
+config = Config(
+    retries=dict(max_attempts=20)
+)
+comprehend = boto3.client('comprehend', config=config)
+translate = boto3.client('translate', config=config)
 
 def normalize(text):
     text = re.sub(r'https?(:\/\/[-_\.!~*\'()a-zA-Z0-9;\/?:\@&=\+\$,%#]+)', '', text)  # remove URL
@@ -28,28 +26,8 @@ def normalize(text):
     text = neologdn.normalize(text)
     return text
 
-def gen_index_name(timestamp_ms):
-    timestamp = int(timestamp_ms) / 1000
-    ymd = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d')
-    index_name = 'tweets-' + ymd
-    return index_name
-
-@xray_recorder.capture('elasticsearch')
-def es_bulk_load(data):
-    credentials = boto3.Session().get_credentials()
-    awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, 'es', session_token=credentials.token)
-    es = Elasticsearch(
-        hosts = [{'host': es_host, 'port': 443}],
-        http_auth = awsauth,
-        use_ssl = True,
-        verify_certs = True,
-        connection_class = RequestsHttpConnection
-    )
-    r = es.bulk(data)
-    return r
-
 def lambda_handler(event, context):
-    bulk_data = ''
+    records = []
     for record in event['Records']:
         b64_data = record['kinesis']['data']
         tweet_string = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
@@ -98,7 +76,7 @@ def lambda_handler(event, context):
         )
         for key_phrase in key_phrases_response['KeyPhrases']:
             key_phrases.append(key_phrase['Text'])
-        print(key_phrases_response)
+        #print(key_phrases_response)
 
         enriched_record = {
             'tweetid': tweet['id_str'],
@@ -139,12 +117,18 @@ def lambda_handler(event, context):
         if 'coordinates' in tweet and tweet['coordinates']:
             enriched_record['coordinates'] = tweet['coordinates']['coordinates']
 
-        es_index = gen_index_name(enriched_record['timestamp'])
-        bulk_data += json.dumps({"index": {"_index": es_index, "_type": "_doc", "_id": enriched_record['tweetid']}}) + '\n'
-        bulk_data += json.dumps(enriched_record) + '\n'
+        records.append({
+            'Data': json.dumps(enriched_record) + '\n',
+            'PartitionKey': enriched_record['tweetid']
+        })
 
         xray_recorder.end_subsegment()
-    if len(bulk_data) > 0:
-        r = es_bulk_load(bulk_data)
-        print(r)
+
+    if len(records) > 0:
+        kinesis = boto3.client('kinesis')
+        res = kinesis.put_records(
+            Records=records,
+            StreamName=indexing_stream
+        )
+        print(res)
     return 'true'

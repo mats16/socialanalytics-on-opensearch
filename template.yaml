@@ -466,25 +466,26 @@ Resources:
   AnalyzeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: 'Function to analyze tweets  - KinesisStream to KinesisFirehose '
+      Description: 'Analyzing function'
       CodeUri: source/analyze_function/
       Handler: index.lambda_handler
       Runtime: python3.6
-      MemorySize: 1024
+      MemorySize: 192
       Timeout: 300
       Tracing: Active
       Environment:
         Variables:
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
-          ELASTICSEARCH_HOST: !GetAtt Elasticsearch.DomainEndpoint
+          #ELASTICSEARCH_HOST: !GetAtt Elasticsearch.DomainEndpoint
           INDEXING_STREAM: !Ref IndexingKinesisStream
       Events:
         Stream:
           Type: Kinesis
           Properties:
             Stream: !GetAtt AnalyzeKinesisStream.Arn
-            BatchSize: 500
+            BatchSize: 100
             StartingPosition: LATEST
+            ParallelizationFactor: 6
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -509,6 +510,37 @@ Resources:
                 - 'kinesis:PutRecord'
                 - 'kinesis:PutRecords'
               Resource: !GetAtt IndexingKinesisStream.Arn
+
+  IndexingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Elasticsearch indexing function  - KinesisStream to Elasticsearch '
+      CodeUri: source/indexing_function/
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      MemorySize: 192
+      Timeout: 300
+      Tracing: Active
+      Environment:
+        Variables:
+          ELASTICSEARCH_HOST: !GetAtt Elasticsearch.DomainEndpoint
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt IndexingKinesisStream.Arn
+            BatchSize: 1000
+            StartingPosition: LATEST
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: ElasticsearchHttpAccess
+              Effect: Allow
+              Action:
+                - es:ESHttpPut
+                - es:ESHttpPost
+              Resource:
+                - !Sub '${Elasticsearch.Arn}/*'
 
   SocialMediaGlueDB:
     Type: "AWS::Glue::Database"
