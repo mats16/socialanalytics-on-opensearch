@@ -137,6 +137,8 @@ Resources:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
       Path: '/'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess'
       Policies:
         - PolicyName: PutTweets
           PolicyDocument:
@@ -148,6 +150,12 @@ Resources:
                   - 'kinesis:PutRecord'
                   - 'kinesis:PutRecords'
                 Resource: !GetAtt AnalyzeKinesisStream.Arn
+              - Sid: FirehoseAccess
+                Effect: Allow
+                Action:
+                  - 'firehose:PutRecord'
+                  - 'firehose:PutRecords'
+                Resource: !GetAtt RawFirehoseStream.Arn
 
   TwitterReaderTaskExecutionRole:
     Type: AWS::IAM::Role
@@ -257,8 +265,7 @@ Resources:
       TaskRoleArn: !Ref TwitterReaderTaskRole
       ExecutionRoleArn: !Ref TwitterReaderTaskExecutionRole
       ContainerDefinitions: 
-        - 
-          Name: twitter-reader
+        - Name: twitter-reader
           Image: !Ref TwitterReaderDockerImage
           Essential: "true"
           Environment:
@@ -270,6 +277,12 @@ Resources:
               Value: !Ref TwitterFilterLevel
             - Name: ANALYZE_STREAM
               Value: !Ref AnalyzeKinesisStream
+            - Name: ARCHIVE_STREAM
+              Value: !Ref RawFirehoseStream
+            #- Name: AWS_XRAY_TRACING_NAME
+            #  Value: twitter-reader
+            #- Name: AWS_XRAY_DEBUG_MODE
+            #  Value: 'TRUE'
           Secrets:
             - Name: CONSUMER_KEY
               ValueFrom: !Ref AuthConsumerManagerSecret
@@ -285,7 +298,16 @@ Resources:
             Options:
               awslogs-region: !Ref AWS::Region
               awslogs-group: !Ref TwitterStreamingReaderLogGroup
-              awslogs-stream-prefix: twitter-streaming-reader
+              awslogs-stream-prefix: twitter-reader
+        #- Name: xray-daemon
+        #  Image: amazon/aws-xray-daemon:latest
+        #  Essential: "true"
+        #  LogConfiguration:
+        #    LogDriver: awslogs
+        #    Options:
+        #      awslogs-region: !Ref AWS::Region
+        #      awslogs-group: !Ref TwitterStreamingReaderLogGroup
+        #      awslogs-stream-prefix: xray-daemon
 
   TwitterStreamingReaderLogGroup: 
     Type: AWS::Logs::LogGroup
@@ -314,42 +336,6 @@ Resources:
             - !Ref PublicSubnet1
       TaskDefinition: !Ref TwitterStreamingReaderTaskDef
 
-  IngestionFirehoseStream:
-    Type: AWS::KinesisFirehose::DeliveryStream
-    Properties:
-      ExtendedS3DestinationConfiguration:
-        BucketARN: !GetAtt TweetsBucket.Arn
-        BufferingHints:
-          IntervalInSeconds: 60
-          SizeInMBs: 5
-        Prefix: 'queued/raw/'
-        CompressionFormat: 'UNCOMPRESSED'
-        RoleARN: !GetAtt IngestionFirehoseRole.Arn
-
-  EntitiesFirehoseStream:
-    Type: AWS::KinesisFirehose::DeliveryStream
-    Properties:
-      ExtendedS3DestinationConfiguration:
-        BucketARN: !GetAtt TweetsBucket.Arn
-        BufferingHints:
-          IntervalInSeconds: 60
-          SizeInMBs: 5
-        Prefix: 'entities/'
-        CompressionFormat: 'UNCOMPRESSED'
-        RoleARN: !GetAtt IngestionFirehoseRole.Arn
-
-  SentimentFirehoseStream:
-    Type: AWS::KinesisFirehose::DeliveryStream
-    Properties:
-      ExtendedS3DestinationConfiguration:
-        BucketARN: !GetAtt TweetsBucket.Arn
-        BufferingHints:
-          IntervalInSeconds: 60
-          SizeInMBs: 5
-        Prefix: 'sentiment/'
-        CompressionFormat: 'UNCOMPRESSED'
-        RoleARN: !GetAtt IngestionFirehoseRole.Arn
-
   AnalyzeKinesisStream:
     Type: AWS::Kinesis::Stream
     Properties: 
@@ -359,23 +345,44 @@ Resources:
         EncryptionType: KMS
         KeyId: alias/aws/kinesis
 
-  ArchivesFirehoseStream:
+  IndexingKinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties: 
+      RetentionPeriodHours: 24
+      ShardCount: 1
+      StreamEncryption: 
+        EncryptionType: KMS
+        KeyId: alias/aws/kinesis
+
+  RawFirehoseStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !GetAtt TweetsBucket.Arn
+        BufferingHints:
+          IntervalInSeconds: 300
+          SizeInMBs: 10
+        Prefix: 'raw/'
+        CompressionFormat: 'UNCOMPRESSED'
+        RoleARN: !GetAtt ArchiveFirehoseRole.Arn
+
+  ArchiveFirehoseStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       DeliveryStreamType: KinesisStreamAsSource
       KinesisStreamSourceConfiguration:
         KinesisStreamARN: !GetAtt AnalyzeKinesisStream.Arn
-        RoleARN: !GetAtt ArchivesFirehoseRole.Arn
+        RoleARN: !GetAtt ArchiveFirehoseRole.Arn
       ExtendedS3DestinationConfiguration:
         BucketARN: !GetAtt TweetsBucket.Arn
         BufferingHints:
           IntervalInSeconds: 300
-          SizeInMBs: 128
-        Prefix: 'processed/raw/'
+          SizeInMBs: 10
+        Prefix: 'archives_from_kinesis/'
         CompressionFormat: 'UNCOMPRESSED'
-        RoleARN: !GetAtt ArchivesFirehoseRole.Arn
+        RoleARN: !GetAtt ArchiveFirehoseRole.Arn
 
-  ArchivesFirehoseRole:
+  ArchiveFirehoseRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -389,7 +396,7 @@ Resources:
               StringEquals:
                 sts:ExternalId: !Ref 'AWS::AccountId'
       Policies:
-        - PolicyName: KinesisStream-to-S3
+        - PolicyName: KinesisAccess
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -398,67 +405,7 @@ Resources:
                   - 'kinesis:Get*'
                   - 'kinesis:DescribeStream'
                 Resource: !GetAtt AnalyzeKinesisStream.Arn
-              - Effect: Allow
-                Action:
-                  - s3:AbortMultipartUpload
-                  - s3:GetBucketLocation
-                  - s3:GetObject
-                  - s3:ListBucket
-                  - s3:ListBucketMultipartUploads
-                  - s3:PutObject
-                Resource:
-                  - !Sub '${TweetsBucket.Arn}'
-                  - !Sub '${TweetsBucket.Arn}/processed/*'
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - logs:DescribeLogStreams
-                Resource:
-                - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
-
-  AnalyticsFirehoseStream:
-    Type: AWS::KinesisFirehose::DeliveryStream
-    DependsOn: ElasticsearchTemplate
-    Properties:
-      ElasticsearchDestinationConfiguration:
-        BufferingHints: 
-          IntervalInSeconds: 60
-          SizeInMBs: 5
-        DomainARN: !GetAtt Elasticsearch.Arn
-        IndexName: tweets
-        IndexRotationPeriod: OneDay
-        RetryOptions: 
-          DurationInSeconds: 300
-        RoleARN: !GetAtt IngestionFirehoseRole.Arn
-        S3BackupMode: AllDocuments
-        S3Configuration: 
-          BucketARN: !GetAtt TweetsBucket.Arn
-          BufferingHints:
-            IntervalInSeconds: 60
-            SizeInMBs: 5
-          Prefix: 'elasticsearch/'
-          CompressionFormat: 'UNCOMPRESSED'
-          RoleARN: !GetAtt IngestionFirehoseRole.Arn
-        TypeName: ''
-
-  IngestionFirehoseRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          -
-            Effect: Allow
-            Principal:
-              Service: firehose.amazonaws.com
-            Action: sts:AssumeRole
-            Condition:
-              StringEquals:
-                sts:ExternalId: !Ref 'AWS::AccountId'
-      Policies:
-        - PolicyName: TweetIngestion
+        - PolicyName: S3Access
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -481,32 +428,6 @@ Resources:
                   - logs:DescribeLogStreams
                 Resource:
                 - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
-        - PolicyName: PutElasticsearch
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - es:DescribeElasticsearchDomain
-                  - es:DescribeElasticsearchDomains
-                  - es:DescribeElasticsearchDomainConfig
-                  - es:ESHttpPost
-                  - es:ESHttpPut
-                Resource:
-                  - !Sub '${Elasticsearch.Arn}'
-                  - !Sub '${Elasticsearch.Arn}/*'
-              - Effect: Allow
-                Action:
-                  - es:ESHttpGet
-                Resource:
-                  - !Sub '${Elasticsearch.Arn}/_all/_settings'
-                  - !Sub '${Elasticsearch.Arn}/_cluster/stats'
-                  - !Sub '${Elasticsearch.Arn}/index-name*/_mapping/type-name'
-                  - !Sub '${Elasticsearch.Arn}/_nodes'
-                  - !Sub '${Elasticsearch.Arn}/_nodes/stats'
-                  - !Sub '${Elasticsearch.Arn}/_nodes/*/stats'
-                  - !Sub '${Elasticsearch.Arn}/_stats'
-                  - !Sub '${Elasticsearch.Arn}/index-name*/_stats'
 
   RouterFunction:
     Type: AWS::Serverless::Function
@@ -515,8 +436,8 @@ Resources:
       CodeUri: source/router_function/
       Handler: index.lambda_handler
       Runtime: python3.6
-      MemorySize: 256
-      Timeout: 300
+      MemorySize: 3008
+      Timeout: 900
       Tracing: Active
       Environment:
         Variables:
@@ -549,30 +470,24 @@ Resources:
       CodeUri: source/analyze_function/
       Handler: index.lambda_handler
       Runtime: python3.6
-      MemorySize: 256
+      MemorySize: 1024
       Timeout: 300
       Tracing: Active
       Environment:
         Variables:
-          ANALYTICS_STREAM: !Ref AnalyticsFirehoseStream
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
+          ELASTICSEARCH_HOST: !GetAtt Elasticsearch.DomainEndpoint
+          INDEXING_STREAM: !Ref IndexingKinesisStream
       Events:
         Stream:
           Type: Kinesis
           Properties:
             Stream: !GetAtt AnalyzeKinesisStream.Arn
-            BatchSize: 100
+            BatchSize: 500
             StartingPosition: LATEST
       Policies:
         - Version: "2012-10-17"
           Statement:
-            - Sid: FirehoseAccess
-              Effect: Allow
-              Action:
-                - 'firehose:ListDeliveryStreams'
-                - 'firehose:PutRecord'
-                - 'firehose:PutRecordBatch'
-              Resource: !GetAtt AnalyticsFirehoseStream.Arn
             - Sid: ComprehendAccess
               Effect: Allow
               Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment', 'comprehend:DetectKeyPhrases']
@@ -581,54 +496,19 @@ Resources:
               Effect: Allow
               Action: ['translate:TranslateText']
               Resource: '*'
-
-  AnalyticsLambda:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: source/socialmediafunction/
-      Handler: index.lambda_handler
-      Runtime: python3.6
-      MemorySize: 256
-      Timeout: 300
-      Tracing: Active
-      Environment:
-        Variables:
-          SENTIMENT_STREAM: !Ref SentimentFirehoseStream
-          ENTITY_STREAM: !Ref EntitiesFirehoseStream
-          ANALYTICS_STREAM: !Ref AnalyticsFirehoseStream
-          COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
-      Policies:
-        - Version: "2012-10-17"
-          Statement:
-            - Sid: S3Access
+            - Sid: ElasticsearchHttpAccess
               Effect: Allow
               Action:
-                - 's3:GetObject'
-                - 's3:PutObject'
-                - 's3:PutBucketNotification'
-                - 's3:ListBucket'
-                - 's3:DeleteObject'
+                - es:ESHttpPut
+                - es:ESHttpPost
               Resource:
-                - !Sub '${TweetsBucket.Arn}'
-                - !Sub '${TweetsBucket.Arn}/*'
-            - Sid: FirehoseAccess
+                - !Sub '${Elasticsearch.Arn}/*'
+            - Sid: KinesisAccess
               Effect: Allow
               Action:
-                - 'firehose:ListDeliveryStreams'
-                - 'firehose:PutRecord'
-                - 'firehose:PutRecordBatch'
-              Resource:
-                - !GetAtt SentimentFirehoseStream.Arn
-                - !GetAtt EntitiesFirehoseStream.Arn
-                - !GetAtt AnalyticsFirehoseStream.Arn
-            - Sid: ComprehendAccess
-              Effect: Allow
-              Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment', 'comprehend:DetectKeyPhrases']
-              Resource: '*'
-            - Sid: TranslateAccess
-              Effect: Allow
-              Action: ['translate:TranslateText']
-              Resource: '*'
+                - 'kinesis:PutRecord'
+                - 'kinesis:PutRecords'
+              Resource: !GetAtt IndexingKinesisStream.Arn
 
   SocialMediaGlueDB:
     Type: "AWS::Glue::Database"
@@ -647,7 +527,7 @@ Resources:
           InputFormat: org.apache.hadoop.mapred.TextInputFormat
           NumberOfBuckets: -1
           OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          Location: !Sub 's3://${TweetsBucket}/processed/raw/'
+          Location: !Sub 's3://${TweetsBucket}/raw/'
           SerdeInfo:
             SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
           Columns:
@@ -703,65 +583,65 @@ Resources:
       DatabaseName: !Ref SocialMediaGlueDB
       CatalogId: !Ref AWS::AccountId
 
-  tweetsentiment:
-    Type: "AWS::Glue::Table"
-    Properties:
-      TableInput:
-        Name: tweet_sentiments
-        StorageDescriptor:
-          Compressed: False
-          InputFormat: org.apache.hadoop.mapred.TextInputFormat
-          NumberOfBuckets: -1
-          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          Location: !Sub 's3://${TweetsBucket}/sentiment/'
-          SerdeInfo:
-            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
-          Columns:
-          - Name: tweetid
-            Type: bigint
-          - Name: text
-            Type: string
-          - Name: originaltext
-            Type: string
-          - Name: sentiment
-            Type: string
-          - Name: sentimentposscore
-            Type: double
-          - Name: sentimentnegscore
-            Type: double
-          - Name: sentimentneuscore
-            Type: double
-          - Name: sentimentmixedscore
-            Type: double
-        Parameters: {'classification': 'json'}
-      DatabaseName: !Ref SocialMediaGlueDB
-      CatalogId: !Ref AWS::AccountId
+#  tweetsentiment:
+#    Type: "AWS::Glue::Table"
+#    Properties:
+#      TableInput:
+#        Name: tweet_sentiments
+#        StorageDescriptor:
+#          Compressed: False
+#          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+#          NumberOfBuckets: -1
+#          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+#          Location: !Sub 's3://${TweetsBucket}/sentiment/'
+#          SerdeInfo:
+#            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
+#          Columns:
+#          - Name: tweetid
+#            Type: bigint
+#          - Name: text
+#            Type: string
+#          - Name: originaltext
+#            Type: string
+#          - Name: sentiment
+#            Type: string
+#          - Name: sentimentposscore
+#            Type: double
+#          - Name: sentimentnegscore
+#            Type: double
+#          - Name: sentimentneuscore
+#            Type: double
+#          - Name: sentimentmixedscore
+#            Type: double
+#        Parameters: {'classification': 'json'}
+#      DatabaseName: !Ref SocialMediaGlueDB
+#      CatalogId: !Ref AWS::AccountId
 
-  tweetentities:
-    Type: "AWS::Glue::Table"
-    Properties:
-      TableInput:
-        Name: tweet_entities
-        StorageDescriptor:
-          Compressed: False
-          InputFormat: org.apache.hadoop.mapred.TextInputFormat
-          NumberOfBuckets: -1
-          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          Location: !Sub 's3://${TweetsBucket}/entities/'
-          SerdeInfo:
-            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
-          Columns:
-          - Name: tweetid
-            Type: bigint
-          - Name: entity
-            Type: string
-          - Name: type
-            Type: string
-          - Name: score
-            Type: double
-        Parameters: {'classification': 'json'}
-      DatabaseName: !Ref SocialMediaGlueDB
-      CatalogId: !Ref AWS::AccountId
+#  tweetentities:
+#    Type: "AWS::Glue::Table"
+#    Properties:
+#      TableInput:
+#        Name: tweet_entities
+#        StorageDescriptor:
+#          Compressed: False
+#          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+#          NumberOfBuckets: -1
+#          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+#          Location: !Sub 's3://${TweetsBucket}/entities/'
+#          SerdeInfo:
+#            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
+#          Columns:
+#          - Name: tweetid
+#            Type: bigint
+#          - Name: entity
+#            Type: string
+#          - Name: type
+#            Type: string
+#          - Name: score
+#            Type: double
+#        Parameters: {'classification': 'json'}
+#      DatabaseName: !Ref SocialMediaGlueDB
+#      CatalogId: !Ref AWS::AccountId
 
   S3events:
     Type: Custom::S3events
@@ -772,8 +652,6 @@ Resources:
       Events:
         - 's3:ObjectCreated:*'
       Prefix: queued/
-      # test
-      #FunctionArn: !GetAtt AnalyticsLambda.Arn
       FunctionArn: !GetAtt RouterFunction.Arn
   S3eventsFunction:
     Type: AWS::Serverless::Function
@@ -952,6 +830,10 @@ Resources:
       Body: '
         {
           "index_patterns": ["tweets-*"],
+          "settings": {
+            "number_of_shards": 1,
+            "number_of_replicas": 1
+          },
           "mappings": {
             "_source": {
               "enabled": true
@@ -1041,7 +923,7 @@ Outputs:
 
   TwitterRawLocation:
     Description: S3 Twitter Raw location.
-    Value: !Sub 's3://${TweetsBucket}/processed/raw/'
+    Value: !Sub 's3://${TweetsBucket}/raw/'
 
   KibanaURL:
     Description: URL to the Kibana

@@ -24,22 +24,30 @@ def lambda_handler(event, context):
 
         records = []
         for tweet_string in tweets:
-            
             if len(tweet_string) < 1:
                 continue
-            else:
+            try:
+                tweet_string = tweet_string.rstrip('\n')
                 tweet = json.loads(tweet_string)
-                records.append({
-                    'Data': json.dumps(tweet) + '\n',
-                    'PartitionKey': tweet['id_str']
-                })
-
+            except Exception as e:
+                print(e)
+                print(tweet_string)
+                continue
+            records.append({
+                'Data': json.dumps(tweet) + '\n',
+                'PartitionKey': tweet['id_str']
+            })
+            if len(records) >= 100:
+                response = kinesis.put_records(
+                    Records=records,
+                    StreamName=dest_stream
+                )
+                records = []
         if len(records) > 0:
             response = kinesis.put_records(
                 Records=records,
                 StreamName=dest_stream
             )
-            print(response)
 
         new_s3_key = s3_key.replace(src_prefix, dest_prefix)
         s3.Bucket(s3_bucket).Object(new_s3_key).copy({'Bucket': s3_bucket, 'Key': s3_key})

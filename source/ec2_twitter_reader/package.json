@@ -3,8 +3,7 @@
   "version": "0.0.1",
   "author": "Kazuki Matsuda",
   "private": true,
-  "scripts": {
-  },
+  "scripts": {},
   "dependencies": {
     "aws-sdk": "2.x",
     "log4js": "~0.6.22",

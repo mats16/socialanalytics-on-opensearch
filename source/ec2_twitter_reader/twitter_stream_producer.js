@@ -29,20 +29,35 @@ function twitterStreamProducer() {
 
   function _sendToFirehose() {
     var kinesis = new AWS.Kinesis({apiVersion: '2013-12-02'});
+    var firehose = new AWS.Firehose({ apiVersion: '2015-08-04' });
     var stream = T.stream('statuses/filter', { track: twitter_config.topics, language: twitter_config.languages, filter_level: twitter_config.filter_level, stall_warnings: true });
 
-    var records = [];
-    var record = {};
-    var recordParams = {};
     log.info('start streaming...')
     stream.on('tweet', function (tweet) {
       var tweetString = JSON.stringify(tweet)
-      recordParams = {
-        Data: tweetString,
-        PartitionKey: tweet.id_str,
-        StreamName: twitter_config.kinesis_stream_name,
+      // Analytics
+      if (typeof tweet.retweeted_status === "undefined") {
+        var kinesisParams = {
+          Data: tweetString +'\n',
+          PartitionKey: tweet.id_str,
+          StreamName: twitter_config.analyze_stream_name,
+        };
+        kinesis.putRecord(kinesisParams, function (err, data) {
+          if (err) {
+            log.error(err);
+          }
+        });
+      } else {
+        ;
+      }
+      // Archives
+      var firehoseParams = {
+        DeliveryStreamName: twitter_config.archive_stream_name,
+        Record: {
+          Data: tweetString + '\n'
+        }
       };
-      kinesis.putRecord(recordParams, function (err, data) {
+      firehose.putRecord(firehoseParams, function (err, data) {
         if (err) {
           log.error(err);
         }

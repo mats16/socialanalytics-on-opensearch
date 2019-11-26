@@ -8,5 +8,6 @@ var twitter_config = module.exports = {
     topics: process.env.TWITTER_TOPICS.split(','),
     languages: process.env.TWITTER_LANGUAGES.split(','),
     filter_level: process.env.TWITTER_FILTER_LEVEL,
-    kinesis_stream_name: process.env.ANALYZE_STREAM
+    analyze_stream_name: process.env.ANALYZE_STREAM,
+    archive_stream_name: process.env.ARCHIVE_STREAM
 }
