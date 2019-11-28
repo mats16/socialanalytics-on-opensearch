@@ -6,6 +6,7 @@ from botocore.config import Config
 from bs4 import BeautifulSoup
 import neologdn
 import re
+from datetime import datetime
 
 from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch
@@ -26,8 +27,13 @@ def normalize(text):
     text = neologdn.normalize(text)
     return text
 
+def gen_index(prefix, timestamp_ms):
+    timestamp = int(timestamp_ms) / 1000
+    ymd = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d')
+    return prefix + ymd
+
 def lambda_handler(event, context):
-    records = []
+    es_records = []
     for record in event['Records']:
         b64_data = record['kinesis']['data']
         tweet_string = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
@@ -78,7 +84,9 @@ def lambda_handler(event, context):
             key_phrases.append(key_phrase['Text'])
         #print(key_phrases_response)
 
-        enriched_record = {
+        es_record = {
+            '_index': gen_index('tweets-', tweet['timestamp_ms']),
+            '_id': tweet['id_str'],
             'tweetid': tweet['id_str'],
             'text': tweet['text'],
             'timestamp': tweet['timestamp_ms'],
@@ -98,36 +106,36 @@ def lambda_handler(event, context):
         }
 
         if len(entities) > 0:
-            enriched_record['comprehend']['entities'] = list(set(entities))
+            es_record['comprehend']['entities'] = list(set(entities))
 
         if len(key_phrases) > 0:
-            enriched_record['comprehend']['key_phrases'] = list(set(key_phrases))
+            es_record['comprehend']['key_phrases'] = list(set(key_phrases))
 
         if 'source' in tweet:
-            enriched_record['source'] = BeautifulSoup(tweet['source']).getText()
+            es_record['source'] = BeautifulSoup(tweet['source']).getText()
 
         if 'filter_level' in tweet:
-            enriched_record['filter_level'] = tweet['filter_level']
+            es_record['filter_level'] = tweet['filter_level']
 
         if 'hashtags' in tweet['entities']:
             hashtags = [hashtag['text'].lower() for hashtag in tweet['entities']['hashtags']]
             if len(hashtags) > 0:
-                enriched_record['hashtags'] = hashtags
+                es_record['hashtags'] = hashtags
 
         if 'coordinates' in tweet and tweet['coordinates']:
-            enriched_record['coordinates'] = tweet['coordinates']['coordinates']
+            es_record['coordinates'] = tweet['coordinates']['coordinates']
 
-        records.append({
-            'Data': json.dumps(enriched_record) + '\n',
-            'PartitionKey': enriched_record['tweetid']
+        es_records.append({
+            'Data': json.dumps(es_record) + '\n',
+            'PartitionKey': es_record['tweetid']
         })
 
         xray_recorder.end_subsegment()
 
-    if len(records) > 0:
+    if len(es_records) > 0:
         kinesis = boto3.client('kinesis')
         res = kinesis.put_records(
-            Records=records,
+            Records=es_records,
             StreamName=indexing_stream
         )
         print(res)
