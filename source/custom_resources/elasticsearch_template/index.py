@@ -6,6 +6,7 @@ import boto3
 import os
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch.client import IndicesClient
+from elasticsearch.exceptions import NotFoundError
 from requests_aws4auth import AWS4Auth
 
 logger = logging.getLogger(__name__)
@@ -26,8 +27,8 @@ def lambda_handler(event, context):
 @helper.create
 @helper.update
 def create(event, context):
+    resource_id = event['LogicalResourceId'].lower()
     host = event['ResourceProperties']['Host']
-    name = event['ResourceProperties']['Name']
     body = json.loads(event['ResourceProperties']['Body'])
     es = Elasticsearch(
         hosts = [{'host': host, 'port': 443}],
@@ -37,15 +38,15 @@ def create(event, context):
         connection_class = RequestsHttpConnection
     )
     response = IndicesClient(es).put_template(
-        name=name,
+        name=resource_id,
         body=body,
     )
     logger.info(response)
 
 @helper.delete
 def delete(event, context):
+    resource_id = event['LogicalResourceId'].lower()
     host = event['ResourceProperties']['Host']
-    name = event['ResourceProperties']['Name']
     es = Elasticsearch(
         hosts = [{'host': host, 'port': 443}],
         http_auth = awsauth,
@@ -53,7 +54,12 @@ def delete(event, context):
         verify_certs = True,
         connection_class = RequestsHttpConnection
     )
-    response = IndicesClient(es).delete_template(
-        name=name,
-    )
-    logger.info(response)
+    try:
+        res = IndicesClient(es).delete_template(
+            name=resource_id,
+        )
+        logger.info(res)
+    except NotFoundError as e:
+        logger.info(e)
+    except Exception as e:
+        logger.error(e)

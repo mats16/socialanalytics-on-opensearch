@@ -852,13 +852,12 @@ Resources:
               Resource:
                 - !GetAtt KibanaUserPool.Arn
 
-  ElasticsearchTemplate:
+  TweetsTemplate:
     Type: Custom::ElasticsearchTemplate
     Version: 1.0
     Properties:
       ServiceToken: !GetAtt ElasticsearchTemplateFunction.Arn
       Host: !GetAtt Elasticsearch.DomainEndpoint
-      Name: tweet
       Body: '
         {
           "index_patterns": ["tweets-*"],
@@ -946,6 +945,47 @@ Resources:
                 - es:ESHttpDelete
               Resource:
                 - !Sub '${Elasticsearch.Arn}/_template/*'
+
+  ComprehendEntitiesTemplate:
+    Type: Custom::ElasticsearchTemplate
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchTemplateFunction.Arn
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Body: '
+        {
+          "index_patterns": ["comprehend-entities-*"],
+          "settings": {
+            "number_of_shards": 1,
+            "number_of_replicas": 1
+          },
+          "mappings": {
+            "_source": {
+              "enabled": true
+            },
+            "properties": {
+              "score": {
+                "type": "double"
+              },
+              "type": {
+                "type": "keyword"
+              },
+              "text": {
+                "type": "keyword"
+              },
+              "inpot": {
+                "properties": {
+                  "text": {
+                    "type": "text"
+                  },
+                  "lang": {
+                    "type": "keyword"
+                  }
+                }
+              }
+            }
+          }
+        }'
 
 Outputs:
 
