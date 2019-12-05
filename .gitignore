@@ -1,1 +1,5 @@
 .aws-sam/*
+samconfig.toml
+elasticsearch/custom_resources/*/*
+!elasticsearch/custom_resources/*/requirements.txt
+!elasticsearch/custom_resources/*/index.py

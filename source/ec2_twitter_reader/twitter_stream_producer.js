@@ -36,20 +36,16 @@ function twitterStreamProducer() {
     stream.on('tweet', function (tweet) {
       var tweetString = JSON.stringify(tweet)
       // Analytics
-      if (typeof tweet.retweeted_status === "undefined") {
-        var kinesisParams = {
-          Data: tweetString +'\n',
-          PartitionKey: tweet.id_str,
-          StreamName: twitter_config.analyze_stream_name,
-        };
-        kinesis.putRecord(kinesisParams, function (err, data) {
-          if (err) {
-            log.error(err);
-          }
-        });
-      } else {
-        ;
-      }
+      var kinesisParams = {
+        Data: tweetString +'\n',
+        PartitionKey: tweet.id_str,
+        StreamName: twitter_config.analyze_stream_name,
+      };
+      kinesis.putRecord(kinesisParams, function (err, data) {
+        if (err) {
+          log.error(err);
+        }
+      });
       // Archives
       var firehoseParams = {
         DeliveryStreamName: twitter_config.archive_stream_name,
