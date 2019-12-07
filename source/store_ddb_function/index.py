@@ -52,16 +52,16 @@ def lambda_handler(event, context):
 
             if 'retweeted_status' in tweet:
                 is_retweeted = True
-                tweet = tweet['retweeted_status']
-                timestamp = int(datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y').timestamp())
-                tweet['timestamp_ms'] = str(timestamp * 1000)
-                tweet['timestamp'] = timestamp
-                tweet['ttl'] = timestamp + 86400
+                tweet = tweet['retweeted_status']                
             else:
                 is_retweeted = False
-                timestamp = int(datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y').timestamp())
-                tweet['timestamp'] = timestamp
-                tweet['ttl'] = timestamp + ddb_ttl
+            created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
+            timestamp = int(created_at.timestamp())
+            tweet['date'] = created_at.strftime('%Y-%m-%d')  # string
+            tweet['timestamp'] = timestamp  # integer
+            tweet['ttl'] = timestamp + ddb_ttl  # integer
+            if 'timestamp_ms' not in tweet:
+                tweet['timestamp_ms'] = str(timestamp * 1000)  # string
 
             tweet = fix_empty_strings(tweet)
             if 'quoted_status' in tweet:

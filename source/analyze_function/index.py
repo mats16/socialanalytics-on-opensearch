@@ -84,7 +84,8 @@ def lambda_handler(event, context):
                 es_record['user'][attribute] = tweet['user'][attribute]
 
         if not is_retweeted:
-            subsegment = xray_recorder.begin_subsegment('analyzing')
+            # retweet の時は数値の更新のみ。
+            subsegment = xray_recorder.begin_subsegment('inspect-tweet-text')
             subsegment.put_annotation('_id', tweet['id_str'])
 
             if tweet['lang'] in ['en', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'ja', 'ko', 'zh']:
@@ -110,7 +111,7 @@ def lambda_handler(event, context):
                 LanguageCode=comprehend_lang
             )
             #print(entities_response)
-            # Performance Check
+            # 分液用に Elasticsearch に送っておく
             d = datetime.strptime(entities_response['ResponseMetadata']['HTTPHeaders']['date'], '%a, %d %b %Y %H:%M:%S %Z')
             for entity in entities_response['Entities']:
                 es_records.append({
@@ -139,12 +140,12 @@ def lambda_handler(event, context):
                     entities.append(entity['Text'].lower())
 
             key_phrases = []
-            key_phrases_response = comprehend.detect_key_phrases(
-                Text=comprehend_text,
-                LanguageCode=comprehend_lang
-            )
-            for key_phrase in key_phrases_response['KeyPhrases']:
-                key_phrases.append(key_phrase['Text'])
+            #key_phrases_response = comprehend.detect_key_phrases(
+            #    Text=comprehend_text,
+            #    LanguageCode=comprehend_lang
+            #)
+            #for key_phrase in key_phrases_response['KeyPhrases']:
+            #    key_phrases.append(key_phrase['Text'])
             #print(key_phrases_response)
 
             es_record['comprehend'] = { 

@@ -78,6 +78,10 @@ Parameters:
     Default: 0.7
     MaxValue: 1
     MinValue: 0
+  CognitoAllowedEmailDomains:
+    Type: CommaDelimitedList
+    Description: Specific domains allowed to register on Cognito
+    Default: amazon.com,amazon.co.jp
 
 Transform: "AWS::Serverless-2016-10-31"
 Resources:
@@ -463,9 +467,9 @@ Resources:
           Type: Kinesis
           Properties:
             Stream: !GetAtt IngestionKinesisStream.Arn
-            BatchSize: 20
+            BatchSize: 30
             StartingPosition: LATEST
-            ParallelizationFactor: 4
+            ParallelizationFactor: 5
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -668,9 +672,205 @@ Resources:
   Elasticsearch:
     Type: AWS::Serverless::Application
     Properties:
-      Location: elasticsearch/template.yaml
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:345513370492:applications/amazon-elasticsearch-cognito-auth
+        SemanticVersion: 0.1.0
       Parameters:
         CognitoUserPoolDomain: !Sub '${ApplicationName}-${AWS::AccountId}'
+        CognitoAllowedEmailDomains: !Join [',', !Ref CognitoAllowedEmailDomains]      
+
+  TweetsTemplate:
+    Type: Custom::ElasticsearchTemplate
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt Elasticsearch.Outputs.ModifyTemplateArn
+      Body: '
+        {
+          "index_patterns": ["tweets-*"],
+          "settings": {
+            "number_of_shards": 1,
+            "number_of_replicas": 1
+          },
+          "mappings": {
+            "_source": {
+              "enabled": true
+            },
+            "properties": {
+              "created_at": {
+                "type": "date",
+                "format": "epoch_second"
+              },
+              "tweetid": {
+                "type": "keyword"
+              },
+              "text": {
+                "type": "text"
+              },
+              "normalized_text": {
+                "type": "text"
+              },
+              "source": {
+                "type": "keyword"
+              },
+              "filter_level": {
+                "type": "keyword"
+              },
+              "lang": {
+                "type": "keyword"
+              },
+              "hashtags": {
+                "type": "keyword"
+              },
+              "url": {
+                "type": "keyword"
+              },
+              "quote_count": {
+                "type": "long"
+              },
+              "reply_count": {
+                "type": "long"
+              },
+              "retweet_count": {
+                "type": "long"
+              },
+              "favorite_count": {
+                "type": "long"
+              },
+              "coordinates":{
+                "type": "geo_point"
+              },
+              "user": {
+                "properties": {
+                  "id_str": {
+                    "type": "keyword"
+                  },
+                  "name": {
+                    "type": "keyword"
+                  },
+                  "screen_name": {
+                    "type": "keyword"
+                  },
+                  "followers_count": {
+                    "type": "long"
+                  },
+                  "friends_count": {
+                    "type": "long"
+                  },
+                  "listed_count": {
+                    "type": "long"
+                  },
+                  "favourites_count": {
+                    "type": "long"
+                  },
+                  "favourites_count": {
+                    "type": "long"
+                  },
+                  "lang": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "comprehend": {
+                "properties": {
+                  "text": {
+                    "type": "text"
+                  },
+                  "lang": {
+                    "type": "keyword"
+                  },
+                  "sentiment": {
+                    "type": "keyword"
+                  },
+                  "sentiment_score": {
+                    "properties": {
+                      "positive": { "type": "double" },
+                      "negative":  { "type": "double" },
+                      "neutral":  { "type": "double" },
+                      "mixed":  { "type": "double" }
+                    }
+                  },
+                  "entities": {
+                    "type": "keyword"
+                  },
+                  "key_phrases": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "mecab": {
+                "properties": {
+                  "keywords": {
+                    "type": "keyword"
+                  },
+                  "wakati": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "sudachi": {
+                "properties": {
+                  "keywords": {
+                    "type": "keyword"
+                  },
+                  "wakati": {
+                    "type": "keyword"
+                  }
+                }
+              }
+            }
+          }
+        }'
+
+  ComprehendEntitiesTemplate:
+    Type: Custom::ElasticsearchTemplate
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt Elasticsearch.Outputs.ModifyTemplateArn
+      Body: '
+        {
+          "index_patterns": ["comprehend-entities-*"],
+          "settings": {
+            "number_of_shards": 1,
+            "number_of_replicas": 1
+          },
+          "mappings": {
+            "_source": {
+              "enabled": true
+            },
+            "properties": {
+              "score": {
+                "type": "double"
+              },
+              "type": {
+                "type": "keyword"
+              },
+              "text": {
+                "type": "keyword"
+              },
+              "input": {
+                "properties": {
+                  "text": {
+                    "type": "text"
+                  },
+                  "lang": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "metadata": {
+                "properties": {
+                  "request_id": {
+                    "type": "keyword"
+                  },
+                  "date": {
+                    "type": "date",
+                    "format": "epoch_second"
+                  }
+                }
+              }
+            }
+          }
+        }'
 
 Outputs:
 

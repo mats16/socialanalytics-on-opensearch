@@ -13,20 +13,11 @@ If you use AWS ECS first time, you need to create service-linked roles.
 aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
 ```
 
-## Building Lambda Package
+## How to Buid & Deploy
+
 ```bash
 sam build --use-container --skip-pull-image
-
-sam package --template-file .aws-sam/build/template.yaml --output-template-file .aws-sam/build/package.yaml --s3-bucket <your_bucket>
-
-aws cloudformation create-stack --stack-name <your_stack> --template-body file://.aws-sam/build/package.yaml \
-    --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
-    --parameters \
-        ParameterKey=ApplicationName,ParameterValue=<your_application_name> \
-        ParameterKey=AuthConsumerKey,ParameterValue=xxxxxxxxxxxxxxxxxxxxxxxxx \
-        ParameterKey=AuthConsumerSecret,ParameterValue=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-        ParameterKey=AuthAccessToken,ParameterValue=123456789-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-        ParameterKey=AuthAccessTokenSecret,ParameterValue=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+sam deploy --guided
 ```
 
 ***
