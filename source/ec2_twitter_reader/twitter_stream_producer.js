@@ -30,38 +30,49 @@ function twitterStreamProducer() {
   function _sendToFirehose() {
     var kinesis = new AWS.Kinesis({apiVersion: '2013-12-02'});
     var firehose = new AWS.Firehose({ apiVersion: '2015-08-04' });
+    var dest_config = twitter_config.dest;
     var stream = T.stream('statuses/filter', { track: twitter_config.topics, language: twitter_config.languages, filter_level: twitter_config.filter_level, stall_warnings: true });
 
     log.info('start streaming...')
     stream.on('tweet', function (tweet) {
       var tweetString = JSON.stringify(tweet)
-      // Analytics
-      var kinesisParams = {
-        Data: tweetString +'\n',
-        PartitionKey: tweet.id_str,
-        StreamName: twitter_config.analyze_stream_name,
-      };
-      kinesis.putRecord(kinesisParams, function (err, data) {
-        if (err) {
-          log.error(err);
+
+      for (var i = 0; i < dest_config.length; i++) {
+        var dest = dest_config[i];
+        if (dest === 'stdout') {
+          log.info(tweetString)
+        } else if (dest.startsWith('kinesis:')) {
+          const stream_name = dest.split(':')[1];
+          const kinesisParams = {
+            StreamName: stream_name,
+            PartitionKey: tweet.id_str,
+            Data: tweetString +'\n',
+          };
+          kinesis.putRecord(kinesisParams, function (err, data) {
+            if (err) {
+              log.error(err);
+            }
+          });
+        } else if (dest.startsWith('firehose:')) {
+          const stream_name = dest.split(':')[1];
+          const firehoseParams = {
+            DeliveryStreamName: stream_name,
+            Record: {
+              Data: tweetString + '\n'
+            }
+          };
+          firehose.putRecord(firehoseParams, function (err, data) {
+            if (err) {
+              log.error(err);
+            }
+          });
+        } else {
+          log.warn('This destination is not supported. ' + dest);
         }
-      });
-      // Archives
-      var firehoseParams = {
-        DeliveryStreamName: twitter_config.archive_stream_name,
-        Record: {
-          Data: tweetString + '\n'
-        }
-      };
-      firehose.putRecord(firehoseParams, function (err, data) {
-        if (err) {
-          log.error(err);
-        }
-      });
+      }
     }
     );
   }
-
 
   return {
     run: function () {

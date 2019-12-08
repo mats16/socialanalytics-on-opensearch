@@ -279,10 +279,8 @@ Resources:
               Value: !Join [',', !Ref TwitterLanguages]
             - Name: TWITTER_FILTER_LEVEL
               Value: !Ref TwitterFilterLevel
-            - Name: ANALYZE_STREAM
-              Value: !Ref IngestionKinesisStream
-            - Name: ARCHIVE_STREAM
-              Value: !Ref ArchiveFirehoseStream
+            - Name: DESTINATION
+              Value: !Sub 'kinesis:${IngestionKinesisStream},firehose:${ArchiveFirehoseStream}'
             #- Name: AWS_XRAY_TRACING_NAME
             #  Value: twitter-reader
             #- Name: AWS_XRAY_DEBUG_MODE
