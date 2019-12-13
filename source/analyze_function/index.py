@@ -9,8 +9,8 @@ import neologdn
 import emoji
 import re
 from datetime import datetime
+import logging
 
-from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch
 patch(('boto3',))
 
@@ -22,6 +22,9 @@ config = Config(
 )
 comprehend = boto3.client('comprehend', config=config)
 translate = boto3.client('translate', config=config)
+kinesis = boto3.client('kinesis')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 def normalize(text):
     text_without_account = re.sub(r'@[a-zA-Z0-9_]+', '', text)  # remove twitter_account
@@ -171,10 +174,9 @@ def lambda_handler(event, context):
         })
 
     if len(es_records) > 0:
-        kinesis = boto3.client('kinesis')
         res = kinesis.put_records(
             Records=es_records,
             StreamName=indexing_stream
         )
-        print(res)
+        logger.info(res)
     return 'true'

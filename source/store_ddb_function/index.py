@@ -5,15 +5,18 @@ import os
 import boto3
 import decimal
 from datetime import datetime
+import logging
 
 from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch
 patch(('boto3',))
 
 ddb_ttl = 60 * 60 * 24  # 1day
-
 table_name = os.environ['DDB_TABLE']
 ddb = boto3.resource('dynamodb')
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 def fix_empty_strings(tweet_dic):
     """空文字列を None に置換する"""

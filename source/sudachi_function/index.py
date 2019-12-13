@@ -8,12 +8,16 @@ import re
 import emoji
 from datetime import datetime
 import zipfile
-
+import logging
 from sudachipy.tokenizer import Tokenizer
 from sudachipy.dictionary import Dictionary
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 with zipfile.ZipFile('./sudachi-dictionary-20191030-full.zip') as sudachi_dic_zip:
     sudachi_dic_zip.extractall('/tmp')
+    logger.info('unzip sudachi dic to /tmp/sudachi-dictionary-20191030-full')
 
 tokenizer_obj = Dictionary().create()
 mode = Tokenizer.SplitMode.C
@@ -62,15 +66,15 @@ def lambda_handler(event, context):
                 if m.surface() == ' ':
                     continue
                 #sudachi_wakati.append(m.surface())
-                if m.part_of_speech()[0] == '名詞' and len(m.normalized_form()) > 1:
-                    print(m.surface() + '\t' + str(m.part_of_speech()))
+                if m.part_of_speech()[0] == '名詞' and len(m.surface()) > 1:
+                    logger.info(m.surface() + '\t' + str(m.part_of_speech()))
                     if m.part_of_speech()[1] == '固有名詞' or (m.part_of_speech()[1] == '普通名詞' and m.part_of_speech()[2] == '一般'):
-                        sudachi_keywords.append(m.normalized_form())
+                        sudachi_keywords.append(m.surface())
             if len(sudachi_keywords):
                 es_record['sudachi']['keywords'] = list(set(sudachi_keywords))
             #if len(sudachi_wakati):
             #    es_record['sudachi']['wakati'] = ' '.join(sudachi_wakati)
-            print(es_record)
+            logger.info(es_record)
             es_records.append({
                 'Data': json.dumps(es_record) + '\n',
                 'PartitionKey': es_record['_id']
@@ -82,5 +86,5 @@ def lambda_handler(event, context):
             Records=es_records,
             StreamName=indexing_stream
         )
-        print(res)
+        logger.info(res)
     return 'true'

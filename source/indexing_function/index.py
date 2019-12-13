@@ -1,17 +1,21 @@
+# -*- coding: utf-8 -*-
 import json
 import boto3
 import os
 import base64
-
-from aws_xray_sdk.core import patch
-patch(('httplib',))
-
+import logging
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch.client import IndicesClient
 from requests_aws4auth import AWS4Auth
 
+from aws_xray_sdk.core import patch
+patch(('httplib',))
+
 es_host = os.environ['ELASTICSEARCH_HOST']
 region = os.environ['AWS_REGION']
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 def es_bulk_load(data):
     credentials = boto3.Session().get_credentials()
@@ -52,7 +56,8 @@ def lambda_handler(event, context):
 
     if len(bulk_data) > 0:
         res = es_bulk_load(bulk_data)
-        print(res)
+        logger.info(res)
         if res['errors']:
+            logger.error(res['errors'])
             return 'false' 
     return 'true'

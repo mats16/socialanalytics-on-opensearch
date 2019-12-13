@@ -7,12 +7,16 @@ import neologdn
 import emoji
 import re
 from datetime import datetime
-
+import logging
 import zipfile
 import MeCab
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 with zipfile.ZipFile('/opt/neologd.zip') as neologd_zip:
     neologd_zip.extractall('/tmp')
+    logger.info('unzip mecab dic to /tmp/neologd')
 
 indexing_stream = os.environ['INDEXING_STREAM']
 
@@ -62,7 +66,7 @@ def lambda_handler(event, context):
                 #mecab_wakati.append(word)
                 w = node.feature.split(',')
                 if w[0] == '名詞' and len(word) > 1:
-                    print(word + '\t' + str(w))
+                    logger.info(word + '\t' + str(w))
                     if w[1] in ['固有名詞', '一般']:
                         mecab_keywords.append(word)
                 node = node.next
@@ -70,7 +74,6 @@ def lambda_handler(event, context):
                 es_record['mecab']['keywords'] = list(set(mecab_keywords))
             #if len(mecab_wakati):
             #    es_record['mecab']['wakati'] = ' '.join(mecab_wakati)
-            print(es_record)
             es_records.append({
                 'Data': json.dumps(es_record) + '\n',
                 'PartitionKey': es_record['_id']
@@ -82,5 +85,5 @@ def lambda_handler(event, context):
             Records=es_records,
             StreamName=indexing_stream
         )
-        print(res)
+        logger.info(res)
     return 'true'
