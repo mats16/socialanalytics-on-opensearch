@@ -34,7 +34,7 @@ def normalize(text):
     #tmp = re.sub(r'(\d)([,.])(\d+)', r'\1\3', text_without_emoji)
     #text_replaced_number = re.sub(r'\d+', '0', tmp)
     text_replaced_indention = ' '.join(text_without_emoji.splitlines())
-    return text_replaced_indention
+    return text_replaced_indention.lower()
 
 def gen_index(prefix, dtime):
     return prefix + dtime.strftime('%Y-%m-%d')
@@ -47,11 +47,11 @@ def lambda_handler(event, context):
         tweet = json.loads(tweet_string)
 
         if 'retweeted_status' in tweet:
-            is_retweeted = True
+            is_retweet = True
             tweet = tweet['retweeted_status']
             #continue
         else:
-            is_retweeted = False
+            is_retweet = False
         if tweet.get('truncated', False):
             text = tweet['extended_tweet']['full_text']
         else:
@@ -63,34 +63,37 @@ def lambda_handler(event, context):
             '_index': gen_index('tweets-', created_at),
             '_id': tweet['id_str'],
             #'tweetid': tweet['id_str'],
-            'text': text,
-            'normalized_text': normalized_text,
+            'text': normalized_text,
+            'origin_text': text,
             'lang': tweet['lang'],
+            'timestamp_ms': tweet.get('timestamp_ms', str(int(created_at.timestamp()) * 1000)),
             'created_at': created_at.strftime('%s'),
-            'url': 'https://twitter.com/{0}/status/{1}'.format(tweet['user']['screen_name'], tweet['id_str']),
-            'user': {},
+            'is_retweet': is_retweet,
         }
-        for attribute in ['filter_level', 'quote_count', 'reply_count', 'retweet_count', 'favorite_count']:
+        for attribute in ['filter_level', 'quote_count', 'reply_count', 'retweet_count', 'favorite_count', 'is_crawled']:
             if attribute in tweet:
                 es_record[attribute] = tweet[attribute]
         if 'source' in tweet:
             es_record['source'] = BeautifulSoup(tweet['source'], 'html.parser').getText()
-        if 'coordinates' in tweet and tweet['coordinates']:  # None が入ってることがある
+        if tweet.get('coordinates', None):  # None が入ってることがある
             es_record['coordinates'] = tweet['coordinates']['coordinates']
-        #if 'hashtags' in tweet['entities']:
         hashtags = [h['text'].lower() for h in tweet['entities'].get('hashtags', [])]
         if len(hashtags) > 0:
             es_record['hashtags'] = hashtags
-        # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/user-object
-        for attribute in ['id_str', 'name', 'screen_name','followers_count', 'friends_count', 'listed_count', 'favourites_count', 'statuses_count', 'lang']:
-            if attribute in tweet.get('user', {}):
-                es_record['user'][attribute] = tweet['user'][attribute]
+        if 'user' in tweet:
+            es_record['user'] = {}
+            # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/user-object
+            for attribute in ['id_str', 'name', 'screen_name','followers_count', 'friends_count', 'listed_count', 'favourites_count', 'statuses_count', 'lang']:
+                if attribute in tweet['user']:
+                    es_record['user'][attribute] = tweet['user'][attribute]
+        if 'username' in tweet:
+            es_record['username'] = tweet['username']  # クロールしたデータ用
+        else:
+            es_record['username'] = es_record['user']['screen_name']
+        es_record['url'] = f'https://twitter.com/{es_record["username"]}/status/{es_record["_id"]}'
 
-        if not is_retweeted:
+        if not is_retweet:
             # retweet の時は数値の更新のみ。
-            subsegment = xray_recorder.begin_subsegment('inspect-tweet-text')
-            subsegment.put_annotation('_id', tweet['id_str'])
-
             if tweet['lang'] in ['en', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'ja', 'ko', 'zh']:
                 comprehend_text = normalized_text
                 comprehend_lang = tweet['lang']
@@ -166,12 +169,18 @@ def lambda_handler(event, context):
                 es_record['comprehend']['entities'] = list(set(entities))
             if len(key_phrases) > 0:
                 es_record['comprehend']['key_phrases'] = list(set(key_phrases))
-            xray_recorder.end_subsegment()
 
         es_records.append({
             'Data': json.dumps(es_record) + '\n',
             'PartitionKey': es_record['_id']
         })
+        if len(es_records) >= 100:
+            res = kinesis.put_records(
+                Records=es_records,
+                StreamName=indexing_stream
+            )
+            es_records = []  # 初期化
+            logger.info(res)
 
     if len(es_records) > 0:
         res = kinesis.put_records(

@@ -454,7 +454,7 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.6
       MemorySize: 1024
-      Timeout: 300
+      Timeout: 900
       Tracing: Active
       Environment:
         Variables:
@@ -465,9 +465,9 @@ Resources:
           Type: Kinesis
           Properties:
             Stream: !GetAtt IngestionKinesisStream.Arn
-            BatchSize: 30
+            BatchSize: 400
             StartingPosition: LATEST
-            ParallelizationFactor: 5
+            ParallelizationFactor: 10
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -553,7 +553,7 @@ Resources:
   IndexingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: 'Elasticsearch indexing function  - KinesisStream to Elasticsearch '
+      Description: 'Indexing function  - KinesisStream to Elasticsearch '
       CodeUri: source/indexing_function/
       Handler: index.lambda_handler
       Runtime: python3.6
@@ -698,13 +698,17 @@ Resources:
                 "type": "date",
                 "format": "epoch_second"
               },
+              "timestamp_ms": {
+                "type": "date",
+                "format": "epoch_millis"
+              },
               "tweetid": {
                 "type": "keyword"
               },
               "text": {
                 "type": "text"
               },
-              "normalized_text": {
+              "origin_text": {
                 "type": "text"
               },
               "source": {
@@ -736,6 +740,15 @@ Resources:
               },
               "coordinates":{
                 "type": "geo_point"
+              },
+              "is_retweet": {
+                "type": "boolean"
+              },
+              "is_crawled": {
+                "type": "boolean"
+              },
+              "username": {
+                "type": "keyword"
               },
               "user": {
                 "properties": {
