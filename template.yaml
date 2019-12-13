@@ -581,6 +581,28 @@ Resources:
               Resource:
                 - !Sub '${Elasticsearch.Outputs.Arn}/*'
 
+  NotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Notification function'
+      CodeUri: source/notification_function/
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      MemorySize: 128
+      Timeout: 300
+      Tracing: Active
+      #Environment:
+      #  Variables:
+      #    ELASTICSEARCH_HOST: !GetAtt Elasticsearch.Outputs.Endpoint
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt IndexingKinesisStream.Arn
+            BatchSize: 1000
+            StartingPosition: LATEST
+      #Policies: {}
+
   TweetsTable:
     Type: AWS::DynamoDB::Table
     Properties:
