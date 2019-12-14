@@ -11,8 +11,8 @@ from requests_aws4auth import AWS4Auth
 from aws_xray_sdk.core import patch
 patch(('httplib',))
 
-es_host = os.environ['ELASTICSEARCH_HOST']
-region = os.environ['AWS_REGION']
+es_host = os.getenv('ELASTICSEARCH_HOST')
+region = os.getenv('AWS_REGION')
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

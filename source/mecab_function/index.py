@@ -18,11 +18,11 @@ with zipfile.ZipFile('/opt/neologd.zip') as neologd_zip:
     neologd_zip.extractall('/tmp')
     logger.info('unzip mecab dic to /tmp/neologd')
 
-indexing_stream = os.environ['INDEXING_STREAM']
+indexing_stream = os.getenv('INDEXING_STREAM')
 
 def normalize(text):
     text_without_account = re.sub(r'@[a-zA-Z0-9_]+', '', text)  # remove twitter_account
-    text_without_url = re.sub(r'https?://[\w/:%#\$&\?\(\)~\.=\+\-]+', '', text_without_account)  # remove URL
+    text_without_url = re.sub(r'https?://[\w/;:%#\$&\?\(\)~\.=\+\-]+', '', text_without_account)  # remove URL
     text_normalized = neologdn.normalize(text_without_url).replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
     text_without_emoji = ''.join(['' if c in emoji.UNICODE_EMOJI else c for c in text_normalized])
     tmp = re.sub(r'(\d)([,.])(\d+)', r'\1\3', text_without_emoji)

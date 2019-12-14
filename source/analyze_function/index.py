@@ -14,8 +14,8 @@ import logging
 from aws_xray_sdk.core import patch
 patch(('boto3',))
 
-comprehend_entity_score_threshold = float(os.environ['COMPREHEND_ENTITY_SCORE_THRESHOLD'])
-indexing_stream = os.environ['INDEXING_STREAM']
+comprehend_entity_score_threshold = float(os.getenv('COMPREHEND_ENTITY_SCORE_THRESHOLD'))
+indexing_stream = os.getenv('INDEXING_STREAM')
 
 config = Config(
     retries=dict(max_attempts=20)
@@ -28,7 +28,7 @@ logger.setLevel(logging.INFO)
 
 def normalize(text):
     text_without_account = re.sub(r'@[a-zA-Z0-9_]+', '', text)  # remove twitter_account
-    text_without_url = re.sub(r'https?://[\w/:%#\$&\?\(\)~\.=\+\-]+', '', text_without_account)  # remove URL
+    text_without_url = re.sub(r'https?://[\w/;:%#\$&\?\(\)~\.=\+\-]+', '', text_without_account)  # remove URL
     text_normalized = neologdn.normalize(text_without_url).replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
     text_without_emoji = ''.join(['' if c in emoji.UNICODE_EMOJI else c for c in text_normalized])
     #tmp = re.sub(r'(\d)([,.])(\d+)', r'\1\3', text_without_emoji)
@@ -81,15 +81,16 @@ def lambda_handler(event, context):
         if len(hashtags) > 0:
             es_record['hashtags'] = hashtags
         if 'user' in tweet:
+            es_record['username'] = tweet['user']['screen_name']
             es_record['user'] = {}
             # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/user-object
             for attribute in ['id_str', 'name', 'screen_name','followers_count', 'friends_count', 'listed_count', 'favourites_count', 'statuses_count', 'lang']:
                 if attribute in tweet['user']:
                     es_record['user'][attribute] = tweet['user'][attribute]
-        if 'username' in tweet:
+        elif 'username' in tweet:
             es_record['username'] = tweet['username']  # クロールしたデータ用
         else:
-            es_record['username'] = es_record['user']['screen_name']
+            logger.warn(f"this tweet don't have 'username'. {json.dumps(tweet)}")
         es_record['url'] = f'https://twitter.com/{es_record["username"]}/status/{es_record["_id"]}'
 
         if not is_retweet:

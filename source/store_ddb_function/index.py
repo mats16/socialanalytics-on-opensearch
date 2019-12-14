@@ -12,7 +12,7 @@ from aws_xray_sdk.core import patch
 patch(('boto3',))
 
 ddb_ttl = 60 * 60 * 24  # 1day
-table_name = os.environ['DDB_TABLE']
+table_name = os.getenv('DDB_TABLE')
 ddb = boto3.resource('dynamodb')
 
 logger = logging.getLogger(__name__)
