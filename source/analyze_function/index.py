@@ -10,6 +10,7 @@ import emoji
 import re
 from datetime import datetime
 import logging
+import hashlib
 
 from aws_xray_sdk.core import patch
 patch(('boto3',))
@@ -118,14 +119,16 @@ def lambda_handler(event, context):
                 LanguageCode=comprehend_lang
             )
             #print(entities_response)
-            # 分液用に Elasticsearch に送っておく
+            # 分析用に Elasticsearch に送っておく
             d = datetime.strptime(entities_response['ResponseMetadata']['HTTPHeaders']['date'], '%a, %d %b %Y %H:%M:%S %Z')
             for entity in entities_response['Entities']:
+                hashid = hashlib.md5((tweet['id_str'] + entity['Text']).encode('utf-8')).hexdigest()
                 es_records.append({
                     'PartitionKey': entities_response['ResponseMetadata']['RequestId'],
                     'Data': json.dumps({
-                        'op_type': 'index',
-                        '_index': gen_index('comprehend-entities-', d),
+                        'op_type': 'update',
+                        '_index': 'comprehend-entities-score',
+                        '_id': hashid,
                         'score': entity['Score'],
                         'type': entity['Type'],
                         'text': entity['Text'],
