@@ -85,11 +85,15 @@ def lambda_handler(event, context):
             es_record['username'] = tweet['user']['screen_name']
             es_record['user'] = {}
             # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/user-object
-            for attribute in ['id_str', 'name', 'screen_name','followers_count', 'friends_count', 'listed_count', 'favourites_count', 'statuses_count', 'lang']:
+            for attribute in ['id_str', 'name', 'screen_name', 'lang']:
                 if attribute in tweet['user']:
                     es_record['user'][attribute] = tweet['user'][attribute]
-        elif 'username' in tweet:
-            es_record['username'] = tweet['username']  # クロールしたデータ用
+            if not is_retweet: # retweet の場合フォロワー数とか上書きしてしまうので
+                for attribute in ['followers_count', 'friends_count', 'listed_count', 'favourites_count', 'statuses_count']:
+                    if attribute in tweet['user']:
+                        es_record['user'][attribute] = tweet['user'][attribute]
+        elif 'username' in tweet:  # クロールしたデータ用
+            es_record['username'] = tweet['username']
         else:
             logger.warn(f"this tweet don't have 'username'. {json.dumps(tweet)}")
         es_record['url'] = f'https://twitter.com/{es_record["username"]}/status/{es_record["_id"]}'
