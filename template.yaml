@@ -1,6 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'AI-Driven Social Media Dashboard-Kibana. Template Version 1'
 Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: serverless-social-media-dashboard
+    Description: "Serverless Social Media Dashboard"
+    Author: Kazuki Matsuda
+    SpdxLicenseId: Apache-2.0
+    LicenseUrl: LICENSE
+    ReadmeUrl: README.md
+    Labels: ['serverless', 'fargate', 'lambda', 'kinesis', 'elasticsearch', 'twitter']
+    HomePageUrl: https://github.com/mats16/serverless-social-media-dashboard
+    SemanticVersion: 0.0.1
+    SourceCodeUrl: https://github.com/mats16/serverless-social-media-dashboard
+
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
