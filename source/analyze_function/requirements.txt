@@ -1,0 +1,4 @@
+aws-xray-sdk==2.4.2
+beautifulsoup4==4.8.1
+emoji==0.5.4
+neologdn==0.4

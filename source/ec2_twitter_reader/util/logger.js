@@ -18,14 +18,14 @@ permissions and limitations under the License.
 var log4js = require('log4js');
 
 function logger() {
-  var logDir = process.env.NODE_LOG_DIR !== undefined ? process.env.NODE_LOG_DIR : '.';
+  // var logDir = process.env.NODE_LOG_DIR !== undefined ? process.env.NODE_LOG_DIR : '.';
 
   var config = {
     "appenders": [
       {
-        "type": "file",
-        "filename": logDir + "/" + "application.log",
-        "pattern": "-yyyy-MM-dd",
+        "type": "console",
+        // "filename": logDir + "/" + "application.log",
+        // "pattern": "-yyyy-MM-dd",
         "layout": {
           "type": "pattern",
           "pattern": "%d (PID: %x{pid}) %p %c - %m",
