@@ -692,7 +692,7 @@ Resources:
               "text": {
                 "type": "text"
               },
-              "origin_text": {
+              "normalized_text": {
                 "type": "text"
               },
               "source": {

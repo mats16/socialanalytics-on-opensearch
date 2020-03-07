@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 import neologdn
 import emoji
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import logging
 import hashlib
 
@@ -53,21 +53,25 @@ def lambda_handler(event, context):
             #continue
         else:
             is_retweet = False
+
+        created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
+        if created_at < (datetime.now(timezone.utc) - timedelta(days=180)):
+            continue  # 180日以上前の場合はスキップ
+
         if tweet.get('truncated', False):
             text = tweet['extended_tweet']['full_text']
         else:
             text = tweet['text']
-        created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
         normalized_text = normalize(text)
         es_record = {
             'op_type': 'update',
             '_index': gen_index('tweets-', created_at),
             '_id': tweet['id_str'],
             #'tweetid': tweet['id_str'],
-            'text': normalized_text,
-            'origin_text': text,
+            'text': text,
+            'normalized_text': normalized_text,
             'lang': tweet['lang'],
-            'timestamp_ms': tweet.get('timestamp_ms', str(int(created_at.timestamp()) * 1000)),
+            'timestamp_ms': tweet.get('timestamp_ms', str(int(created_at.timestamp()) * 1000)),  #　retweet の場合、timestamp_ms が存在しない
             'created_at': created_at.strftime('%s'),
             'is_retweet': is_retweet,
         }
@@ -88,7 +92,7 @@ def lambda_handler(event, context):
             for attribute in ['id_str', 'name', 'screen_name', 'lang']:
                 if attribute in tweet['user']:
                     es_record['user'][attribute] = tweet['user'][attribute]
-            if not is_retweet: # retweet の場合フォロワー数とか上書きしてしまうので
+            if not is_retweet: # retweet の場合、フォロワー数とか上書きしてしまうので
                 for attribute in ['followers_count', 'friends_count', 'listed_count', 'favourites_count', 'statuses_count']:
                     if attribute in tweet['user']:
                         es_record['user'][attribute] = tweet['user'][attribute]
