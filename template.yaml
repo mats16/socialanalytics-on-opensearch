@@ -82,6 +82,9 @@ Parameters:
     Type: CommaDelimitedList
     Description: Specific domains allowed to register on Cognito
     Default: amazon.com,amazon.co.jp
+  MecabLambdaLayerArn:
+    Type: String
+    Default: 'arn:aws:lambda:us-east-1:345513370492:layer:mecab-neologd-python3:2'
 
 Transform: "AWS::Serverless-2016-10-31"
 Resources:
@@ -494,7 +497,7 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.6
       Layers:
-        - 'arn:aws:lambda:us-east-1:345513370492:layer:mecab-neologd-python3:2'
+        - !Ref MecabLambdaLayerArn
       MemorySize: 1024
       Timeout: 300
       Tracing: Active
@@ -580,28 +583,6 @@ Resources:
                 - es:ESHttpPost
               Resource:
                 - !Sub '${Elasticsearch.Outputs.Arn}/*'
-
-  NotificationFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Description: 'Notification function'
-      CodeUri: source/notification_function/
-      Handler: index.lambda_handler
-      Runtime: python3.6
-      MemorySize: 128
-      Timeout: 300
-      Tracing: Active
-      #Environment:
-      #  Variables:
-      #    ELASTICSEARCH_HOST: !GetAtt Elasticsearch.Outputs.Endpoint
-      Events:
-        Stream:
-          Type: Kinesis
-          Properties:
-            Stream: !GetAtt IndexingKinesisStream.Arn
-            BatchSize: 1000
-            StartingPosition: LATEST
-      #Policies: {}
 
   TweetsTable:
     Type: AWS::DynamoDB::Table
