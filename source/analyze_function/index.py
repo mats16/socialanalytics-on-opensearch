@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 import neologdn
 import emoji
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import logging
 import hashlib
 
@@ -53,11 +53,15 @@ def lambda_handler(event, context):
             #continue
         else:
             is_retweet = False
+
+        created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
+        if created_at < (datetime.now(timezone.utc) - timedelta(days=180)):
+            continue  # 180日以上前の場合はスキップ
+
         if tweet.get('truncated', False):
             text = tweet['extended_tweet']['full_text']
         else:
             text = tweet['text']
-        created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
         normalized_text = normalize(text)
         es_record = {
             'op_type': 'update',

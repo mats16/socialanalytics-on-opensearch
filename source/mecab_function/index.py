@@ -6,7 +6,7 @@ import boto3
 import neologdn
 import emoji
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import logging
 import zipfile
 import MeCab
@@ -49,8 +49,11 @@ def lambda_handler(event, context):
         else:
             is_retweeted = False
 
+        created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
+        if created_at < (datetime.now(timezone.utc) - timedelta(days=180)):
+            continue  # 180日以上前の場合はスキップ
+
         if not is_retweeted and tweet['lang'] == 'ja':
-            created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
             es_record = {
                 'op_type': 'update',
                 '_index': gen_index('tweets-', created_at),
