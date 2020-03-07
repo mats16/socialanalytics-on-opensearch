@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'AI-Driven Social Media Dashboard-Kibana. Template Version 1'
+Description: 'Serverless Social Media Dashboard (Kibana)'
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: serverless-social-media-dashboard
