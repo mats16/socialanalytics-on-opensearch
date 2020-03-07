@@ -534,37 +534,6 @@ Resources:
                 - 'kinesis:PutRecords'
               Resource: !GetAtt IndexingKinesisStream.Arn
 
-  SudachiFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Description: 'Sudachi function'
-      CodeUri: source/sudachi_function/
-      Handler: index.lambda_handler
-      Runtime: python3.6
-      MemorySize: 1536
-      Timeout: 300
-      Tracing: Active
-      Environment:
-        Variables:
-          INDEXING_STREAM: !Ref IndexingKinesisStream
-      Events:
-        Stream:
-          Type: Kinesis
-          Properties:
-            Stream: !GetAtt IngestionKinesisStream.Arn
-            BatchSize: 200
-            StartingPosition: LATEST
-            ParallelizationFactor: 1
-      Policies:
-        - Version: "2012-10-17"
-          Statement:
-            - Sid: KinesisAccess
-              Effect: Allow
-              Action:
-                - 'kinesis:PutRecord'
-                - 'kinesis:PutRecords'
-              Resource: !GetAtt IndexingKinesisStream.Arn
-
   IndexingFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -824,16 +793,6 @@ Resources:
                 }
               },
               "mecab": {
-                "properties": {
-                  "keywords": {
-                    "type": "keyword"
-                  },
-                  "wakati": {
-                    "type": "keyword"
-                  }
-                }
-              },
-              "sudachi": {
                 "properties": {
                   "keywords": {
                     "type": "keyword"
