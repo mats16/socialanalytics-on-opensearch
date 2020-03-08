@@ -10,7 +10,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['serverless', 'fargate', 'lambda', 'kinesis', 'elasticsearch', 'twitter']
     HomePageUrl: https://github.com/mats16/serverless-social-media-dashboard
-    SemanticVersion: 0.0.1
+    SemanticVersion: 0.0.2
     SourceCodeUrl: https://github.com/mats16/serverless-social-media-dashboard
 
   AWS::CloudFormation::Interface:
@@ -55,7 +55,7 @@ Parameters:
   TwitterReaderDockerImage:
     Description: Twitter Streaming Reader 
     Type: String
-    Default: 983035974902.dkr.ecr.us-east-1.amazonaws.com/ai-driven-social-media-dashboard/twitter-reader:latest
+    Default: 983035974902.dkr.ecr.us-east-1.amazonaws.com/serverless-social-media-dashboard/twitter-reader:0.0.2
   AuthAccessToken:
     Description: Access Token for calling twitter
     Type: String
@@ -168,13 +168,7 @@ Resources:
                 Action:
                   - 'kinesis:PutRecord'
                   - 'kinesis:PutRecords'
-                Resource: !GetAtt IngestionKinesisStream.Arn
-              - Sid: FirehoseAccess
-                Effect: Allow
-                Action:
-                  - 'firehose:PutRecord'
-                  - 'firehose:PutRecords'
-                Resource: !GetAtt ArchiveFirehoseStream.Arn
+                Resource: !GetAtt RealtimeIngestionStream.Arn
 
   TwitterReaderTaskExecutionRole:
     Type: AWS::IAM::Role
@@ -295,11 +289,7 @@ Resources:
             - Name: TWITTER_FILTER_LEVEL
               Value: !Ref TwitterFilterLevel
             - Name: DESTINATION
-              Value: !Sub 'kinesis:${IngestionKinesisStream},firehose:${ArchiveFirehoseStream}'
-            #- Name: AWS_XRAY_TRACING_NAME
-            #  Value: twitter-reader
-            #- Name: AWS_XRAY_DEBUG_MODE
-            #  Value: 'TRUE'
+              Value: !Sub 'kinesis:${RealtimeIngestionStream}'
           Secrets:
             - Name: CONSUMER_KEY
               ValueFrom: !Ref AuthConsumerManagerSecret
@@ -316,15 +306,6 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-group: !Ref TwitterStreamingReaderLogGroup
               awslogs-stream-prefix: twitter-reader
-        #- Name: xray-daemon
-        #  Image: amazon/aws-xray-daemon:latest
-        #  Essential: "true"
-        #  LogConfiguration:
-        #    LogDriver: awslogs
-        #    Options:
-        #      awslogs-region: !Ref AWS::Region
-        #      awslogs-group: !Ref TwitterStreamingReaderLogGroup
-        #      awslogs-stream-prefix: xray-daemon
 
   TwitterStreamingReaderLogGroup: 
     Type: AWS::Logs::LogGroup
@@ -353,7 +334,7 @@ Resources:
             - !Ref PublicSubnet1
       TaskDefinition: !Ref TwitterStreamingReaderTaskDef
 
-  IngestionKinesisStream:
+  RealtimeIngestionStream:
     Type: AWS::Kinesis::Stream
     Properties: 
       RetentionPeriodHours: 24
@@ -362,7 +343,16 @@ Resources:
         EncryptionType: KMS
         KeyId: alias/aws/kinesis
 
-  IndexingKinesisStream:
+  OndemandIngestionStream:
+    Type: AWS::Kinesis::Stream
+    Properties: 
+      RetentionPeriodHours: 24
+      ShardCount: 1
+      StreamEncryption: 
+        EncryptionType: KMS
+        KeyId: alias/aws/kinesis
+
+  IndexingStream:
     Type: AWS::Kinesis::Stream
     Properties: 
       RetentionPeriodHours: 24
@@ -374,6 +364,10 @@ Resources:
   ArchiveFirehoseStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
+      DeliveryStreamType: KinesisStreamAsSource
+      KinesisStreamSourceConfiguration:
+        KinesisStreamARN: !GetAtt RealtimeIngestionStream.Arn
+        RoleARN: !GetAtt ArchiveFirehoseRole.Arn
       ExtendedS3DestinationConfiguration:
         BucketARN: !GetAtt TweetsBucket.Arn
         BufferingHints:
@@ -405,7 +399,7 @@ Resources:
                 Action:
                   - 'kinesis:Get*'
                   - 'kinesis:DescribeStream'
-                Resource: !GetAtt IngestionKinesisStream.Arn
+                Resource: !GetAtt RealtimeIngestionStream.Arn
         - PolicyName: S3Access
           PolicyDocument:
             Version: 2012-10-17
@@ -447,7 +441,7 @@ Resources:
         Stream:
           Type: Kinesis
           Properties:
-            Stream: !GetAtt IngestionKinesisStream.Arn
+            Stream: !GetAtt RealtimeIngestionStream.Arn
             BatchSize: 200
             StartingPosition: LATEST
             ParallelizationFactor: 1
@@ -461,10 +455,10 @@ Resources:
                 - 'dynamodb:PutItem'
               Resource: !GetAtt TweetsTable.Arn
 
-  AnalyzeFunction:
+  AnalyticsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: 'Analyzing function'
+      Description: 'Analytics Function'
       CodeUri: source/analyze_function/
       Handler: index.lambda_handler
       Runtime: python3.6
@@ -474,15 +468,16 @@ Resources:
       Environment:
         Variables:
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
-          INDEXING_STREAM: !Ref IndexingKinesisStream
+          INDEXING_STREAM: !Ref IndexingStream
       Events:
         Stream:
           Type: Kinesis
           Properties:
-            Stream: !GetAtt IngestionKinesisStream.Arn
-            BatchSize: 400
+            Stream: !GetAtt RealtimeIngestionStream.Arn
             StartingPosition: LATEST
-            ParallelizationFactor: 10
+            ParallelizationFactor: 1
+            BatchSize: 200
+            MaximumRecordAgeInSeconds: 300
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -499,12 +494,23 @@ Resources:
               Action:
                 - 'kinesis:PutRecord'
                 - 'kinesis:PutRecords'
-              Resource: !GetAtt IndexingKinesisStream.Arn
+              Resource: !GetAtt IndexingStream.Arn
+
+  OndemandIngestionToAnalytics:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      FunctionName: !GetAtt AnalyticsFunction.Arn
+      EventSourceArn: !GetAtt OndemandIngestionStream.Arn
+      StartingPosition: LATEST
+      ParallelizationFactor: 10
+      BatchSize: 400
+      MaximumRecordAgeInSeconds: 86400
+      #MaximumBatchingWindowInSeconds: Integer
 
   MecabFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: 'MeCab function'
+      Description: 'MeCab Function'
       CodeUri: source/mecab_function/
       Handler: index.lambda_handler
       Runtime: python3.6
@@ -515,15 +521,16 @@ Resources:
       Tracing: Active
       Environment:
         Variables:
-          INDEXING_STREAM: !Ref IndexingKinesisStream
+          INDEXING_STREAM: !Ref IndexingStream
       Events:
         Stream:
           Type: Kinesis
           Properties:
-            Stream: !GetAtt IngestionKinesisStream.Arn
-            BatchSize: 200
+            Stream: !GetAtt RealtimeIngestionStream.Arn
             StartingPosition: LATEST
             ParallelizationFactor: 1
+            BatchSize: 200
+            MaximumRecordAgeInSeconds: 300
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -532,7 +539,18 @@ Resources:
               Action:
                 - 'kinesis:PutRecord'
                 - 'kinesis:PutRecords'
-              Resource: !GetAtt IndexingKinesisStream.Arn
+              Resource: !GetAtt IndexingStream.Arn
+
+  OndemandIngestionToMecab:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      FunctionName: !GetAtt MecabFunction.Arn
+      EventSourceArn: !GetAtt OndemandIngestionStream.Arn
+      StartingPosition: LATEST
+      ParallelizationFactor: 1
+      BatchSize: 200
+      MaximumRecordAgeInSeconds: 86400
+      #MaximumBatchingWindowInSeconds: Integer
 
   IndexingFunction:
     Type: AWS::Serverless::Function
@@ -551,7 +569,7 @@ Resources:
         Stream:
           Type: Kinesis
           Properties:
-            Stream: !GetAtt IndexingKinesisStream.Arn
+            Stream: !GetAtt IndexingStream.Arn
             BatchSize: 1000
             StartingPosition: LATEST
       Policies:
