@@ -40,7 +40,7 @@ function twitterStreamProducer() {
       for (var i = 0; i < dest_config.length; i++) {
         var dest = dest_config[i];
         if (dest === 'stdout') {
-          log.info(tweetString)
+          console.log(tweetString)
         } else if (dest.startsWith('kinesis:')) {
           const stream_name = dest.split(':')[1];
           const kinesisParams = {
