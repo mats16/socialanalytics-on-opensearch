@@ -1,5 +1,0 @@
-emoji==0.5.4
-neologdn==0.4
-SudachiPy==0.2.0.1
-#https://object-storage.tyo2.conoha.io/v1/nc_2520839e1f9641b08211a5c85243124a/sudachi/SudachiDict_core-20191030.tar.gz
-#https://object-storage.tyo2.conoha.io/v1/nc_2520839e1f9641b08211a5c85243124a/sudachi/SudachiDict_full-20191030.tar.gz

@@ -55,8 +55,8 @@ def lambda_handler(event, context):
             is_retweet = False
 
         created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
-        if created_at < (datetime.now(timezone.utc) - timedelta(days=180)):
-            continue  # 180日以上前の場合はスキップ
+        if created_at < (datetime.now(timezone.utc) - timedelta(days=365)):
+            continue  # 365日以上前の場合はスキップ
 
         if tweet.get('truncated', False):
             text = tweet['extended_tweet']['full_text']
