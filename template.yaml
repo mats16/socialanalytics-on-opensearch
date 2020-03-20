@@ -1,4 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Transform: "AWS::Serverless-2016-10-31"
 Description: 'Serverless Social Media Dashboard (Kibana)'
 Metadata:
   AWS::ServerlessRepo::Application:
@@ -55,7 +56,7 @@ Parameters:
   TwitterReaderDockerImage:
     Description: Twitter Streaming Reader 
     Type: String
-    Default: 983035974902.dkr.ecr.us-east-1.amazonaws.com/serverless-social-media-dashboard/twitter-reader:0.0.2
+    Default: mats16/twitter-streaming-reader:0.1.0
   AuthAccessToken:
     Description: Access Token for calling twitter
     Type: String
@@ -96,9 +97,11 @@ Parameters:
     Default: amazon.com,amazon.co.jp
   MecabLambdaLayerArn:
     Type: String
-    Default: 'arn:aws:lambda:us-east-1:345513370492:layer:mecab-neologd-python3:2'
+    Default: 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1'
 
-Transform: "AWS::Serverless-2016-10-31"
+Conditions:
+  CreateMecabLambda: !Not [!Equals [!Ref MecabLambdaLayerArn, 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1']]
+
 Resources:
 
   AuthConsumerSecretManagerSecret:
@@ -504,11 +507,12 @@ Resources:
       StartingPosition: LATEST
       ParallelizationFactor: 10
       BatchSize: 400
-      MaximumRecordAgeInSeconds: 86400
+      MaximumRecordAgeInSeconds: 604800
       #MaximumBatchingWindowInSeconds: Integer
 
   MecabFunction:
     Type: AWS::Serverless::Function
+    Condition: CreateMecabLambda
     Properties:
       Description: 'MeCab Function'
       CodeUri: source/mecab_function/
@@ -543,13 +547,14 @@ Resources:
 
   OndemandIngestionToMecab:
     Type: AWS::Lambda::EventSourceMapping
+    Condition: CreateMecabLambda
     Properties:
       FunctionName: !GetAtt MecabFunction.Arn
       EventSourceArn: !GetAtt OndemandIngestionStream.Arn
       StartingPosition: LATEST
       ParallelizationFactor: 1
       BatchSize: 200
-      MaximumRecordAgeInSeconds: 86400
+      MaximumRecordAgeInSeconds: 604800
       #MaximumBatchingWindowInSeconds: Integer
 
   IndexingFunction:
