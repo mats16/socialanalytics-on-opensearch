@@ -28,7 +28,6 @@ Metadata:
         Parameters:
           - ApplicationName
           - VpcCIDR
-          - PublicSubnet1CIDR
       - Label:
           default: Twitter API Parameters
         Parameters:
@@ -82,10 +81,6 @@ Parameters:
     Description: Please enter the IP range (CIDR notation) for this VPC
     Type: String
     Default: 10.193.0.0/16
-  PublicSubnet1CIDR:
-    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
-    Type: String
-    Default: 10.193.10.0/24
   ComprehendEntityScoreThreshold:
     Type: Number
     Default: 0.7
@@ -228,11 +223,33 @@ Resources:
       Properties:
           VpcId: !Ref VPC
           AvailabilityZone: !Select [ 0, !GetAZs ]
-          CidrBlock: !Ref PublicSubnet1CIDR
+          CidrBlock: !Select [ 0, !Cidr [ !Ref VpcCIDR, 6, 8 ] ]
           MapPublicIpOnLaunch: true
           Tags:
               - Key: Name
                 Value: !Sub ${ApplicationName} Public Subnet (AZ1)
+
+  PublicSubnet2:
+      Type: AWS::EC2::Subnet
+      Properties:
+          VpcId: !Ref VPC
+          AvailabilityZone: !Select [ 1, !GetAZs ]
+          CidrBlock: !Select [ 1, !Cidr [ !Ref VpcCIDR, 6, 8 ] ]
+          MapPublicIpOnLaunch: true
+          Tags:
+              - Key: Name
+                Value: !Sub ${ApplicationName} Public Subnet (AZ2)
+
+  PublicSubnet3:
+      Type: AWS::EC2::Subnet
+      Properties:
+          VpcId: !Ref VPC
+          AvailabilityZone: !Select [ 2, !GetAZs ]
+          CidrBlock: !Select [ 2, !Cidr [ !Ref VpcCIDR, 6, 8 ] ]
+          MapPublicIpOnLaunch: true
+          Tags:
+              - Key: Name
+                Value: !Sub ${ApplicationName} Public Subnet (AZ3)
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -250,11 +267,23 @@ Resources:
           DestinationCidrBlock: 0.0.0.0/0
           GatewayId: !Ref InternetGateway
 
-  PublicSubnet1RouteTableAssociation:
+  PublicSubnet1RouteTableAssociation1:
       Type: AWS::EC2::SubnetRouteTableAssociation
       Properties:
           RouteTableId: !Ref PublicRouteTable
           SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet1RouteTableAssociation2:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+          RouteTableId: !Ref PublicRouteTable
+          SubnetId: !Ref PublicSubnet2
+
+  PublicSubnet1RouteTableAssociation3:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+          RouteTableId: !Ref PublicRouteTable
+          SubnetId: !Ref PublicSubnet3
 
   TweetsBucket:
     Type: AWS::S3::Bucket
@@ -335,6 +364,8 @@ Resources:
             - !Ref TwitterReaderSecurityGroup
           Subnets:
             - !Ref PublicSubnet1
+            - !Ref PublicSubnet2
+            - !Ref PublicSubnet3
       TaskDefinition: !Ref TwitterStreamingReaderTaskDef
 
   RealtimeIngestionStream:
