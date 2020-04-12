@@ -133,18 +133,18 @@ Resources:
   TwitterReaderSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group for EC2 Twitter Reader
+      GroupDescription: Security Group for ECS Twitter Reader
       VpcId: !Ref VPC
       Tags:
-      - Key: Name
-        Value: TwitterReaderSecurityGroup
-      - Key: ResourceGroup
-        Value: CloudFormationResource
-      - Key: Project
-        Value: !Join ['-', [!Ref 'ApplicationName', !Ref 'AWS::Region']]
+        - Key: Name
+          Value: TwitterReaderSecurityGroup
+        - Key: ResourceGroup
+          Value: CloudFormationResource
+        - Key: Project
+          Value: !Join ['-', [!Ref 'ApplicationName', !Ref 'AWS::Region']]
       SecurityGroupEgress:
-      - CidrIp: 0.0.0.0/0
-        IpProtocol: "-1"
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: "-1"
 
   TwitterReaderTaskRole:
     Type: AWS::IAM::Role
@@ -171,7 +171,7 @@ Resources:
                   - 'kinesis:PutRecords'
                 Resource: !GetAtt RealtimeIngestionStream.Arn
 
-  TwitterReaderTaskExecutionRole:
+  TaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -301,6 +301,15 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: "AES256"
 
+  EcsLogGroup: 
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub ${ApplicationName}/ecs
+      RetentionInDays: 365
+
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+
   TwitterStreamingReaderTaskDef: 
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -308,10 +317,10 @@ Resources:
       RequiresCompatibilities: 
         - "FARGATE"
       NetworkMode: awsvpc
-      Cpu: "512"
-      Memory: "1024"
+      Cpu: "256"
+      Memory: "512"
       TaskRoleArn: !Ref TwitterReaderTaskRole
-      ExecutionRoleArn: !Ref TwitterReaderTaskExecutionRole
+      ExecutionRoleArn: !Ref TaskExecutionRole
       ContainerDefinitions: 
         - Name: twitter-reader
           Image: !Ref TwitterReaderDockerImage
@@ -339,27 +348,16 @@ Resources:
             LogDriver: awslogs
             Options:
               awslogs-region: !Ref AWS::Region
-              awslogs-group: !Ref TwitterStreamingReaderLogGroup
+              awslogs-group: !Ref EcsLogGroup
               awslogs-stream-prefix: twitter-reader
 
-  TwitterStreamingReaderLogGroup: 
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /ecs/${ApplicationName}
-      RetentionInDays: 7
-
-  TwitterStreamingReaderCluster:
-    Type: AWS::ECS::Cluster
-    Properties: 
-      ClusterName: !Ref ApplicationName
-
-  TwitterStreamingReaderService:
+  TwitterStreamingReader:
     Type: AWS::ECS::Service
     Properties:
-      Cluster: !Ref TwitterStreamingReaderCluster
-      ServiceName: twitter-streaming-reader
+      Cluster: !Ref EcsCluster
       DesiredCount: 1
       LaunchType: FARGATE
+      PlatformVersion: 1.4.0
       NetworkConfiguration: 
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED

@@ -17,7 +17,7 @@ If you need to host own docker images, pleas build image.
 
 ### Build & Deploy MeCab Lambda Layer
 
-If you want to analyze japanese with MeCab, please deploy [lambda-layer-mecab-neologd-python3](https://github.com/mats16/lambda-layer-mecab-neologd-python3) in your own AWS account.
+If you want to analyze japanese with MeCab, please deploy [lambda-layer-mecab-neologd](https://github.com/mats16/lambda-layer-mecab-neologd) in your own AWS account.
 
 ## Installing the AWS SAM CLI
 
