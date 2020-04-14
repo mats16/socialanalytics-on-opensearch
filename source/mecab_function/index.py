@@ -10,6 +10,11 @@ from datetime import datetime, timedelta, timezone
 import logging
 import zipfile
 import MeCab
+import termextract.mecab
+import termextract.core
+from collections import Counter
+
+indexing_stream = os.getenv('INDEXING_STREAM')
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -17,8 +22,46 @@ logger.setLevel(logging.INFO)
 with zipfile.ZipFile('/opt/neologd.zip') as neologd_zip:
     neologd_zip.extractall('/tmp')
     logger.info('unzip mecab dic to /tmp/neologd')
+mecab = MeCab.Tagger ('-Ochasen -d /tmp/neologd')
+mecab.parse('')
 
-indexing_stream = os.getenv('INDEXING_STREAM')
+def get_mecab_keywords(text):
+    keywords = []
+    node = mecab.parseToNode(text)
+    while node:
+        if node.surface:
+            word = node.surface
+            tags = node.feature.split(',')
+            if tags[0] == '名詞' and len(word) > 1:
+                if tags[1] == '固有名詞':
+                    keywords.append(word)
+        node = node.next
+    return list(set(keywords))
+
+def get_mecab_tagged(text):
+    node = mecab.parseToNode(text)
+    buf = ''
+    while node:
+        if node.surface:
+            buf += node.surface + '\t' + node.feature + '\n'
+        node = node.next
+    return buf
+
+def term_ext(tagged_text):
+    frequency = termextract.mecab.cmp_noun_dict(tagged_text)
+    lr = termextract.core.score_lr(
+        frequency,
+        ignore_words=termextract.mecab.IGNORE_WORDS,
+        lr_mode=1, average_rate=1)
+    term_imp = termextract.core.term_importance(frequency, lr)
+    return Counter(term_imp)
+
+def remove_single_words(terms):
+    c = Counter()
+    for cmp, value in terms.items():
+        if len(cmp.split(' ')) != 1:
+            c[termextract.core.modify_agglutinative_lang(cmp)] = value
+    return c
 
 def normalize(text):
     text_without_account = re.sub(r'@[a-zA-Z0-9_]+', '', text)  # remove twitter_account
@@ -34,8 +77,6 @@ def gen_index(prefix, dtime):
     return prefix + dtime.strftime('%Y-%m-%d')
 
 def lambda_handler(event, context):
-    tokenizer = MeCab.Tagger ('-d /tmp/neologd')
-    tokenizer.parse('')
     es_records = []
     for record in event['Records']:
         b64_data = record['kinesis']['data']
@@ -60,23 +101,22 @@ def lambda_handler(event, context):
                 '_id': tweet['id_str'],
                 'mecab': {},
             }
+            keywords = []
             normalized_text = normalize(tweet['text'])
-            node = tokenizer.parseToNode(normalized_text)
-            #mecab_wakati = []
-            mecab_keywords = []
-            while node:
-                word = node.surface
-                #mecab_wakati.append(word)
-                w = node.feature.split(',')
-                if w[0] == '名詞' and len(word) > 1:
-                    logger.info(word + '\t' + str(w))
-                    if w[1] in ['固有名詞', '一般']:
-                        mecab_keywords.append(word)
-                node = node.next
+            mecab_keywords = get_mecab_keywords(normalized_text)
             if len(mecab_keywords):
-                es_record['mecab']['keywords'] = list(set(mecab_keywords))
-            #if len(mecab_wakati):
-            #    es_record['mecab']['wakati'] = ' '.join(mecab_wakati)
+                logger.info(mecab_keywords)
+                keywords = keywords + mecab_keywords
+
+            tagged_text = get_mecab_tagged(normalized_text)
+            terms = term_ext(tagged_text)
+            compound = remove_single_words(terms)
+            if len(compound):
+                logger.info(compound)
+                keywords = keywords + list(compound.keys())
+
+            if len(keywords):
+                es_record['mecab']['keywords'] = list(set(keywords))
             es_records.append({
                 'Data': json.dumps(es_record) + '\n',
                 'PartitionKey': es_record['_id']
