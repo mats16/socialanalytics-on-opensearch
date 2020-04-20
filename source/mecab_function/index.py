@@ -74,7 +74,7 @@ def normalize(text):
     return text_replaced_indention.lower()
 
 def gen_index(prefix, dtime):
-    return prefix + dtime.strftime('%Y-%m-%d')
+    return prefix + dtime.strftime('%Y-%m')
 
 def lambda_handler(event, context):
     es_records = []
