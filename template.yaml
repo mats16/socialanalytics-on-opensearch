@@ -18,26 +18,29 @@ Metadata:
     ParameterGroups:
       - Label:
           default: Tweets Configuration
-        Parameters:
-          - TwitterTermList
-          - TwitterLanguages
-          - TwitterFilterLevel
-          - TwitterReaderDockerImage
-      - Label:
-          default: AWS Environment Parameters
-        Parameters:
-          - ApplicationName
-          - VpcCIDR
-          - ComprehendEntityScoreThreshold
-          - CognitoAllowedEmailDomains
-          - MecabLambdaLayerArn
+          Parameters:
+            - TwitterTermList
+            - TwitterLanguages
+            - TwitterFilterLevel
+            - TwitterReaderDockerImage
       - Label:
           default: Twitter API Parameters
-        Parameters:
-          - AuthConsumerKey
-          - AuthConsumerSecret
-          - AuthAccessToken
-          - AuthAccessTokenSecret
+          Parameters:
+            - AuthConsumerKey
+            - AuthConsumerSecret
+            - AuthAccessToken
+            - AuthAccessTokenSecret
+      - Label:
+          default: AWS Environment Parameters
+          Parameters:
+            - ApplicationName
+            - VpcCIDR
+      - Label:
+          default: Application Parameters
+          Parameters:
+            - ComprehendEntityScoreThreshold
+            - CognitoAllowedEmailDomains
+            - MecabLambdaLayerArn
 Parameters:
   TwitterTermList:
     Description: List of terms for twitter to listen to
@@ -763,6 +766,66 @@ Resources:
             - Name: geo
               Type: struct<type:string,coordinates:array<double>>
               Comment: Deprecated.
+        Parameters:
+          classification: json
+
+  CrawledTweetsGlueTable:
+    Type: "AWS::Glue::Table"
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref TweetsGlueDB
+      TableInput:
+        Description: Crawled tweets
+        Name: crawled
+        TableType: EXTERNAL_TABLE
+        PartitionKeys:
+          - Name: year
+            Type: string
+          - Name: month
+            Type: string
+          - Name: day
+            Type: string
+        StorageDescriptor:
+          Location: !Sub 's3://${TweetsBucket}/crawled'
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          Compressed: False
+          NumberOfBuckets: -1
+          SerdeInfo:
+            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
+            Parameters:
+              paths: 'created_at, id_str, text, username, reply_count, retweet_count, favorite_count, lang, timestamp_ms'
+              serialization.format: 1
+          Columns:
+            - Name: created_at
+              Type: string
+              Comment: UTC time when this Tweet was created.
+            - Name: id_str
+              Type: string
+              Comment: The string representation of the unique identifier for this Tweet. Implementations should use this rather than the large integer in id.
+            - Name: text
+              Type: string
+              Comment: The actual UTF-8 text of the status update. See twitter-text for details on what characters are currently considered valid.
+            - Name: username
+              Type: string
+              Comment: It is not same as "user" object.
+            - Name: reply_count
+              Type: bigint
+              Comment: Number of times this Tweet has been replied to.
+            - Name: retweet_count
+              Type: bigint
+              Comment: Number of times this Tweet has been retweeted.
+            - Name: favorite_count
+              Type: bigint
+              Comment: Nullable. Indicates approximately how many times this Tweet has been liked by Twitter users.
+            - Name: entities
+              Type: struct<hashtags:array<struct<text:string,indices:array<bigint>>>,urls:array<struct<url:string,expanded_url:string,display_url:string,indices:array<bigint>>>>
+              Comment: Entities which have been parsed out of the text of the Tweet. Additionally see Entities in Twitter Objects .
+            - Name: lang
+              Type: string
+              Comment: Nullable. When present, indicates a BCP 47 language identifier corresponding to the machine-detected language of the Tweet text, or und if no language could be detected. See more documentation HERE.
+            - Name: timestamp_ms
+              Type: timestamp
         Parameters:
           classification: json
 
