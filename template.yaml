@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['serverless', 'fargate', 'lambda', 'kinesis', 'elasticsearch', 'twitter']
     HomePageUrl: https://github.com/mats16/serverless-social-media-dashboard
-    SemanticVersion: 0.0.2
+    SemanticVersion: 0.0.3
     SourceCodeUrl: https://github.com/mats16/serverless-social-media-dashboard
 
   AWS::CloudFormation::Interface:
@@ -463,37 +463,6 @@ Resources:
                 Resource:
                 - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
 
-  StoreDynamoDBFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Description: 'Store to DynamoDB function'
-      CodeUri: source/store_ddb_function/
-      Handler: index.lambda_handler
-      Runtime: python3.6
-      MemorySize: 256
-      Timeout: 300
-      Tracing: Active
-      Environment:
-        Variables:
-          DDB_TABLE: !Ref TweetsTable
-      Events:
-        Stream:
-          Type: Kinesis
-          Properties:
-            Stream: !GetAtt RealtimeIngestionStream.Arn
-            BatchSize: 200
-            StartingPosition: LATEST
-            ParallelizationFactor: 1
-      Policies:
-        - Version: "2012-10-17"
-          Statement:
-            - Sid: DynamoDBAccess
-              Effect: Allow
-              Action:
-                - 'dynamodb:BatchWriteItem'
-                - 'dynamodb:PutItem'
-              Resource: !GetAtt TweetsTable.Arn
-
   AnalyticsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -623,19 +592,6 @@ Resources:
                 - es:ESHttpPost
               Resource:
                 - !Sub '${Elasticsearch.Outputs.Arn}/*'
-
-  TweetsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      BillingMode: PAY_PER_REQUEST
-      KeySchema: 
-        - AttributeName: "id_str"
-          KeyType: "HASH"
-      AttributeDefinitions: 
-        - AttributeName: "id_str"
-          AttributeType: "S"
-      SSESpecification: 
-        SSEEnabled: true
 
   TweetsGlueDB:
     Type: "AWS::Glue::Database"
@@ -834,9 +790,9 @@ Resources:
     Properties:
       Location:
         ApplicationId: arn:aws:serverlessrepo:us-east-1:345513370492:applications/amazon-elasticsearch-cognito-auth
-        SemanticVersion: 0.1.0
+        SemanticVersion: 0.2.2
       Parameters:
-        CognitoUserPoolDomain: !Sub '${ApplicationName}-${AWS::AccountId}'
+        ElasticsearchVersion: 7.1
         CognitoAllowedEmailDomains: !Join [',', !Ref CognitoAllowedEmailDomains]      
 
   TweetsTemplate:
@@ -844,6 +800,7 @@ Resources:
     Version: 1.0
     Properties:
       ServiceToken: !GetAtt Elasticsearch.Outputs.ModifyTemplateArn
+      Host: !GetAtt Elasticsearch.Outputs.Endpoint
       Body: '
         {
           "index_patterns": ["tweets-*"],
@@ -977,57 +934,6 @@ Resources:
                   },
                   "wakati": {
                     "type": "keyword"
-                  }
-                }
-              }
-            }
-          }
-        }'
-
-  ComprehendEntitiesTemplate:
-    Type: Custom::ElasticsearchTemplate
-    Version: 1.0
-    Properties:
-      ServiceToken: !GetAtt Elasticsearch.Outputs.ModifyTemplateArn
-      Body: '
-        {
-          "index_patterns": ["comprehend-entities-*"],
-          "settings": {
-            "number_of_shards": 2,
-            "number_of_replicas": 1
-          },
-          "mappings": {
-            "_source": {
-              "enabled": true
-            },
-            "properties": {
-              "score": {
-                "type": "double"
-              },
-              "type": {
-                "type": "keyword"
-              },
-              "text": {
-                "type": "keyword"
-              },
-              "input": {
-                "properties": {
-                  "text": {
-                    "type": "text"
-                  },
-                  "lang": {
-                    "type": "keyword"
-                  }
-                }
-              },
-              "metadata": {
-                "properties": {
-                  "request_id": {
-                    "type": "keyword"
-                  },
-                  "date": {
-                    "type": "date",
-                    "format": "epoch_second"
                   }
                 }
               }

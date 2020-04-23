@@ -127,29 +127,7 @@ def lambda_handler(event, context):
                 LanguageCode=comprehend_lang
             )
             #print(entities_response)
-            # 分析用に Elasticsearch に送っておく
-            d = datetime.strptime(entities_response['ResponseMetadata']['HTTPHeaders']['date'], '%a, %d %b %Y %H:%M:%S %Z')
             for entity in entities_response['Entities']:
-                hashid = hashlib.md5((tweet['id_str'] + entity['Text']).encode('utf-8')).hexdigest()
-                es_records.append({
-                    'PartitionKey': entities_response['ResponseMetadata']['RequestId'],
-                    'Data': json.dumps({
-                        'op_type': 'update',
-                        '_index': 'comprehend-entities-score',
-                        '_id': hashid,
-                        'score': entity['Score'],
-                        'type': entity['Type'],
-                        'text': entity['Text'],
-                        'input': {
-                            'text': comprehend_text,
-                            'lang': comprehend_lang,
-                        },
-                        'metadata': {
-                            'request_id': entities_response['ResponseMetadata']['RequestId'],
-                            'date': d.strftime('%s'),
-                        }
-                    }) + '\n',
-                })
                 if entity['Type'] in ['QUANTITY', 'DATE']:
                     continue
                 elif len(entity['Text']) < 2:
