@@ -18,29 +18,29 @@ Metadata:
     ParameterGroups:
       - Label:
           default: Tweets Configuration
-          Parameters:
-            - TwitterTermList
-            - TwitterLanguages
-            - TwitterFilterLevel
-            - TwitterReaderDockerImage
+        Parameters:
+          - TwitterTermList
+          - TwitterLanguages
+          - TwitterFilterLevel
+          - TwitterReaderDockerImage
       - Label:
           default: Twitter API Parameters
-          Parameters:
-            - AuthConsumerKey
-            - AuthConsumerSecret
-            - AuthAccessToken
-            - AuthAccessTokenSecret
+        Parameters:
+          - AuthConsumerKey
+          - AuthConsumerSecret
+          - AuthAccessToken
+          - AuthAccessTokenSecret
       - Label:
           default: AWS Environment Parameters
-          Parameters:
-            - ApplicationName
-            - VpcCIDR
+        Parameters:
+          - ApplicationName
+          - VpcCIDR
       - Label:
           default: Application Parameters
-          Parameters:
-            - ComprehendEntityScoreThreshold
-            - CognitoAllowedEmailDomains
-            - MecabLambdaLayerArn
+        Parameters:
+          - ComprehendEntityScoreThreshold
+          - CognitoAllowedEmailDomains
+          - MecabLambdaLayerArn
 Parameters:
   TwitterTermList:
     Description: List of terms for twitter to listen to
