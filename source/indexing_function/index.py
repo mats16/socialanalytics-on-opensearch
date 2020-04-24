@@ -4,6 +4,7 @@ import boto3
 import os
 import base64
 import logging
+from datetime import datetime, timedelta, timezone
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch.client import IndicesClient
 from requests_aws4auth import AWS4Auth
@@ -16,6 +17,9 @@ region = os.getenv('AWS_REGION')
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+def gen_index(prefix, dtime):
+    return prefix + dtime.strftime('%Y-%m')
 
 def es_bulk_load(data):
     credentials = boto3.Session().get_credentials()
@@ -37,22 +41,16 @@ def lambda_handler(event, context):
         record_string = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
         record_dict = json.loads(record_string)
 
-        if 'op_type' in record_dict:
-            op_type = record_dict.pop('op_type')
-        else:
-            op_type = 'index' 
-
-        if '_id' in record_dict:
-            bulk_header = {op_type: {'_index': record_dict.pop('_index'), '_id': record_dict.pop('_id')}}
-        else:
-            bulk_header = {op_type: {'_index': record_dict.pop('_index')}}
-
-        if op_type == 'update':
+        if 'timestamp_ms' in record_dict and 'id_str' in record_dict:
+            dtime = datetime.fromtimestamp(int(record_dict['timestamp_ms']) / 1000, timezone.utc)
+            bulk_header = {
+                'update': {
+                    '_index': gen_index('tweets-', dtime),
+                    '_id': record_dict.pop('id_str')
+                }
+            }
             bulk_data += json.dumps(bulk_header) + '\n'
             bulk_data += json.dumps({'doc': record_dict, 'doc_as_upsert': True}) + '\n'
-        else:
-            bulk_data += json.dumps(bulk_header) + '\n'
-            bulk_data += json.dumps(record_dict) + '\n'
 
     if len(bulk_data) > 0:
         res = es_bulk_load(bulk_data)

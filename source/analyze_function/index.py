@@ -37,9 +37,6 @@ def normalize(text):
     text_replaced_indention = ' '.join(text_without_emoji.splitlines())
     return text_replaced_indention.lower()
 
-def gen_index(prefix, dtime):
-    return prefix + dtime.strftime('%Y-%m')
-
 def lambda_handler(event, context):
     es_records = []
     for record in event['Records']:
@@ -64,14 +61,11 @@ def lambda_handler(event, context):
             text = tweet['text']
         normalized_text = normalize(text)
         es_record = {
-            'op_type': 'update',
-            '_index': gen_index('tweets-', created_at),
-            '_id': tweet['id_str'],
-            #'tweetid': tweet['id_str'],
+            'id_str': tweet['id_str'],
             'text': text,
             'normalized_text': normalized_text,
             'lang': tweet['lang'],
-            'timestamp_ms': tweet.get('timestamp_ms', str(int(created_at.timestamp()) * 1000)),  #　retweet の場合、timestamp_ms が存在しない
+            'timestamp_ms': tweet.get('timestamp_ms', str(int(created_at.timestamp()) * 1000)),  #　retweet の場合、timestamp_ms が存在しない。元のフォーマットに合わせて string にする。
             'created_at': created_at.strftime('%s'),
             'is_retweet': is_retweet,
         }
@@ -100,7 +94,7 @@ def lambda_handler(event, context):
             es_record['username'] = tweet['username']
         else:
             logger.warn(f"this tweet don't have 'username'. {json.dumps(tweet)}")
-        es_record['url'] = f'https://twitter.com/{es_record["username"]}/status/{es_record["_id"]}'
+        es_record['url'] = f'https://twitter.com/{es_record["username"]}/status/{es_record["id_str"]}'
 
         if not is_retweet:
             # retweet の時は数値の更新のみ。
@@ -162,7 +156,7 @@ def lambda_handler(event, context):
 
         es_records.append({
             'Data': json.dumps(es_record) + '\n',
-            'PartitionKey': es_record['_id']
+            'PartitionKey': es_record['id_str']
         })
         if len(es_records) >= 100:
             res = kinesis.put_records(

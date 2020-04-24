@@ -73,9 +73,6 @@ def normalize(text):
     text_replaced_indention = ' '.join(text_replaced_number.splitlines())
     return text_replaced_indention.lower()
 
-def gen_index(prefix, dtime):
-    return prefix + dtime.strftime('%Y-%m')
-
 def lambda_handler(event, context):
     es_records = []
     for record in event['Records']:
@@ -91,14 +88,13 @@ def lambda_handler(event, context):
             is_retweeted = False
 
         created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
-        if created_at < (datetime.now(timezone.utc) - timedelta(days=180)):
-            continue  # 180日以上前の場合はスキップ
+        if created_at < (datetime.now(timezone.utc) - timedelta(days=365)):
+            continue  # 365日以上前の場合はスキップ
 
         if not is_retweeted and tweet['lang'] == 'ja':
             es_record = {
-                'op_type': 'update',
-                '_index': gen_index('tweets-', created_at),
-                '_id': tweet['id_str'],
+                'id_str': tweet['id_str'],
+                'timestamp_ms': tweet.get('timestamp_ms', str(int(created_at.timestamp()) * 1000)),  #　retweet の場合、timestamp_ms が存在しない。元のフォーマットに合わせて string にする。
                 'mecab': {},
             }
             keywords = []
@@ -119,7 +115,7 @@ def lambda_handler(event, context):
                 es_record['mecab']['keywords'] = list(set(keywords))
             es_records.append({
                 'Data': json.dumps(es_record) + '\n',
-                'PartitionKey': es_record['_id']
+                'PartitionKey': es_record['id_str']
             })
 
     if len(es_records) > 0:
