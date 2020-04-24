@@ -941,6 +941,41 @@ Resources:
           }
         }'
 
+  TweetEventBus:
+    Type: AWS::Events::EventBus
+    Properties: 
+      Name: !Ref AWS::StackName
+
+  PuEventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'PutEvent function  - KinesisStream to EventBridge'
+      CodeUri: source/put_events_function/
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      MemorySize: 128
+      Timeout: 10
+      Tracing: Active
+      Environment:
+        Variables:
+          EventBusName: !Ref TweetEventBus
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt IndexingStream.Arn
+            BatchSize: 10
+            StartingPosition: LATEST
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: PutEvents
+              Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource:
+                - !GetAtt TweetEventBus.Arn
+
 Outputs:
 
   S3ConsoleURL:
