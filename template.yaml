@@ -31,16 +31,18 @@ Metadata:
           - AuthAccessToken
           - AuthAccessTokenSecret
       - Label:
-          default: AWS Environment Parameters
+          default: Application Parameters
         Parameters:
           - ApplicationName
           - VpcCIDR
-      - Label:
-          default: Application Parameters
-        Parameters:
           - ComprehendEntityScoreThreshold
-          - CognitoAllowedEmailDomains
           - MecabLambdaLayerArn
+      - Label:
+          default: Elasticsearch Parameters
+        Parameters:
+          - ElasticsearchVersion
+          - KibanaSignupAllowedEmailDomains
+
 Parameters:
   TwitterTermList:
     Description: List of terms for twitter to listen to
@@ -92,13 +94,18 @@ Parameters:
     Default: 0.8
     MaxValue: 1
     MinValue: 0
-  CognitoAllowedEmailDomains:
-    Type: CommaDelimitedList
-    Description: Specific domains allowed to register on Cognito
-    Default: amazon.com,amazon.co.jp
   MecabLambdaLayerArn:
     Type: String
     Default: 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1'
+  ElasticsearchVersion:
+    Description: 7.x supported only
+    Type: String
+    Default: 7.1
+    AllowedPattern: ^7\.[0-9]+$
+  KibanaSignupAllowedEmailDomains:
+    Type: CommaDelimitedList
+    Description: Specific domains allowed to register on Kibana
+    Default: amazon.com,amazon.co.jp
 
 Conditions:
   CreateMecabLambda: !Not [!Equals [!Ref MecabLambdaLayerArn, 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1']]
@@ -790,10 +797,10 @@ Resources:
     Properties:
       Location:
         ApplicationId: arn:aws:serverlessrepo:us-east-1:345513370492:applications/amazon-elasticsearch-cognito-auth
-        SemanticVersion: 0.2.2
+        SemanticVersion: 0.3.3
       Parameters:
-        ElasticsearchVersion: 7.1
-        CognitoAllowedEmailDomains: !Join [',', !Ref CognitoAllowedEmailDomains]      
+        ElasticsearchVersion: !Ref ElasticsearchVersion
+        KibanaSignupAllowedEmailDomains: !Join [',', !Ref KibanaSignupAllowedEmailDomains]      
 
   TweetsTemplate:
     Type: Custom::ElasticsearchTemplate
