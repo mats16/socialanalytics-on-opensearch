@@ -433,30 +433,6 @@ Resources:
         Parameters:
           classification: json
 
-  TweetArchiveJob:
-    Type: AWS::Glue::Job
-    Properties:
-      Name: tweet-archive-streaming
-      Role: !Ref GlueRole
-      GlueVersion: '1.0'
-      Command:
-        Name: gluestreaming
-        PythonVersion: 3
-        ScriptLocation: ../datalake/glue-scripts/tweet-archive-streaming.py
-      DefaultArguments:
-        "--TempDir": !Sub "s3://aws-glue-temporary-${AWS::AccountId}-${AWS::Region}/${AWS::StackName}"
-        "--enable-continuous-cloudwatch-log": "true"
-        "--enable-metrics": ""
-        "--job-bookmark-option": "job-bookmark-disable"
-        "--job-language": "python"
-        "--SRC_DB_NAME": !Ref DataLakeDB
-        "--SRC_TABLE_NAME": !Ref TweetStreamTable
-        "--DEST_S3_PATH": !Sub 's3://${Bucket}/tweet_archived'
-      MaxCapacity: 2
-      MaxRetries: 0
-      ExecutionProperty:
-        MaxConcurrentRuns: 1
-
   GlueRole:
     Type: AWS::IAM::Role
     Properties:
@@ -481,6 +457,54 @@ Resources:
                 Resource:
                   - !Sub '${Bucket.Arn}'
                   - !Sub '${Bucket.Arn}/*'
+
+  TweetArchiveJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: tweet-archive-streaming
+      Role: !Ref GlueRole
+      GlueVersion: '1.0'
+      Command:
+        Name: gluestreaming
+        PythonVersion: 3
+        ScriptLocation: ../datalake/glue-scripts/tweet-archive-streaming.py
+      DefaultArguments:
+        "--TempDir": !Sub "s3://aws-glue-temporary-${AWS::AccountId}-${AWS::Region}/${AWS::StackName}"
+        "--enable-continuous-cloudwatch-log": "true"
+        "--enable-metrics": ""
+        "--job-bookmark-option": "job-bookmark-disable"
+        "--job-language": "python"
+        "--SRC_DB_NAME": !Ref DataLakeDB
+        "--SRC_TABLE_NAME": !Ref TweetStreamTable
+        "--DEST_S3_PATH": !Sub 's3://${Bucket}/tweet_archived'
+      MaxCapacity: 2
+      MaxRetries: 0
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+
+  TweetTransformJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: tweet-transform-groundtruth
+      Role: !Ref GlueRole
+      GlueVersion: '1.0'
+      Command:
+        Name: glueetl
+        PythonVersion: 3
+        ScriptLocation: ../datalake/glue-scripts/tweet-transform-groundtruth.py
+      DefaultArguments:
+        "--TempDir": !Sub "s3://aws-glue-temporary-${AWS::AccountId}-${AWS::Region}/${AWS::StackName}"
+        "--enable-continuous-cloudwatch-log": "true"
+        "--enable-metrics": ""
+        "--job-bookmark-option": "job-bookmark-enable"
+        "--job-language": "python"
+        "--SRC_DB_NAME": !Ref DataLakeDB
+        "--SRC_TABLE_NAME": !Ref TweetArchivedTable
+        "--DEST_S3_PATH": !Sub 's3://${Bucket}/groundtruth/input/text'
+      MaxCapacity: 10
+      MaxRetries: 2
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
 
 Outputs:
 

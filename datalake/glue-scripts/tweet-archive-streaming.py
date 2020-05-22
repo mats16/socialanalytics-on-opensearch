@@ -38,15 +38,15 @@ datasource0 = glueContext.create_data_frame.from_catalog(
 def add_partition_column(rec):
     timestamp = int(rec['timestamp_ms']) / 1000
     dtime = datetime.utcfromtimestamp(timestamp)
-    rec['year'] = str(dtime.year)
-    rec['month'] = str(dtime.month)
-    rec['day'] = str(dtime.day)
+    rec['year'] = dtime.year
+    rec['month'] = dtime.month
+    rec['day'] = dtime.day
     return rec
 
 def processBatch(data_frame, batchId):
     if (data_frame.count() > 0):
-        distinct_data_frame = data_frame.distinct().coalesce(1)
-        dynamic_frame = DynamicFrame.fromDF(distinct_data_frame, glueContext, "from_data_frame")
+        #distinct_data_frame = data_frame.distinct().coalesce(1)
+        dynamic_frame = DynamicFrame.fromDF(data_frame, glueContext, "from_data_frame")
         mapped_dyF =  Map.apply(
             frame = dynamic_frame,
             f = add_partition_column,
@@ -57,16 +57,18 @@ def processBatch(data_frame, batchId):
                 ("year", "string", "year", "string"), ("month", "string", "month", "string"), ("day", "string", "day", "string"),
                 ("created_at", "string", "created_at", "string"), ("id", "long", "id", "long"), ("id_str", "string", "id_str", "string"), ("text", "string", "text", "string"), ("source", "string", "source", "string"), ("truncated", "boolean", "truncated", "boolean"), ("in_reply_to_status_id", "long", "in_reply_to_status_id", "long"), ("in_reply_to_status_id_str", "string", "in_reply_to_status_id_str", "string"), ("in_reply_to_user_id", "long", "in_reply_to_user_id", "long"), ("in_reply_to_user_id_str", "string", "in_reply_to_user_id_str", "string"), ("in_reply_to_screen_name", "string", "in_reply_to_screen_name", "string"), ("user", "struct", "user", "struct"), ("coordinates", "struct", "coordinates", "struct"), ("place", "struct", "place", "struct"), ("quoted_status_id", "long", "quoted_status_id", "long"), ("quoted_status_id_str", "string", "quoted_status_id_str", "string"), ("is_quote_status", "boolean", "is_quote_status", "boolean"), ("quoted_status", "string", "quoted_status", "string"), ("retweeted_status", "string", "retweeted_status", "string"), ("quote_count", "long", "quote_count", "long"), ("reply_count", "long", "reply_count", "long"), ("retweet_count", "long", "retweet_count", "long"), ("favorite_count", "long", "favorite_count", "long"), ("entities", "struct", "entities", "struct"), ("favorited", "boolean", "favorited", "boolean"), ("retweeted", "boolean", "retweeted", "boolean"), ("possibly_sensitive", "boolean", "possibly_sensitive", "boolean"), ("filter_level", "string", "filter_level", "string"), ("lang", "string", "lang", "string"), ("timestamp_ms", "timestamp", "timestamp_ms", "timestamp")],
             transformation_ctx = "apply_mapping")
-        datasink1 = glueContext.write_dynamic_frame.from_options(
-            frame = apply_mapping,
-            connection_type = "s3",
-            connection_options = {
-                "path": dest_s3_path,
-                "partitionKeys": ["year", "month", "day"],
-                'compression': 'gzip'
-            },
-            format = "json",
-            transformation_ctx = "datasink1")
+        #datasink1 = glueContext.write_dynamic_frame.from_options(
+        #    frame = apply_mapping,
+        #    connection_type = "s3",
+        #    connection_options = {
+        #        "path": dest_s3_path,
+        #        "partitionKeys": ["year", "month", "day"],
+        #        'compression': 'gzip'
+        #    },
+        #    format = "json",
+        #    transformation_ctx = "datasink1")
+        drop_duplicates_df = apply_mapping.toDF().dropDuplicates(subset = ["id_str"])
+        drop_duplicates_df.repartition("year", "month", "day").write.partitionBy(["year", "month", "day"]).mode('append').json(dest_s3_path, compression='gzip')
 
 glueContext.forEachBatch(
     frame = datasource0,
