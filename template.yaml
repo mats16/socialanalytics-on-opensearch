@@ -115,28 +115,28 @@ Resources:
   AuthConsumerSecretManagerSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: AuthConsumerSecretManagerSecret
+      #Name: AuthConsumerSecretManagerSecret
       SecretString:
         !Ref AuthConsumerSecret
 
   AuthAccessTokenSecretManagerSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: AuthAccessTokenSecretManagerSecret
+      #Name: AuthAccessTokenSecretManagerSecret
       SecretString:
         !Ref AuthAccessTokenSecret
 
   AuthConsumerManagerSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: AuthConsumerManagerSecret
+      #Name: AuthConsumerManagerSecret
       SecretString:
         !Ref AuthConsumerKey
 
   AuthAccessTokenManagerSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: AuthAccessTokenManagerSecret
+      #Name: AuthAccessTokenManagerSecret
       SecretString:
         !Ref AuthAccessToken
 
@@ -412,7 +412,7 @@ Resources:
       Description: 'Analytics Function'
       CodeUri: source/analyze_function/
       Handler: index.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.8
       MemorySize: 1024
       Timeout: 900
       Tracing: Active
@@ -465,7 +465,7 @@ Resources:
       Description: 'MeCab Function'
       CodeUri: source/mecab_function/
       Handler: index.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.8
       Layers:
         - !Ref MecabLambdaLayerArn
       MemorySize: 1024
@@ -511,7 +511,7 @@ Resources:
       Description: 'Indexing function  - KinesisStream to Elasticsearch '
       CodeUri: source/indexing_function/
       Handler: index.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.8
       MemorySize: 192
       Timeout: 300
       Tracing: Active
@@ -541,9 +541,10 @@ Resources:
     Properties:
       Location:
         ApplicationId: arn:aws:serverlessrepo:us-east-1:345513370492:applications/amazon-elasticsearch-cognito-auth
-        SemanticVersion: 0.3.3
+        SemanticVersion: 0.4.2
       Parameters:
         ElasticsearchVersion: !Ref ElasticsearchVersion
+        FineGrainedAccessControlEnabled: 'true'
         KibanaSignupAllowedEmailDomains: !Join [',', !Ref KibanaSignupAllowedEmailDomains]      
 
   TweetsTemplate:
@@ -703,7 +704,7 @@ Resources:
       Description: 'PutEvent function  - KinesisStream to EventBridge'
       CodeUri: source/put_events_function/
       Handler: index.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.8
       MemorySize: 128
       Timeout: 10
       Tracing: Active
