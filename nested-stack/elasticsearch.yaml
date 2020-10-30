@@ -53,7 +53,7 @@ Resources:
         Enabled: true
         InternalUserDatabaseEnabled: false
         MasterUserOptions: 
-          MasterUserARN: !GetAtt ElasticsearchMasterRole.Arn
+          MasterUserARN: !GetAtt KibanaMasterRole.Arn
       CognitoOptions:
         Enabled: true
         UserPoolId: !Ref KibanaUserPool
@@ -201,10 +201,10 @@ Resources:
             Resource:
               - !Sub '${Elasticsearch.Arn}/*'
       Roles: 
-        - !Ref ElasticsearchBasicRole
-        - !Ref ElasticsearchMasterRole
+        - !Ref KibanaUserRole
+        - !Ref KibanaMasterRole
 
-  ElasticsearchBasicRole:
+  KibanaUserRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -220,7 +220,7 @@ Resources:
               ForAnyValue:StringLike:
                 "cognito-identity.amazonaws.com:amr": authenticated
 
-  ElasticsearchMasterRole:
+  KibanaMasterRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -248,7 +248,7 @@ Resources:
       Description: Master users of Kibana
       GroupName: MasterUsers
       Precedence: 0
-      RoleArn: !GetAtt ElasticsearchMasterRole.Arn
+      RoleArn: !GetAtt KibanaMasterRole.Arn
       UserPoolId: !Ref KibanaUserPool
 
   ClientId:
@@ -264,12 +264,25 @@ Resources:
     Properties:
       IdentityPoolId: !Ref KibanaIdentityPool
       Roles:
-        authenticated: !GetAtt ElasticsearchBasicRole.Arn
+        authenticated: !GetAtt KibanaUserRole.Arn
       RoleMappings:
         userpool:
           IdentityProvider: !Sub '${KibanaUserPool.ProviderName}:${ClientId}'
           Type: Token
           AmbiguousRoleResolution: AuthenticatedRole
+
+  KibanaUserRoleMapping:
+    Type: Custom::RoleMapping
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
+      URL: !Sub 'https://${Elasticsearch.DomainEndpoint}/_opendistro/_security/api/rolesmapping/kibana_user'
+      Body: !Sub |
+        {
+          "backend_roles" : [
+            "${KibanaUserRole.Arn}"
+          ]
+        }
 
   TweetsTemplate:
     Type: Custom::Template
@@ -493,7 +506,7 @@ Resources:
     Properties:
       Description: '[Custom Resource] Modify elasticsearch resources'
       Runtime: python3.7
-      Role: !GetAtt ElasticsearchMasterRole.Arn
+      Role: !GetAtt KibanaMasterRole.Arn
       Layers: 
         - !Ref CustomResourceHelperLayer
         - !Ref RequestsAWS4AuthLayer
@@ -554,9 +567,6 @@ Outputs:
 
   ElasticsearchDomainEndpoint:
     Value: !GetAtt Elasticsearch.DomainEndpoint
-
-  ElasticsearchMasterRoleArn:
-    Value: !GetAtt ElasticsearchMasterRole.Arn
 
   ElasticsearchResourceFunctionArn:
     Value: !GetAtt ElasticsearchResourceFunction.Arn
