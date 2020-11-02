@@ -174,7 +174,7 @@ Resources:
       Description: 'Analytics Function'
       CodeUri: source/analyze_function/
       Handler: index.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.7
       MemorySize: 1024
       Timeout: 900
       Tracing: Active
@@ -227,7 +227,7 @@ Resources:
 #      Description: 'MeCab Function'
 #      CodeUri: source/mecab_function/
 #      Handler: index.lambda_handler
-#      Runtime: python3.8
+#      Runtime: python3.7
 #      Layers:
 #        - !Ref MecabLambdaLayerArn
 #      MemorySize: 1024
@@ -353,7 +353,7 @@ Resources:
       Description: 'PutEvent function  - KinesisStream to EventBridge'
       CodeUri: source/put_events_function/
       Handler: index.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.7
       MemorySize: 128
       Timeout: 10
       Tracing: Active

@@ -106,11 +106,6 @@ Resources:
 
   CodePipelineRole:
     Type: AWS::IAM::Role
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W11
-            reason: 'we only have invokeLambda defined'
     Properties:
       Path: /
       AssumeRolePolicyDocument:
