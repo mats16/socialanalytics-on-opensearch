@@ -15,4 +15,4 @@ phases:
       #- sam deploy --template-file packaged-template.yml --stack-name social-media-dashboard
 artifacts:
   files:
-    - packaged-template.yml
+    - packaged-template.yaml
