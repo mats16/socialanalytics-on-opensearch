@@ -394,7 +394,8 @@ Resources:
         VpcId: !GetAtt VpcStack.Outputs.VpcId
         PublicSubnetList: !GetAtt VpcStack.Outputs.PublicSubnetList
         TweetStreamName: !Ref TweetStream
-        DockerImage: mats16/twitter-streaming-reader:0.1.0
+        #DockerImage: mats16/twitter-streaming-reader:0.1.0
+        DockerImage: !GetAtt ContainerRepoStack.Outputs.ImageName
         TwitterTopicsParameter: !Ref TwitterTopicsParameter
         TwitterLanguagesParameter: !Ref TwitterLanguagesParameter
         TwitterFilterLevelParameter: !Ref TwitterFilterLevelParameter
@@ -402,6 +403,15 @@ Resources:
         TwitterConsumerSecretKey: !Ref TwitterConsumerSecretKey
         TwitterAccessToken: !Ref TwitterAccessToken
         TwitterAccessTokenSecret: !Ref TwitterAccessTokenSecret
+
+  ContainerRepoStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested-stack/container-repo.yaml
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
+        DockerfileLayer: !Ref DockerfileLayer
 
   ElasticsearchStack:
     Type: AWS::CloudFormation::Stack
@@ -412,7 +422,7 @@ Resources:
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
         RequestsAWS4AuthLayer: !Ref RequestsAWS4AuthLayer
 
-  DataLake:
+  DataLakeStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: nested-stack/datalake.yaml
@@ -465,15 +475,26 @@ Resources:
     Metadata:
       BuildMethod: python3.7
 
+  DockerfileLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'dockerfile-${AWS::StackName}'
+      Description: Dockerfile
+      ContentUri: containers/
+      CompatibleRuntimes:
+        - python3.7
+    Metadata:
+      BuildMethod: python3.7
+
 Outputs:
 
   S3ConsoleURL:
     Description: URL to the Lambda Function console
-    Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${DataLake.Outputs.Bucket}/?region=${AWS::Region}&tab=overview'
+    Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${DataLakeStack.Outputs.Bucket}/?region=${AWS::Region}&tab=overview'
 
   TwitterRawLocation:
     Description: S3 Twitter Raw location.
-    Value: !Sub 's3://${DataLake.Outputs.Bucket}/raw/'
+    Value: !Sub 's3://${DataLakeStack.Outputs.Bucket}/raw/'
 
   KibanaURL:
     Description: Kibana URL

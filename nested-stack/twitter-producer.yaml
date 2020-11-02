@@ -109,7 +109,7 @@ Resources:
   EcsLogGroup: 
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub ${ParentStackName}/twitter/ecs
+      LogGroupName: !Sub '/${ParentStackName}/twitter/ecs'
       RetentionInDays: 14
 
   EcsCluster:

@@ -12,40 +12,115 @@ Parameters:
   RequestsAWS4AuthLayer:
     Type: String
 
-  KibanaSignupAllowedEmailDomains:
+  SignupAllowedDomains:
     Type: CommaDelimitedList
-    Description: Specific domains allowed to register on Kibana
+    Description: Specific domains allowed to register on Kibana (Cognito User Pool)
     Default: amazon.com,amazon.co.jp
 
-Mappings:
-  Elasticsearch:
-    ClusterConfig:
-      Version: 7.8
-      AvailabilityZoneCount: 2
-    DataNode:
-      InstanceType: i3.large.elasticsearch
-      Count: 2
-    MasterNode:
-      InstanceType: t3.medium.elasticsearch
-      Count: 3
+  EsVersion:
+    Description: 7.x supported only
+    Type: String
+    Default: 7.8
+
+  EsAvailabilityZoneCount:
+    Type: Number
+    Default: 2
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+
+  EsDataNodeInstanceType:
+    Type: String
+    Default: i3.large.elasticsearch
+    AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
+
+  EsDataNodeInstanceCount:
+    Type: Number
+    Default: 2
+
+  EsMasterNodeInstanceType:
+    Type: String
+    Default: t3.medium.elasticsearch
+    AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
+
+  EsMasterNodeInstanceCount:
+    Type: Number
+    Default: 3
+    AllowedValues: [ 3, 5 ]
 
 Resources:
 
+  SearchLogs: 
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ParentStackName}/elasticsearch/search-logs'
+      RetentionInDays: 30
+
+  IndexLogs: 
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ParentStackName}/elasticsearch/index-logs'
+      RetentionInDays: 30
+
+  ApplicationLogs: 
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ParentStackName}/elasticsearch/application-logs'
+      RetentionInDays: 30
+
+  AuditLogs: 
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${ParentStackName}/elasticsearch/audit-logs'
+      RetentionInDays: 30
+
+  LogsResourcePolicy:
+    Type: AWS::CloudFormation::CustomResource
+    Version: 1.0
+    Properties:
+      ServiceToken: !GetAtt LogsResourcePolicyFunction.Arn
+      PolicyName: !Sub 'AES-${ParentStackName}'
+      PolicyDocument: !Sub |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "es.amazonaws.com"
+              },
+              "Action": [
+                "logs:PutLogEvents",
+                "logs:CreateLogStream"
+              ],
+              "Resource": [
+                "${SearchLogs.Arn}",
+                "${IndexLogs.Arn}",
+                "${ApplicationLogs.Arn}",
+                "${AuditLogs.Arn}"
+              ]
+            }
+          ]
+        }
+
   Elasticsearch:
     Type: AWS::Elasticsearch::Domain
-    DependsOn: KibanaUserPoolDomain
+    DependsOn:
+      - LogsResourcePolicy
+      - KibanaUserPoolDomain
     DeletionPolicy: Retain
     Properties:
-      ElasticsearchVersion: !FindInMap [ Elasticsearch, ClusterConfig, Version ]
+      ElasticsearchVersion: !Ref EsVersion
       ElasticsearchClusterConfig:
         ZoneAwarenessEnabled: true
         ZoneAwarenessConfig:
-           AvailabilityZoneCount: !FindInMap [ Elasticsearch, ClusterConfig, AvailabilityZoneCount ]
-        InstanceType: !FindInMap [ Elasticsearch, DataNode, InstanceType ]
-        InstanceCount: !FindInMap [ Elasticsearch, DataNode, Count ]
+           AvailabilityZoneCount: !Ref EsAvailabilityZoneCount
+        InstanceType: !Ref EsDataNodeInstanceType
+        InstanceCount: !Ref EsDataNodeInstanceCount
         DedicatedMasterEnabled: true
-        DedicatedMasterType: !FindInMap [ Elasticsearch, MasterNode, InstanceType ]
-        DedicatedMasterCount: !FindInMap [ Elasticsearch, MasterNode, Count ]
+        DedicatedMasterType: !Ref EsMasterNodeInstanceType
+        DedicatedMasterCount: !Ref EsMasterNodeInstanceCount
       #EBSOptions:
       #  EBSEnabled: !If [ EBSEnabled, true, !Ref AWS::NoValue ]
       #  VolumeSize: !If [ EBSEnabled, 100, !Ref AWS::NoValue ]
@@ -86,6 +161,19 @@ Resources:
             }
           ]
         }
+      LogPublishingOptions:
+        SEARCH_SLOW_LOGS:
+          Enabled: true
+          CloudWatchLogsLogGroupArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${SearchLogs}'
+        INDEX_SLOW_LOGS:
+          Enabled: true
+          CloudWatchLogsLogGroupArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${IndexLogs}'
+        ES_APPLICATION_LOGS:
+          Enabled: true
+          CloudWatchLogsLogGroupArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${ApplicationLogs}'
+        AUDIT_LOGS:
+          Enabled: true
+          CloudWatchLogsLogGroupArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AuditLogs}'
 
   CognitoAccessForAmazonES:
     Type: AWS::IAM::Role
@@ -124,7 +212,7 @@ Resources:
       Handler: index.lambda_handler
       Environment:
         Variables:
-          ALLOWED_DOMAINS: !Join [',', !Ref KibanaSignupAllowedEmailDomains] 
+          ALLOWED_DOMAINS: !Join [',', !Ref SignupAllowedDomains] 
       Code:
         ZipFile: |
           from __future__ import print_function
@@ -431,6 +519,96 @@ Resources:
         }'
 
   # Custom Resources ------------------------------------
+  LogsResourcePolicyFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ResourcePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:DescribeResourcePolicies'
+                  - 'logs:PutResourcePolicy'
+                  - 'logs:DeleteResourcePolicy'
+                Resource: '*'
+
+  LogsResourcePolicyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: '[Custom Resource] Resource Policy of CloudWatch Logs'
+      Runtime: python3.7
+      Role: !GetAtt LogsResourcePolicyFunctionRole.Arn
+      Layers: 
+        - !Ref CustomResourceHelperLayer
+      Handler: index.lambda_handler
+      Code:
+        ZipFile: |
+          from __future__ import print_function
+          from crhelper import CfnResource
+          import logging
+          import json
+          import boto3
+
+          try:
+              logger = logging.getLogger(__name__)
+              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
+              client = boto3.client('logs')
+          except Exception as e:
+              helper.init_failure(e)
+          
+          def lambda_handler(event, context):
+              print(json.dumps(event))
+              helper(event, context)
+
+          @helper.create
+          def create(event, context):
+              policy_name = event['ResourceProperties']['PolicyName']
+              policy_document = event['ResourceProperties']['PolicyDocument']
+              res = client.put_resource_policy(
+                  policyName=policy_name,
+                  policyDocument=policy_document
+              )
+              physical_resource_id = res['resourcePolicy']['policyName']
+              return physical_resource_id
+
+          @helper.update
+          def update(event, context):
+              old_resource_properties = event['OldResourceProperties']
+              old_policy_name = old_resource_properties['PolicyName']
+              policy_name = event['ResourceProperties']['PolicyName']
+              policy_document = event['ResourceProperties']['PolicyDocument']
+              if old_policy_name != policy_name:
+                  res = client.delete_resource_policy(
+                      policyName=old_policy_name
+                  )
+              res = client.put_resource_policy(
+                  policyName=policy_name,
+                  policyDocument=policy_document
+              )
+              physical_resource_id = res['resourcePolicy']['policyName']
+              return physical_resource_id
+                  
+          @helper.delete
+          def delete(event, context):
+              policy_name = event['PhysicalResourceId']
+              try:
+                  res = client.delete_resource_policy(
+                      policyName=policy_name
+                  )
+              except Exception as e:
+                  logger.error(e)
+
   FetchClientIdFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -470,12 +648,10 @@ Resources:
           import json
           import boto3
 
-          logger = logging.getLogger(__name__)
-          helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
-
           try:
+              logger = logging.getLogger(__name__)
+              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
               client = boto3.client('cognito-idp')
-              pass
           except Exception as e:
               helper.init_failure(e)
           
@@ -485,7 +661,7 @@ Resources:
           
           @helper.create
           @helper.update
-          def enable_provider_token(event, context):
+          def fetch_client_id(event, context):
               user_pool_id = event['ResourceProperties']['UserPoolId']
               client_name_prefix = event['ResourceProperties']['ClientNamePrefix']
               user_pool_clients = client.list_user_pool_clients(UserPoolId=user_pool_id)['UserPoolClients']
@@ -497,7 +673,7 @@ Resources:
               return physical_resource_id
                   
           @helper.delete
-          def disable_provider_token(event, context):
+          def delete(event, context):
               return
 
   # https://docs.aws.amazon.com/ja_jp/elasticsearch-service/latest/developerguide/es-request-signing.html#es-request-signing-python
@@ -522,10 +698,9 @@ Resources:
           import requests
           from requests_aws4auth import AWS4Auth
 
-          logger = logging.getLogger(__name__)
-          helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
-
           try:
+              logger = logging.getLogger(__name__)
+              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
               region = os.environ['AWS_REGION']
               service='es'
               credentials = boto3.Session().get_credentials()
