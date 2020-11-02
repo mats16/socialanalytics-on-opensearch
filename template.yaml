@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: "AWS::Serverless-2016-10-31"
-Description: 'Serverless Social Media Dashboard (Kibana)'
+Description: 'Social Media Dashboard Main Template'
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: serverless-social-media-dashboard
@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['serverless', 'fargate', 'lambda', 'kinesis', 'elasticsearch', 'twitter']
     HomePageUrl: https://github.com/mats16/serverless-social-media-dashboard
-    SemanticVersion: 0.0.3
+    SemanticVersion: 0.0.4
     SourceCodeUrl: https://github.com/mats16/serverless-social-media-dashboard
 
   AWS::CloudFormation::Interface:
@@ -22,7 +22,6 @@ Metadata:
           - TwitterTermList
           - TwitterLanguages
           - TwitterFilterLevel
-          - TwitterReaderDockerImage
       - Label:
           default: Twitter API Parameters
         Parameters:
@@ -33,25 +32,20 @@ Metadata:
       - Label:
           default: Application Parameters
         Parameters:
-          - ApplicationName
-          - VpcCIDR
           - ComprehendEntityScoreThreshold
           - MecabLambdaLayerArn
-      - Label:
-          default: Elasticsearch Parameters
-        Parameters:
-          - ElasticsearchVersion
-          - KibanaSignupAllowedEmailDomains
 
 Parameters:
   TwitterTermList:
     Description: List of terms for twitter to listen to
     Type: CommaDelimitedList
     Default: "AWS,EC2,RDS,S3"
+
   TwitterLanguages:
     Description: List of languages to use for the twitter streaming reader
     Type: CommaDelimitedList
     Default: "en,es,fr,de,it,pt,ar,hi,ja,ko,zh"
+
   TwitterFilterLevel:
     Description: https://developer.twitter.com/en/docs/tweets/filter-realtime/api-reference/post-statuses-filter
     Type: String
@@ -60,10 +54,7 @@ Parameters:
       - none
       - low
       - medium
-  TwitterReaderDockerImage:
-    Description: Twitter Streaming Reader 
-    Type: String
-    Default: mats16/twitter-streaming-reader:0.1.0
+
   AuthAccessToken:
     Description: Access Token for calling twitter
     Type: String
@@ -78,33 +69,20 @@ Parameters:
     Description: Consumer Secret for access twitter
     Type: String
     NoEcho: True
-  ApplicationName:
-    Description: Name of the application for naming or tagging AWS resources created by this solution
-    Type: String
-    Default: social-media-dashboard
-    AllowedPattern: ^[a-z\-]*$
-    MaxLength: 28
-    MinLength: 3
-  VpcCIDR:
-    Description: Please enter the IP range (CIDR notation) for this VPC
-    Type: String
-    Default: 10.193.0.0/16
+
   ComprehendEntityScoreThreshold:
     Type: Number
     Default: 0.8
     MaxValue: 1
     MinValue: 0
+
   MecabLambdaLayerArn:
     Type: String
     Default: 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1'
-  ElasticsearchVersion:
-    Description: 7.x supported only
-    Type: String
-    Default: 7.1
-    AllowedPattern: ^7\.[0-9]+$
-  KibanaSignupAllowedEmailDomains:
+
+  SignupAllowedDomains:
     Type: CommaDelimitedList
-    Description: Specific domains allowed to register on Kibana
+    Description: Specific domains allowed to register on Cognito User Pool
     Default: amazon.com,amazon.co.jp
 
 Conditions:
@@ -112,274 +90,58 @@ Conditions:
 
 Resources:
 
-  AuthConsumerSecretManagerSecret:
-    Type: AWS::SecretsManager::Secret
+  TwitterTopicsParameter:
+    Type: AWS::SSM::Parameter
     Properties:
-      Name: AuthConsumerSecretManagerSecret
-      SecretString:
-        !Ref AuthConsumerSecret
+      Name: !Sub '/${AWS::StackName}/Twitter/Topics'
+      Description: A comma-separated list of phrases which will be used to determine what Tweets will be delivered on the stream.
+      Type: StringList
+      Value: !Join [ ',', !Ref TwitterTermList ]
 
-  AuthAccessTokenSecretManagerSecret:
-    Type: AWS::SecretsManager::Secret
+  TwitterLanguagesParameter:
+    Type: AWS::SSM::Parameter
     Properties:
-      Name: AuthAccessTokenSecretManagerSecret
-      SecretString:
-        !Ref AuthAccessTokenSecret
+      Name: !Sub '/${AWS::StackName}/Twitter/Languages'
+      Type: StringList
+      Value: !Join [ ',', !Ref TwitterLanguages ]
 
-  AuthConsumerManagerSecret:
+  TwitterFilterLevelParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${AWS::StackName}/Twitter/FilterLevel'
+      Type: String
+      Value: !Ref TwitterFilterLevel
+
+  TwitterConsumerKey:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: AuthConsumerManagerSecret
+      Name: !Sub '${AWS::StackName}/Twitter/ConsumerKey'
       SecretString:
         !Ref AuthConsumerKey
 
-  AuthAccessTokenManagerSecret:
+  TwitterConsumerSecretKey:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: AuthAccessTokenManagerSecret
+      Name: !Sub '${AWS::StackName}/Twitter/ConsumerSecretKey'
+      SecretString:
+        !Ref AuthConsumerSecret
+
+  TwitterAccessToken:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${AWS::StackName}/Twitter/AccessToken'
       SecretString:
         !Ref AuthAccessToken
 
-  TwitterReaderSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  TwitterAccessTokenSecret:
+    Type: AWS::SecretsManager::Secret
     Properties:
-      GroupDescription: Security Group for ECS Twitter Reader
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: TwitterReaderSecurityGroup
-        - Key: ResourceGroup
-          Value: CloudFormationResource
-        - Key: Project
-          Value: !Join ['-', [!Ref 'ApplicationName', !Ref 'AWS::Region']]
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: "-1"
+      Name: !Sub '${AWS::StackName}/Twitter/AccessTokenSecret'
+      SecretString:
+        !Ref AuthAccessTokenSecret
 
-  TwitterReaderTaskRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      Path: '/'
-      ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess'
-      Policies:
-        - PolicyName: PutTweets
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Sid: KinesisAccess
-                Effect: Allow
-                Action:
-                  - 'kinesis:PutRecord'
-                  - 'kinesis:PutRecords'
-                Resource: !GetAtt RealtimeIngestionStream.Arn
-
-  TaskExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      Path: '/'
-      ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
-      Policies:
-        - PolicyName: twitter-auth-secrets
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                    - 'secretsmanager:GetSecretValue'
-                Resource:
-                  - !Ref AuthConsumerSecretManagerSecret
-                  - !Ref AuthAccessTokenSecretManagerSecret
-                  - !Ref AuthConsumerManagerSecret
-                  - !Ref AuthAccessTokenManagerSecret
-
-  VPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: !Ref VpcCIDR
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
-      Tags:
-          - Key: Name
-            Value: !Ref ApplicationName
-
-  InternetGateway:
-      Type: AWS::EC2::InternetGateway
-      Properties:
-          Tags:
-              - Key: Name
-                Value: !Ref ApplicationName
-
-  InternetGatewayAttachment:
-      Type: AWS::EC2::VPCGatewayAttachment
-      Properties:
-          InternetGatewayId: !Ref InternetGateway
-          VpcId: !Ref VPC
-
-  PublicSubnet1:
-      Type: AWS::EC2::Subnet
-      Properties:
-          VpcId: !Ref VPC
-          AvailabilityZone: !Select [ 0, !GetAZs ]
-          CidrBlock: !Select [ 0, !Cidr [ !Ref VpcCIDR, 6, 8 ] ]
-          MapPublicIpOnLaunch: true
-          Tags:
-              - Key: Name
-                Value: !Sub ${ApplicationName} Public Subnet (AZ1)
-
-  PublicSubnet2:
-      Type: AWS::EC2::Subnet
-      Properties:
-          VpcId: !Ref VPC
-          AvailabilityZone: !Select [ 1, !GetAZs ]
-          CidrBlock: !Select [ 1, !Cidr [ !Ref VpcCIDR, 6, 8 ] ]
-          MapPublicIpOnLaunch: true
-          Tags:
-              - Key: Name
-                Value: !Sub ${ApplicationName} Public Subnet (AZ2)
-
-  PublicSubnet3:
-      Type: AWS::EC2::Subnet
-      Properties:
-          VpcId: !Ref VPC
-          AvailabilityZone: !Select [ 2, !GetAZs ]
-          CidrBlock: !Select [ 2, !Cidr [ !Ref VpcCIDR, 6, 8 ] ]
-          MapPublicIpOnLaunch: true
-          Tags:
-              - Key: Name
-                Value: !Sub ${ApplicationName} Public Subnet (AZ3)
-
-  PublicRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-        VpcId: !Ref VPC
-        Tags:
-            - Key: Name
-              Value: !Sub ${ApplicationName} Public Routes
-
-  DefaultPublicRoute:
-      Type: AWS::EC2::Route
-      DependsOn: InternetGatewayAttachment
-      Properties:
-          RouteTableId: !Ref PublicRouteTable
-          DestinationCidrBlock: 0.0.0.0/0
-          GatewayId: !Ref InternetGateway
-
-  PublicSubnet1RouteTableAssociation1:
-      Type: AWS::EC2::SubnetRouteTableAssociation
-      Properties:
-          RouteTableId: !Ref PublicRouteTable
-          SubnetId: !Ref PublicSubnet1
-
-  PublicSubnet1RouteTableAssociation2:
-      Type: AWS::EC2::SubnetRouteTableAssociation
-      Properties:
-          RouteTableId: !Ref PublicRouteTable
-          SubnetId: !Ref PublicSubnet2
-
-  PublicSubnet1RouteTableAssociation3:
-      Type: AWS::EC2::SubnetRouteTableAssociation
-      Properties:
-          RouteTableId: !Ref PublicRouteTable
-          SubnetId: !Ref PublicSubnet3
-
-  TweetsBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        IgnorePublicAcls: true
-        BlockPublicPolicy: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: "AES256"
-
-  EcsLogGroup: 
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub ${ApplicationName}/ecs
-      RetentionInDays: 365
-
-  EcsCluster:
-    Type: AWS::ECS::Cluster
-
-  TwitterStreamingReaderTaskDef: 
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: twitter-streaming-reader
-      RequiresCompatibilities: 
-        - "FARGATE"
-      NetworkMode: awsvpc
-      Cpu: "256"
-      Memory: "512"
-      TaskRoleArn: !Ref TwitterReaderTaskRole
-      ExecutionRoleArn: !Ref TaskExecutionRole
-      ContainerDefinitions: 
-        - Name: twitter-reader
-          Image: !Ref TwitterReaderDockerImage
-          Essential: "true"
-          Environment:
-            - Name: TWITTER_TOPICS
-              Value: !Join [',', !Ref TwitterTermList]
-            - Name: TWITTER_LANGUAGES
-              Value: !Join [',', !Ref TwitterLanguages]
-            - Name: TWITTER_FILTER_LEVEL
-              Value: !Ref TwitterFilterLevel
-            - Name: DESTINATION
-              Value: !Sub 'kinesis:${RealtimeIngestionStream}'
-          Secrets:
-            - Name: CONSUMER_KEY
-              ValueFrom: !Ref AuthConsumerManagerSecret
-            - Name: CONSUMER_SECRET
-              ValueFrom: !Ref AuthConsumerSecretManagerSecret
-            - Name: ACCESS_TOKEN
-              ValueFrom: !Ref AuthAccessTokenManagerSecret
-            - Name: ACCESS_TOKEN_SECRET
-              ValueFrom: !Ref AuthAccessTokenSecretManagerSecret
-          ReadonlyRootFilesystem: true
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-region: !Ref AWS::Region
-              awslogs-group: !Ref EcsLogGroup
-              awslogs-stream-prefix: twitter-reader
-
-  TwitterStreamingReader:
-    Type: AWS::ECS::Service
-    Properties:
-      Cluster: !Ref EcsCluster
-      DesiredCount: 1
-      LaunchType: FARGATE
-      PlatformVersion: 1.4.0
-      NetworkConfiguration: 
-        AwsvpcConfiguration:
-          AssignPublicIp: ENABLED
-          SecurityGroups:
-            - !Ref TwitterReaderSecurityGroup
-          Subnets:
-            - !Ref PublicSubnet1
-            - !Ref PublicSubnet2
-            - !Ref PublicSubnet3
-      TaskDefinition: !Ref TwitterStreamingReaderTaskDef
-
-  RealtimeIngestionStream:
+  # Application Main --------------------------------------
+  TweetStream:
     Type: AWS::Kinesis::Stream
     Properties: 
       RetentionPeriodHours: 24
@@ -388,7 +150,7 @@ Resources:
         EncryptionType: KMS
         KeyId: alias/aws/kinesis
 
-  OndemandIngestionStream:
+  TweetStreamForBatch:
     Type: AWS::Kinesis::Stream
     Properties: 
       RetentionPeriodHours: 24
@@ -406,77 +168,13 @@ Resources:
         EncryptionType: KMS
         KeyId: alias/aws/kinesis
 
-  ArchiveFirehoseStream:
-    Type: AWS::KinesisFirehose::DeliveryStream
-    Properties:
-      DeliveryStreamType: KinesisStreamAsSource
-      KinesisStreamSourceConfiguration:
-        KinesisStreamARN: !GetAtt RealtimeIngestionStream.Arn
-        RoleARN: !GetAtt ArchiveFirehoseRole.Arn
-      ExtendedS3DestinationConfiguration:
-        BucketARN: !GetAtt TweetsBucket.Arn
-        BufferingHints:
-          IntervalInSeconds: 300
-          SizeInMBs: 10
-        Prefix: 'raw/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/'
-        ErrorOutputPrefix: 'FirehoseFailures/!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/'
-        CompressionFormat: 'UNCOMPRESSED'
-        RoleARN: !GetAtt ArchiveFirehoseRole.Arn
-
-  ArchiveFirehoseRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: firehose.amazonaws.com
-            Action: sts:AssumeRole
-            Condition:
-              StringEquals:
-                sts:ExternalId: !Ref 'AWS::AccountId'
-      Policies:
-        - PolicyName: KinesisAccess
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'kinesis:Get*'
-                  - 'kinesis:DescribeStream'
-                Resource: !GetAtt RealtimeIngestionStream.Arn
-        - PolicyName: S3Access
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:AbortMultipartUpload
-                  - s3:GetBucketLocation
-                  - s3:GetObject
-                  - s3:ListBucket
-                  - s3:ListBucketMultipartUploads
-                  - s3:PutObject
-                Resource:
-                  - !Sub '${TweetsBucket.Arn}'
-                  - !Sub '${TweetsBucket.Arn}/*'
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - logs:DescribeLogStreams
-                Resource:
-                - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
-
   AnalyticsFunction:
     Type: AWS::Serverless::Function
     Properties:
       Description: 'Analytics Function'
       CodeUri: source/analyze_function/
       Handler: index.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.8
       MemorySize: 1024
       Timeout: 900
       Tracing: Active
@@ -488,7 +186,7 @@ Resources:
         Stream:
           Type: Kinesis
           Properties:
-            Stream: !GetAtt RealtimeIngestionStream.Arn
+            Stream: !GetAtt TweetStream.Arn
             StartingPosition: LATEST
             ParallelizationFactor: 1
             BatchSize: 200
@@ -511,77 +209,79 @@ Resources:
                 - 'kinesis:PutRecords'
               Resource: !GetAtt IndexingStream.Arn
 
-  OndemandIngestionToAnalytics:
+  AnalyticsFunctionForBatch:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
       FunctionName: !GetAtt AnalyticsFunction.Arn
-      EventSourceArn: !GetAtt OndemandIngestionStream.Arn
+      EventSourceArn: !GetAtt TweetStreamForBatch.Arn
       StartingPosition: LATEST
       ParallelizationFactor: 10
       BatchSize: 400
       MaximumRecordAgeInSeconds: 604800
       #MaximumBatchingWindowInSeconds: Integer
 
-  MecabFunction:
-    Type: AWS::Serverless::Function
-    Condition: CreateMecabLambda
-    Properties:
-      Description: 'MeCab Function'
-      CodeUri: source/mecab_function/
-      Handler: index.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref MecabLambdaLayerArn
-      MemorySize: 1024
-      Timeout: 300
-      Tracing: Active
-      Environment:
-        Variables:
-          INDEXING_STREAM: !Ref IndexingStream
-      Events:
-        Stream:
-          Type: Kinesis
-          Properties:
-            Stream: !GetAtt RealtimeIngestionStream.Arn
-            StartingPosition: LATEST
-            ParallelizationFactor: 1
-            BatchSize: 200
-            MaximumRecordAgeInSeconds: 300
-      Policies:
-        - Version: "2012-10-17"
-          Statement:
-            - Sid: KinesisAccess
-              Effect: Allow
-              Action:
-                - 'kinesis:PutRecord'
-                - 'kinesis:PutRecords'
-              Resource: !GetAtt IndexingStream.Arn
-
-  OndemandIngestionToMecab:
-    Type: AWS::Lambda::EventSourceMapping
-    Condition: CreateMecabLambda
-    Properties:
-      FunctionName: !GetAtt MecabFunction.Arn
-      EventSourceArn: !GetAtt OndemandIngestionStream.Arn
-      StartingPosition: LATEST
-      ParallelizationFactor: 1
-      BatchSize: 200
-      MaximumRecordAgeInSeconds: 604800
-      #MaximumBatchingWindowInSeconds: Integer
+#  MecabFunction:
+#    Type: AWS::Serverless::Function
+#    Condition: CreateMecabLambda
+#    Properties:
+#      Description: 'MeCab Function'
+#      CodeUri: source/mecab_function/
+#      Handler: index.lambda_handler
+#      Runtime: python3.8
+#      Layers:
+#        - !Ref MecabLambdaLayerArn
+#      MemorySize: 1024
+#      Timeout: 300
+#      Tracing: Active
+#      Environment:
+#        Variables:
+#          INDEXING_STREAM: !Ref IndexingStream
+#      Events:
+#        Stream:
+#          Type: Kinesis
+#          Properties:
+#            Stream: !GetAtt TweetStream.Arn
+#            StartingPosition: LATEST
+#            ParallelizationFactor: 1
+#            BatchSize: 200
+#            MaximumRecordAgeInSeconds: 300
+#      Policies:
+#        - Version: "2012-10-17"
+#          Statement:
+#            - Sid: KinesisAccess
+#              Effect: Allow
+#              Action:
+#                - 'kinesis:PutRecord'
+#                - 'kinesis:PutRecords'
+#              Resource: !GetAtt IndexingStream.Arn
+#
+#  MecabFunctionForBatch:
+#    Type: AWS::Lambda::EventSourceMapping
+#    Condition: CreateMecabLambda
+#    Properties:
+#      FunctionName: !GetAtt MecabFunction.Arn
+#      EventSourceArn: !GetAtt TweetStreamForBatch.Arn
+#      StartingPosition: LATEST
+#      ParallelizationFactor: 1
+#      BatchSize: 200
+#      MaximumRecordAgeInSeconds: 604800
+#      #MaximumBatchingWindowInSeconds: Integer
 
   IndexingFunction:
     Type: AWS::Serverless::Function
     Properties:
       Description: 'Indexing function  - KinesisStream to Elasticsearch '
+      Runtime: python3.7
+      Layers: 
+        - !Ref PowertoolsLayer
       CodeUri: source/indexing_function/
       Handler: index.lambda_handler
-      Runtime: python3.6
       MemorySize: 192
       Timeout: 300
       Tracing: Active
       Environment:
         Variables:
-          ELASTICSEARCH_HOST: !GetAtt Elasticsearch.Outputs.Endpoint
+          ELASTICSEARCH_HOST: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
       Events:
         Stream:
           Type: Kinesis
@@ -598,355 +298,49 @@ Resources:
                 - es:ESHttpPut
                 - es:ESHttpPost
               Resource:
-                - !Sub '${Elasticsearch.Outputs.Arn}/*'
+                - !Sub '${ElasticsearchStack.Outputs.ElasticsearchArn}/*'
 
-  TweetsGlueDB:
-    Type: "AWS::Glue::Database"
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      DatabaseInput:
-        Name: tweets
-
-  RawTweetsGlueTable:
-    Type: "AWS::Glue::Table"
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      DatabaseName: !Ref TweetsGlueDB
-      TableInput:
-        Description: 'https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object'
-        Name: raw
-        TableType: EXTERNAL_TABLE
-        PartitionKeys:
-          - Name: year
-            Type: string
-          - Name: month
-            Type: string
-          - Name: day
-            Type: string
-          - Name: hour
-            Type: string
-        StorageDescriptor:
-          Location: !Sub 's3://${TweetsBucket}/raw'
-          InputFormat: org.apache.hadoop.mapred.TextInputFormat
-          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          Compressed: False
-          NumberOfBuckets: -1
-          SerdeInfo:
-            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
-            Parameters:
-              paths: 'created_at, id, id_str, text, source, truncated, is_quote_status, quote_count, reply_count, retweet_count, favorite_count, favorited, retweeted, possibly_sensitive, filter_level, lang, timestamp_ms'
-              serialization.format: 1
-          Columns:
-            - Name: created_at
-              Type: string
-              Comment: UTC time when this Tweet was created.
-            - Name: id
-              Type: bigint
-              Comment: The integer representation of the unique identifier for this Tweet. This number is greater than 53 bits and some programming languages may have difficulty/silent defects in interpreting it.
-            - Name: id_str
-              Type: string
-              Comment: The string representation of the unique identifier for this Tweet. Implementations should use this rather than the large integer in id.
-            - Name: text
-              Type: string
-              Comment: The actual UTF-8 text of the status update. See twitter-text for details on what characters are currently considered valid.
-            - Name: source
-              Type: string
-              Comment: Utility used to post the Tweet, as an HTML-formatted string. Tweets from the Twitter website have a source value of web.
-            - Name: truncated
-              Type: boolean
-              Comment: Indicates whether the value of the text parameter was truncated, for example, as a result of a retweet exceeding the original Tweet text length limit of 140 characters.
-            - Name: in_reply_to_status_id
-              Type: bigint
-              Comment: Nullable. If the represented Tweet is a reply, this field will contain the integer representation of the original Tweet’s ID.
-            - Name: in_reply_to_status_id_str
-              Type: string
-              Comment: Nullable. If the represented Tweet is a reply, this field will contain the string representation of the original Tweet’s ID.
-            - Name: in_reply_to_user_id
-              Type: bigint
-              Comment: Nullable. If the represented Tweet is a reply, this field will contain the integer representation of the original Tweet’s author ID. This will not necessarily always be the user directly mentioned in the Tweet.
-            - Name: in_reply_to_user_id_str
-              Type: string
-              Comment: Nullable. If the represented Tweet is a reply, this field will contain the string representation of the original Tweet’s author ID. This will not necessarily always be the user directly mentioned in the Tweet.
-            - Name: in_reply_to_screen_name
-              Type: string
-              Comment: Nullable. If the represented Tweet is a reply, this field will contain the screen name of the original Tweet’s author.
-            - Name: user
-              Type: struct<id:bigint,id_str:string,name:string,screen_name:string,location:string,url:string,description:string,translator_type:string,protected:boolean,verified:boolean,followers_count:bigint,friends_count:bigint,listed_count:bigint,favourites_count:bigint,statuses_count:bigint,created_at:string,utc_offset:bigint,time_zone:string,geo_enabled:boolean,lang:string,contributors_enabled:boolean,is_translator:boolean,profile_background_color:string,profile_background_image_url:string,profile_background_image_url_https:string,profile_background_tile:boolean,profile_link_color:string,profile_sidebar_border_color:string,profile_sidebar_fill_color:string,profile_text_color:string,profile_use_background_image:boolean,profile_image_url:string,profile_image_url_https:string,profile_banner_url:string,default_profile:boolean,default_profile_image:boolean>
-              Comment: The user who posted this Tweet. See User data dictionary for complete list of attributes.
-            - Name: coordinates
-              Type: struct<type:string,coordinates:array<double>>
-              Comment: Nullable. Represents the geographic location of this Tweet as reported by the user or client application. The inner coordinates array is formatted as geoJSON (longitude first, then latitude).
-            - Name: place
-              Type: struct<id:string,url:string,place_type:string,name:string,full_name:string,country_code:string,country:string,bounding_box:struct<type:string,coordinates:array<array<array<float>>>>>
-              Comment: Nullable When present, indicates that the tweet is associated (but not necessarily originating from) a Place .
-            - Name: quoted_status_id
-              Type: bigint
-              Comment: This field only surfaces when the Tweet is a quote Tweet. This field contains the integer value Tweet ID of the quoted Tweet.
-            - Name: quoted_status_id_str
-              Type: string
-              Comment: This field only surfaces when the Tweet is a quote Tweet. This is the string representation Tweet ID of the quoted Tweet.
-            - Name: is_quote_status
-              Type: boolean
-              Comment: Indicates whether this is a Quoted Tweet.
-            - Name: quoted_status
-              Type: string
-              Comment: This field only surfaces when the Tweet is a quote Tweet. This attribute contains the Tweet object of the original Tweet that was quoted.
-            - Name: retweeted_status
-              Type: string
-              Comment: Retweets can be distinguished from typical Tweets by the existence of a retweeted_status attribute. This attribute contains a representation of the original Tweet that was retweeted.
-            - Name: quote_count
-              Type: bigint
-              Comment: Nullable. Indicates approximately how many times this Tweet has been quoted by Twitter users.
-            - Name: reply_count
-              Type: bigint
-              Comment: Number of times this Tweet has been replied to.
-            - Name: retweet_count
-              Type: bigint
-              Comment: Number of times this Tweet has been retweeted.
-            - Name: favorite_count
-              Type: bigint
-              Comment: Nullable. Indicates approximately how many times this Tweet has been liked by Twitter users.
-            - Name: entities
-              Type: struct<hashtags:array<struct<text:string,indices:array<bigint>>>,urls:array<struct<url:string,expanded_url:string,display_url:string,indices:array<bigint>>>>
-              Comment: Entities which have been parsed out of the text of the Tweet. Additionally see Entities in Twitter Objects .
-            - Name: favorited
-              Type: boolean
-              Comment: Nullable. Indicates whether this Tweet has been liked by the authenticating user.
-            - Name: retweeted
-              Type: boolean
-              Comment: Indicates whether this Tweet has been Retweeted by the authenticating user.
-            - Name: possibly_sensitive
-              Type: boolean
-              Comment: Nullable. This field only surfaces when a Tweet contains a link. The meaning of the field doesn’t pertain to the Tweet content itself, but instead it is an indicator that the URL may contain content or media identified as sensitive content.
-            - Name: filter_level
-              Type: string
-              Comment: Indicates the maximum value of the filter_level parameter which may be used and still stream this Tweet. So a value of medium will be streamed on none, low, and medium streams.
-            - Name: lang
-              Type: string
-              Comment: Nullable. When present, indicates a BCP 47 language identifier corresponding to the machine-detected language of the Tweet text, or und if no language could be detected. See more documentation HERE.
-            - Name: timestamp_ms
-              Type: timestamp
-            - Name: geo
-              Type: struct<type:string,coordinates:array<double>>
-              Comment: Deprecated.
-        Parameters:
-          classification: json
-
-  CrawledTweetsGlueTable:
-    Type: "AWS::Glue::Table"
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      DatabaseName: !Ref TweetsGlueDB
-      TableInput:
-        Description: Crawled tweets
-        Name: crawled
-        TableType: EXTERNAL_TABLE
-        PartitionKeys:
-          - Name: year
-            Type: string
-          - Name: month
-            Type: string
-          - Name: day
-            Type: string
-        StorageDescriptor:
-          Location: !Sub 's3://${TweetsBucket}/crawled'
-          InputFormat: org.apache.hadoop.mapred.TextInputFormat
-          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          Compressed: False
-          NumberOfBuckets: -1
-          SerdeInfo:
-            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
-            Parameters:
-              paths: 'created_at, id_str, text, username, reply_count, retweet_count, favorite_count, lang, timestamp_ms'
-              serialization.format: 1
-          Columns:
-            - Name: created_at
-              Type: string
-              Comment: UTC time when this Tweet was created.
-            - Name: id_str
-              Type: string
-              Comment: The string representation of the unique identifier for this Tweet. Implementations should use this rather than the large integer in id.
-            - Name: text
-              Type: string
-              Comment: The actual UTF-8 text of the status update. See twitter-text for details on what characters are currently considered valid.
-            - Name: username
-              Type: string
-              Comment: It is not same as "user" object.
-            - Name: reply_count
-              Type: bigint
-              Comment: Number of times this Tweet has been replied to.
-            - Name: retweet_count
-              Type: bigint
-              Comment: Number of times this Tweet has been retweeted.
-            - Name: favorite_count
-              Type: bigint
-              Comment: Nullable. Indicates approximately how many times this Tweet has been liked by Twitter users.
-            - Name: entities
-              Type: struct<hashtags:array<struct<text:string,indices:array<bigint>>>,urls:array<struct<url:string,expanded_url:string,display_url:string,indices:array<bigint>>>>
-              Comment: Entities which have been parsed out of the text of the Tweet. Additionally see Entities in Twitter Objects .
-            - Name: lang
-              Type: string
-              Comment: Nullable. When present, indicates a BCP 47 language identifier corresponding to the machine-detected language of the Tweet text, or und if no language could be detected. See more documentation HERE.
-            - Name: timestamp_ms
-              Type: timestamp
-        Parameters:
-          classification: json
-
-  Elasticsearch:
-    Type: AWS::Serverless::Application
-    Properties:
-      Location:
-        ApplicationId: arn:aws:serverlessrepo:us-east-1:345513370492:applications/amazon-elasticsearch-cognito-auth
-        SemanticVersion: 0.3.3
-      Parameters:
-        ElasticsearchVersion: !Ref ElasticsearchVersion
-        KibanaSignupAllowedEmailDomains: !Join [',', !Ref KibanaSignupAllowedEmailDomains]      
-
-  TweetsTemplate:
-    Type: Custom::ElasticsearchTemplate
+  IndexerRole:
+    Type: Custom::Role
     Version: 1.0
     Properties:
-      ServiceToken: !GetAtt Elasticsearch.Outputs.ModifyTemplateArn
-      Host: !GetAtt Elasticsearch.Outputs.Endpoint
-      Body: '
+      ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
+      URL: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_opendistro/_security/api/roles/indexer'
+      Body: !Sub |
         {
-          "index_patterns": ["tweets-*"],
-          "settings": {
-            "number_of_shards": 4,
-            "number_of_replicas": 1
-          },
-          "mappings": {
-            "_source": {
-              "enabled": true
-            },
-            "properties": {
-              "created_at": {
-                "type": "date",
-                "format": "epoch_second"
-              },
-              "timestamp_ms": {
-                "type": "date",
-                "format": "epoch_millis"
-              },
-              "tweetid": {
-                "type": "keyword"
-              },
-              "text": {
-                "type": "text"
-              },
-              "normalized_text": {
-                "type": "text"
-              },
-              "source": {
-                "type": "keyword"
-              },
-              "filter_level": {
-                "type": "keyword"
-              },
-              "lang": {
-                "type": "keyword"
-              },
-              "hashtags": {
-                "type": "keyword"
-              },
-              "url": {
-                "type": "keyword"
-              },
-              "quote_count": {
-                "type": "long"
-              },
-              "reply_count": {
-                "type": "long"
-              },
-              "retweet_count": {
-                "type": "long"
-              },
-              "favorite_count": {
-                "type": "long"
-              },
-              "coordinates":{
-                "type": "geo_point"
-              },
-              "is_retweet": {
-                "type": "boolean"
-              },
-              "is_crawled": {
-                "type": "boolean"
-              },
-              "username": {
-                "type": "keyword"
-              },
-              "user": {
-                "properties": {
-                  "id_str": {
-                    "type": "keyword"
-                  },
-                  "name": {
-                    "type": "keyword"
-                  },
-                  "screen_name": {
-                    "type": "keyword"
-                  },
-                  "followers_count": {
-                    "type": "long"
-                  },
-                  "friends_count": {
-                    "type": "long"
-                  },
-                  "listed_count": {
-                    "type": "long"
-                  },
-                  "favourites_count": {
-                    "type": "long"
-                  },
-                  "favourites_count": {
-                    "type": "long"
-                  },
-                  "lang": {
-                    "type": "keyword"
-                  }
-                }
-              },
-              "comprehend": {
-                "properties": {
-                  "text": {
-                    "type": "text"
-                  },
-                  "lang": {
-                    "type": "keyword"
-                  },
-                  "sentiment": {
-                    "type": "keyword"
-                  },
-                  "sentiment_score": {
-                    "properties": {
-                      "positive": { "type": "double" },
-                      "negative":  { "type": "double" },
-                      "neutral":  { "type": "double" },
-                      "mixed":  { "type": "double" }
-                    }
-                  },
-                  "entities": {
-                    "type": "keyword"
-                  },
-                  "key_phrases": {
-                    "type": "keyword"
-                  }
-                }
-              },
-              "mecab": {
-                "properties": {
-                  "keywords": {
-                    "type": "keyword"
-                  },
-                  "wakati": {
-                    "type": "keyword"
-                  }
-                }
-              }
+          "description": "Provide the minimum permissions for bulk indexer",
+          "index_permissions": [
+            {
+              "index_patterns": [
+                "tweets-*"
+              ],
+              "fls": [],
+              "masked_fields": [],
+              "allowed_actions": [
+                "crud",
+                "create_index"
+              ]
             }
-          }
-        }'
+          ],
+          "tenant_permissions": [],
+          "cluster_permissions": [
+            "indices:data/write/bulk"
+          ]
+        }
+
+  IndexerRoleMapping:
+    Type: Custom::RoleMapping
+    Version: 1.0
+    DependsOn: IndexerRole
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
+      URL: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_opendistro/_security/api/rolesmapping/indexer'
+      Body: !Sub |
+        {
+          "backend_roles" : [
+            "${IndexingFunctionRole.Arn}"
+          ]
+        }
 
   TweetEventBus:
     Type: AWS::Events::EventBus
@@ -959,7 +353,7 @@ Resources:
       Description: 'PutEvent function  - KinesisStream to EventBridge'
       CodeUri: source/put_events_function/
       Handler: index.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.8
       MemorySize: 128
       Timeout: 10
       Tracing: Active
@@ -983,16 +377,125 @@ Resources:
               Resource:
                 - !GetAtt TweetEventBus.Arn
 
+  # Nested Stacks --------------------------------------
+  VpcStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested-stack/vpc.yaml
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+
+  TwitterProducerStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested-stack/twitter-producer.yaml
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        VpcId: !GetAtt VpcStack.Outputs.VpcId
+        PublicSubnetList: !GetAtt VpcStack.Outputs.PublicSubnetList
+        TweetStreamName: !Ref TweetStream
+        #DockerImage: mats16/twitter-streaming-reader:0.1.0
+        DockerImage: !GetAtt ContainerRepoStack.Outputs.ImageName
+        TwitterTopicsParameter: !Ref TwitterTopicsParameter
+        TwitterLanguagesParameter: !Ref TwitterLanguagesParameter
+        TwitterFilterLevelParameter: !Ref TwitterFilterLevelParameter
+        TwitterConsumerKey: !Ref TwitterConsumerKey
+        TwitterConsumerSecretKey: !Ref TwitterConsumerSecretKey
+        TwitterAccessToken: !Ref TwitterAccessToken
+        TwitterAccessTokenSecret: !Ref TwitterAccessTokenSecret
+
+  ContainerRepoStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested-stack/container-repo.yaml
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
+        DockerfileLayer: !Ref DockerfileLayer
+
+  ElasticsearchStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested-stack/elasticsearch.yaml
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
+        RequestsAWS4AuthLayer: !Ref RequestsAWS4AuthLayer
+
+  DataLakeStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested-stack/datalake.yaml
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        TweetStreamArn : !GetAtt TweetStream.Arn
+
+  # Lambda Layers --------------------------------------
+  PowertoolsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'powertools-python-${AWS::StackName}'
+      Description: AWS Lambda Powertools (Python)
+      ContentUri: layers/powertools/
+      CompatibleRuntimes:
+        - python3.7
+    Metadata:
+      BuildMethod: python3.7
+
+  CustomResourceHelperLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'crhelper-${AWS::StackName}'
+      Description: Custom Resource Helper
+      ContentUri: layers/crhelper/
+      CompatibleRuntimes:
+        - python3.7
+    Metadata:
+      BuildMethod: python3.7
+
+  ElasticsearchClientLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'elasticsearch-${AWS::StackName}'
+      Description: Python Elasticsearch Client
+      ContentUri: layers/elasticsearch/
+      CompatibleRuntimes:
+        - python3.7
+    Metadata:
+      BuildMethod: python3.7
+
+  RequestsAWS4AuthLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'requests-aws4auth-${AWS::StackName}'
+      Description: AWS v4 authentication for the Python Requests library.
+      ContentUri: layers/requests-aws4auth/
+      CompatibleRuntimes:
+        - python3.7
+    Metadata:
+      BuildMethod: python3.7
+
+  DockerfileLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'dockerfile-${AWS::StackName}'
+      Description: Dockerfile
+      ContentUri: containers/
+      CompatibleRuntimes:
+        - python3.7
+    Metadata:
+      BuildMethod: python3.7
+
 Outputs:
 
   S3ConsoleURL:
     Description: URL to the Lambda Function console
-    Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${TweetsBucket}/?region=${AWS::Region}&tab=overview'
+    Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${DataLakeStack.Outputs.Bucket}/?region=${AWS::Region}&tab=overview'
 
   TwitterRawLocation:
     Description: S3 Twitter Raw location.
-    Value: !Sub 's3://${TweetsBucket}/raw/'
+    Value: !Sub 's3://${DataLakeStack.Outputs.Bucket}/raw/'
 
   KibanaURL:
-    Description: URL to the Kibana
-    Value: !Sub 'https://${Elasticsearch.Outputs.Endpoint}/_plugin/kibana/'
+    Description: Kibana URL
+    Value: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_plugin/kibana/'
