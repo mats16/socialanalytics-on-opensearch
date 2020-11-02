@@ -1,0 +1,18 @@
+# https://github.com/awslabs/aws-sam-codebuild-ci
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+        python: 3.7
+    commands:
+      - pip install cfn-lint
+  build:
+    commands:
+      - pip install cfn-lint
+      - aws cloudformation package --template-file template.yaml --s3-bucket ${PACKAGE_BUCKET} --output-template-file packaged-template.yaml
+      #- sam build --use-container
+      #- sam package --template-file template.yml --s3-bucket bucketname --output-template-file packaged-template.yml
+      #- sam deploy packaged-template.yml
+artifacts:
+  files:
+    - packaged-template.yml

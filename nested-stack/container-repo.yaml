@@ -89,16 +89,6 @@ Resources:
                   - !Sub 'arn:aws:s3:::${ArtifactBucket}/*'
               - Effect: Allow
                 Action:
-                  - ecs:DescribeServices
-                  - ecs:DescribeTaskDefinition
-                  - ecs:DescribeTasks
-                  - ecs:ListTasks
-                  - ecs:RegisterTaskDefinition
-                  - ecs:UpdateService
-                Resource:
-                  - '*'
-              - Effect: Allow
-                Action:
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchGetImage
                   - ecr:BatchCheckLayerAvailability
@@ -151,11 +141,6 @@ Resources:
 
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W32
-            reason: 'Happy with the default behaviour of using AWS-managed CMK'
     Properties:
       Artifacts:
         Type: NO_ARTIFACTS
