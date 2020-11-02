@@ -9,10 +9,10 @@ phases:
   build:
     commands:
       - pip install cfn-lint
-      - aws cloudformation package --template-file template.yaml --s3-bucket ${PACKAGE_BUCKET} --output-template-file packaged-template.yaml
-      #- sam build --use-container
-      #- sam package --template-file template.yml --s3-bucket bucketname --output-template-file packaged-template.yml
-      #- sam deploy packaged-template.yml
+      #- aws cloudformation package --template-file template.yaml --s3-bucket ${PACKAGE_BUCKET} --output-template-file packaged-template.yaml
+      - sam build
+      - sam package --template-file template.yml --s3-bucket ${PACKAGE_BUCKET} --output-template-file packaged-template.yml
+      #- sam deploy --template-file packaged-template.yml --stack-name social-media-dashboard
 artifacts:
   files:
     - packaged-template.yml
