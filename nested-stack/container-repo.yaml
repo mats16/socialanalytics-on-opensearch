@@ -137,10 +137,11 @@ Resources:
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
+      ServiceRole: !GetAtt CodeBuildRole.Arn
       Artifacts:
-        Type: NO_ARTIFACTS
+        Type: CODEPIPELINE
       Source:
-        Type: NO_SOURCE
+        Type: CODEPIPELINE
         BuildSpec: |
           version: 0.2
           phases:
@@ -173,8 +174,6 @@ Resources:
             Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${TwitterProducerRepo}'
           - Name: IMAGE_VERSION
             Value: !Ref ImageVersion
-      Name: !Ref ParentStackName
-      ServiceRole: !GetAtt CodeBuildRole.Arn
 
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
