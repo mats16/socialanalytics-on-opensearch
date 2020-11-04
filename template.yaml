@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: "AWS::Serverless-2016-10-31"
-Description: 'Social Media Dashboard Main Template'
+Description: 'Social Media Dashboard Main Stack'
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: serverless-social-media-dashboard
@@ -305,7 +305,8 @@ Resources:
     Version: 1.0
     Properties:
       ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
-      URL: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_opendistro/_security/api/roles/indexer'
+      Host: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
+      Path: _opendistro/_security/api/roles/indexer
       Body: !Sub |
         {
           "description": "Provide the minimum permissions for bulk indexer",
@@ -334,7 +335,8 @@ Resources:
     DependsOn: IndexerRole
     Properties:
       ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
-      URL: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_opendistro/_security/api/rolesmapping/indexer'
+      Host: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
+      Path: _opendistro/_security/api/rolesmapping/indexer
       Body: !Sub |
         {
           "backend_roles" : [
