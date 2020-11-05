@@ -175,6 +175,8 @@ Resources:
       CodeUri: source/analyze_function/
       Handler: index.lambda_handler
       Runtime: python3.7
+      Layers: 
+        - !Ref PowertoolsLayer
       MemorySize: 1024
       Timeout: 900
       Tracing: Active
@@ -396,7 +398,6 @@ Resources:
         VpcId: !GetAtt VpcStack.Outputs.VpcId
         PublicSubnetList: !GetAtt VpcStack.Outputs.PublicSubnetList
         TweetStreamName: !Ref TweetStream
-        #DockerImage: mats16/twitter-streaming-reader:0.1.0
         DockerImage: !GetAtt ContainerRepoStack.Outputs.ImageName
         TwitterTopicsParameter: !Ref TwitterTopicsParameter
         TwitterLanguagesParameter: !Ref TwitterLanguagesParameter
