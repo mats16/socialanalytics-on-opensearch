@@ -217,7 +217,7 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.7
       Layers: 
-        - !Ref PowertoolsLayer
+        - !Ref LambdaPowertoolsPythonLayer
       MemorySize: 1024
       Timeout: 900
       Tracing: Active
@@ -269,7 +269,8 @@ Resources:
       Description: 'Indexing function  - KinesisStream to Elasticsearch '
       Runtime: python3.7
       Layers: 
-        - !Ref PowertoolsLayer
+        - !Ref LambdaPowertoolsPythonLayer
+        - !Ref ElasticsearchClientLayer
       CodeUri: source/indexing_function/
       Handler: index.lambda_handler
       MemorySize: 192
@@ -417,7 +418,7 @@ Resources:
       Parameters:
         ParentStackName: !Ref AWS::StackName
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
-        RequestsAWS4AuthLayer: !Ref RequestsAWS4AuthLayer
+        ElasticsearchClientLayer: !Ref ElasticsearchClientLayer
         SignupAllowedDomains: !Join [ ',', !Ref SignupAllowedDomains ]
         ElasticsearchVersion: !Ref ElasticsearchVersion
         ElasticsearchAvailabilityZoneCount: !Ref ElasticsearchAvailabilityZoneCount
@@ -435,10 +436,10 @@ Resources:
         TweetStreamArn : !GetAtt TweetStream.Arn
 
   # Lambda Layers --------------------------------------
-  PowertoolsLayer:
+  LambdaPowertoolsPythonLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'powertools-python-${AWS::StackName}'
+      LayerName: !Sub 'lambda-powertools-python-${AWS::StackName}'
       Description: AWS Lambda Powertools (Python)
       ContentUri: layers/powertools/
       CompatibleRuntimes:
@@ -460,20 +461,9 @@ Resources:
   ElasticsearchClientLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'elasticsearch-${AWS::StackName}'
+      LayerName: !Sub 'elasticsearch-client-${AWS::StackName}'
       Description: Python Elasticsearch Client
       ContentUri: layers/elasticsearch/
-      CompatibleRuntimes:
-        - python3.7
-    Metadata:
-      BuildMethod: python3.7
-
-  RequestsAWS4AuthLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: !Sub 'requests-aws4auth-${AWS::StackName}'
-      Description: AWS v4 authentication for the Python Requests library.
-      ContentUri: layers/requests-aws4auth/
       CompatibleRuntimes:
         - python3.7
     Metadata:

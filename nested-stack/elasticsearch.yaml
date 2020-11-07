@@ -9,7 +9,7 @@ Parameters:
   CustomResourceHelperLayer:
     Type: String
   
-  RequestsAWS4AuthLayer:
+  ElasticsearchClientLayer:
     Type: String
 
   SignupAllowedDomains:
@@ -684,7 +684,7 @@ Resources:
       Role: !GetAtt KibanaMasterRole.Arn
       Layers: 
         - !Ref CustomResourceHelperLayer
-        - !Ref RequestsAWS4AuthLayer
+        - !Ref ElasticsearchClientLayer
       Handler: index.lambda_handler
       Code:
         ZipFile: |
