@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: '[Social Media Dashboard] Build Docker Image Stack'
+Description: '[Social Media Dashboard] Container Repository Stack'
 
 Parameters:
 

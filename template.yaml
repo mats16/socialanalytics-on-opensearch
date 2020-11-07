@@ -17,13 +17,13 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
-          default: Tweets Configuration
+          default: Twitter API Parameters
         Parameters:
           - TwitterTermList
           - TwitterLanguages
           - TwitterFilterLevel
       - Label:
-          default: Twitter API Parameters
+          default: Twitter API Credentials
         Parameters:
           - AuthConsumerKey
           - AuthConsumerSecret
@@ -33,9 +33,19 @@ Metadata:
           default: Application Parameters
         Parameters:
           - ComprehendEntityScoreThreshold
-          - MecabLambdaLayerArn
+          - SignupAllowedDomains
+      - Label:
+          default: Elasticsearch Configuration
+        Parameters:
+          - ElasticsearchVersion
+          - ElasticsearchAvailabilityZoneCount
+          - ElasticsearchDataNodeInstanceType
+          - ElasticsearchDataNodeInstanceCount
+          - ElasticsearchMasterNodeInstanceType
+          - ElasticsearchMasterNodeInstanceCount
 
 Parameters:
+
   TwitterTermList:
     Description: List of terms for twitter to listen to
     Type: CommaDelimitedList
@@ -76,17 +86,48 @@ Parameters:
     MaxValue: 1
     MinValue: 0
 
-  MecabLambdaLayerArn:
-    Type: String
-    Default: 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1'
+  #MecabLambdaLayerArn:
+  #  Type: String
+  #  Default: 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1'
 
   SignupAllowedDomains:
     Type: CommaDelimitedList
     Description: Specific domains allowed to register on Cognito User Pool
     Default: amazon.com,amazon.co.jp
 
-Conditions:
-  CreateMecabLambda: !Not [!Equals [!Ref MecabLambdaLayerArn, 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1']]
+  ElasticsearchVersion:
+    Type: String
+    Default: 7.8
+
+  ElasticsearchAvailabilityZoneCount:
+    Type: Number
+    Default: 2
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+
+  ElasticsearchDataNodeInstanceType:
+    Type: String
+    Default: i3.large.elasticsearch
+    AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
+
+  ElasticsearchDataNodeInstanceCount:
+    Type: Number
+    Default: 2
+
+  ElasticsearchMasterNodeInstanceType:
+    Type: String
+    Default: t3.medium.elasticsearch
+    AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
+
+  ElasticsearchMasterNodeInstanceCount:
+    Type: Number
+    Default: 3
+    AllowedValues: [ 3, 5 ]
+
+Conditions: {}
+  #CreateMecabLambda: !Not [!Equals [!Ref MecabLambdaLayerArn, 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1']]
 
 Resources:
 
@@ -221,53 +262,6 @@ Resources:
       BatchSize: 400
       MaximumRecordAgeInSeconds: 604800
       #MaximumBatchingWindowInSeconds: Integer
-
-#  MecabFunction:
-#    Type: AWS::Serverless::Function
-#    Condition: CreateMecabLambda
-#    Properties:
-#      Description: 'MeCab Function'
-#      CodeUri: source/mecab_function/
-#      Handler: index.lambda_handler
-#      Runtime: python3.7
-#      Layers:
-#        - !Ref MecabLambdaLayerArn
-#      MemorySize: 1024
-#      Timeout: 300
-#      Tracing: Active
-#      Environment:
-#        Variables:
-#          INDEXING_STREAM: !Ref IndexingStream
-#      Events:
-#        Stream:
-#          Type: Kinesis
-#          Properties:
-#            Stream: !GetAtt TweetStream.Arn
-#            StartingPosition: LATEST
-#            ParallelizationFactor: 1
-#            BatchSize: 200
-#            MaximumRecordAgeInSeconds: 300
-#      Policies:
-#        - Version: "2012-10-17"
-#          Statement:
-#            - Sid: KinesisAccess
-#              Effect: Allow
-#              Action:
-#                - 'kinesis:PutRecord'
-#                - 'kinesis:PutRecords'
-#              Resource: !GetAtt IndexingStream.Arn
-#
-#  MecabFunctionForBatch:
-#    Type: AWS::Lambda::EventSourceMapping
-#    Condition: CreateMecabLambda
-#    Properties:
-#      FunctionName: !GetAtt MecabFunction.Arn
-#      EventSourceArn: !GetAtt TweetStreamForBatch.Arn
-#      StartingPosition: LATEST
-#      ParallelizationFactor: 1
-#      BatchSize: 200
-#      MaximumRecordAgeInSeconds: 604800
-#      #MaximumBatchingWindowInSeconds: Integer
 
   IndexingFunction:
     Type: AWS::Serverless::Function
@@ -424,6 +418,13 @@ Resources:
         ParentStackName: !Ref AWS::StackName
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
         RequestsAWS4AuthLayer: !Ref RequestsAWS4AuthLayer
+        SignupAllowedDomains: !Join [ ',', !Ref SignupAllowedDomains ]
+        ElasticsearchVersion: !Ref ElasticsearchVersion
+        ElasticsearchAvailabilityZoneCount: !Ref ElasticsearchAvailabilityZoneCount
+        ElasticsearchDataNodeInstanceType: !Ref ElasticsearchDataNodeInstanceType
+        ElasticsearchDataNodeInstanceCount: !Ref ElasticsearchDataNodeInstanceCount
+        ElasticsearchMasterNodeInstanceType: !Ref ElasticsearchMasterNodeInstanceType
+        ElasticsearchMasterNodeInstanceCount: !Ref ElasticsearchMasterNodeInstanceCount
 
   DataLakeStack:
     Type: AWS::CloudFormation::Stack
