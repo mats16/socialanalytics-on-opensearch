@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from aws_lambda_powertools import Logger
+from aws_lambda_powertools import Tracer
+from aws_lambda_powertools import Metrics
+from aws_lambda_powertools.metrics import MetricUnit
 import base64
 import json
 import os
@@ -9,12 +13,13 @@ import neologdn
 import emoji
 import re
 from datetime import datetime, timedelta, timezone
-import logging
-import hashlib
 
-from aws_xray_sdk.core import patch
-patch(('boto3',))
+logger = Logger(service="analytics")
+comprehend_logger = Logger(service="comprehend")
+tracer = Tracer(service="analytics")
+metrics = Metrics(namespace="SocialMediaDashboard")
 
+live_metrics = os.getenv('LIVE_METRICS')
 comprehend_entity_score_threshold = float(os.getenv('COMPREHEND_ENTITY_SCORE_THRESHOLD'))
 indexing_stream = os.getenv('INDEXING_STREAM')
 
@@ -24,8 +29,6 @@ config = Config(
 comprehend = boto3.client('comprehend', config=config)
 translate = boto3.client('translate', config=config)
 kinesis = boto3.client('kinesis')
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 def normalize(text):
     text_without_account = re.sub(r'@[a-zA-Z0-9_]+', '', text)  # remove twitter_account
@@ -37,6 +40,7 @@ def normalize(text):
     text_replaced_indention = ' '.join(text_without_emoji.splitlines())
     return text_replaced_indention.lower()
 
+@tracer.capture_method
 def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
     is_retweet_status = True if 'retweeted_status' in tweet else False
     is_quote_status = tweet.get('is_quote_status', False)
@@ -52,7 +56,6 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
         'created_at': int(created_at.timestamp()),
         'is_retweet_status': is_retweet_status,
         'is_quote_status': is_quote_status,
-        #'is_retweet': is_retweet,
     }
     for att in ['filter_level', 'quote_count', 'reply_count', 'retweet_count', 'favorite_count']:
         if att in tweet:
@@ -95,6 +98,7 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
             Text=comprehend_text,
             LanguageCode=comprehend_lang
         )
+        comprehend_logger.info(res_sentiment)
         es_record['comprehend'] = { 
             'text': comprehend_text,    
             'lang': comprehend_lang,    
@@ -111,6 +115,7 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
             Text=comprehend_text,
             LanguageCode=comprehend_lang
         )
+        comprehend_logger.info(res_entities)
         entities = []
         for entity in res_entities['Entities']:
             if entity['Type'] in ['QUANTITY', 'DATE']:
@@ -123,11 +128,24 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
             es_record['comprehend']['entities'] = list(set(entities))
     return es_record
 
+@metrics.log_metrics
+@tracer.capture_lambda_handler
 def lambda_handler(event, context):
+    logger.info({
+        'state': 'get_records',
+        'record_count': len(event['Records']),
+        'text': 'Get records from kinesis'
+    })
+    records = set(map(lambda x: x['kinesis']['data'], event['Records']))
+    logger.info({
+        'state': 'deduplicate_records',
+        'record_count': len(records),
+        'text': 'Deduplicate records'
+    })
+    tweet_count, retweet_count, quote_count = 0, 0, 0
     es_records = []
-    for record in event['Records']:
-        b64_data = record['kinesis']['data']
-        tweet_string = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
+    for record in records:
+        tweet_string = base64.b64decode(record).decode('utf-8').rstrip('\n')
         tweet = json.loads(tweet_string)
 
         created_at = int(datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y').timestamp())
@@ -138,10 +156,13 @@ def lambda_handler(event, context):
         es_record = gen_es_record(tweet)
 
         if es_record['is_retweet_status']:
+            retweet_count += 1
             org_es_record = gen_es_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
         elif es_record['is_quote_status']:
+            quote_count += 1
             org_es_record = gen_es_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
         else:
+            tweet_count += 1
             org_es_record = None
 
         if org_es_record and org_es_record['created_at'] >= time_threshold:
@@ -155,18 +176,20 @@ def lambda_handler(event, context):
             'PartitionKey': es_record['id_str']
         })
 
-        if len(es_records) >= 100:
-            res = kinesis.put_records(
-                Records=es_records,
-                StreamName=indexing_stream
-            )
-            es_records = []  # 初期化
-            logger.info(res)
-
+    if live_metrics == 'enabled':
+        metrics.add_dimension(name="SourceStream", value="Twitter")
+        metrics.add_metric(name="TweetCount", unit=MetricUnit.Count, value=tweet_count)
+        metrics.add_metric(name="RetweetCount", unit=MetricUnit.Count, value=retweet_count)
+        metrics.add_metric(name="QuoteCount", unit=MetricUnit.Count, value=quote_count)
     if len(es_records) > 0:
         res = kinesis.put_records(
             Records=es_records,
             StreamName=indexing_stream
         )
-        logger.info(res)
+        logger.info({
+            'state': 'put_records',
+            'record_count': len(es_records),
+            'failed_record_count': res['FailedRecordCount'],
+            'text': 'Put records to kinesis'
+        })
     return 'true'

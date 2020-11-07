@@ -219,6 +219,8 @@ Resources:
       Tracing: Active
       Environment:
         Variables:
+          LOG_LEVEL: INFO
+          LIVE_METRICS: enabled
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
           INDEXING_STREAM: !Ref IndexingStream
       Events:
@@ -249,15 +251,49 @@ Resources:
               Resource: !GetAtt IndexingStream.Arn
 
   AnalyticsFunctionForBatch:
-    Type: AWS::Lambda::EventSourceMapping
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !GetAtt AnalyticsFunction.Arn
-      EventSourceArn: !GetAtt TweetStreamForBatch.Arn
-      StartingPosition: LATEST
-      ParallelizationFactor: 10
-      BatchSize: 400
-      MaximumRecordAgeInSeconds: 604800
-      #MaximumBatchingWindowInSeconds: Integer
+      Description: '[Social Media Dashboard] Analytics Function for Batch'
+      CodeUri: source/analyze_function/
+      Handler: index.lambda_handler
+      Runtime: python3.7
+      Layers: 
+        - !Ref LambdaPowertoolsPythonLayer
+      MemorySize: 1024
+      Timeout: 900
+      Tracing: Active
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          LIVE_METRICS: disabled
+          COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
+          INDEXING_STREAM: !Ref IndexingStream
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt TweetStreamForBatch.Arn
+            StartingPosition: LATEST
+            ParallelizationFactor: 10
+            BatchSize: 200
+            MaximumRecordAgeInSeconds: 604800
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: ComprehendAccess
+              Effect: Allow
+              Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment', 'comprehend:DetectKeyPhrases']
+              Resource: '*'
+            - Sid: TranslateAccess
+              Effect: Allow
+              Action: ['translate:TranslateText']
+              Resource: '*'
+            - Sid: KinesisAccess
+              Effect: Allow
+              Action:
+                - 'kinesis:PutRecord'
+                - 'kinesis:PutRecords'
+              Resource: !GetAtt IndexingStream.Arn
 
   IndexingFunction:
     Type: AWS::Serverless::Function
@@ -274,6 +310,7 @@ Resources:
       Tracing: Active
       Environment:
         Variables:
+          LOG_LEVEL: INFO
           ELASTICSEARCH_HOST: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
       Events:
         Stream:

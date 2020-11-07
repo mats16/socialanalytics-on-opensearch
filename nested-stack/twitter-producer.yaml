@@ -160,7 +160,7 @@ Resources:
     Type: AWS::ECS::Service
     Properties:
       Cluster: !Ref EcsCluster
-      DesiredCount: 1
+      DesiredCount: 2
       LaunchType: FARGATE
       PlatformVersion: 1.4.0
       NetworkConfiguration: 

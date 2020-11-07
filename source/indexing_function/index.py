@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from aws_lambda_powertools import Logger
+from aws_lambda_powertools import Tracer
+from aws_lambda_powertools import Metrics
+from aws_lambda_powertools.metrics import MetricUnit
 import json
 import boto3
 import os
@@ -9,14 +13,12 @@ from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch.client import IndicesClient
 from requests_aws4auth import AWS4Auth
 
-from aws_xray_sdk.core import patch
-patch(('httplib',))
+logger = Logger(service="indexing")
+tracer = Tracer(service="indexing", patch_modules=['httplib'])
+metrics = Metrics(namespace="SocialMediaDashboard")
 
 es_host = os.getenv('ELASTICSEARCH_HOST')
 region = os.getenv('AWS_REGION')
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 def gen_index(prefix, dtime):
     return prefix + dtime.strftime('%Y-%m')
@@ -34,6 +36,8 @@ def es_bulk_load(data):
     r = es.bulk(data)
     return r
 
+@metrics.log_metrics
+@tracer.capture_lambda_handler
 def lambda_handler(event, context):
     bulk_data = ''
     for record in event['Records']:
@@ -55,6 +59,8 @@ def lambda_handler(event, context):
     if len(bulk_data) > 0:
         res = es_bulk_load(bulk_data)
         logger.info(res)
+        metrics.add_dimension(name="Elasticsearch", value="BulkAPI")
+        metrics.add_metric(name="TookTime", unit=MetricUnit.Count, value=res['took'])
         if res['errors']:
             logger.error(res['errors'])
             return 'false' 
