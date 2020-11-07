@@ -392,10 +392,6 @@ Resources:
                 "type": "date",
                 "format": "epoch_second"
               },
-              "timestamp_ms": {
-                "type": "date",
-                "format": "epoch_millis"
-              },
               "tweetid": {
                 "type": "keyword"
               },
@@ -435,10 +431,10 @@ Resources:
               "coordinates":{
                 "type": "geo_point"
               },
-              "is_retweet": {
+              "is_retweet_status": {
                 "type": "boolean"
               },
-              "is_crawled": {
+              "is_quote_status": {
                 "type": "boolean"
               },
               "username": {

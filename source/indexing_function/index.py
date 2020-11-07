@@ -41,8 +41,8 @@ def lambda_handler(event, context):
         record_string = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
         record_dict = json.loads(record_string)
 
-        if 'timestamp_ms' in record_dict and 'id_str' in record_dict:
-            dtime = datetime.fromtimestamp(int(record_dict['timestamp_ms']) / 1000, timezone.utc)
+        if 'created_at' in record_dict and 'id_str' in record_dict:
+            dtime = datetime.fromtimestamp(int(record_dict['created_at']), timezone.utc)
             bulk_header = {
                 'update': {
                     '_index': gen_index('tweets-', dtime),
