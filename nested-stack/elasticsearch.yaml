@@ -272,10 +272,10 @@ Resources:
     Properties:
       AllowUnauthenticatedIdentities: true
 
-  KibanaBasicPolicy:
+  KibanaPolicy:
     Type: AWS::IAM::Policy
     Properties: 
-      PolicyName: KibanaBasicPolicy
+      PolicyName: KibanaPolicy
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -284,11 +284,28 @@ Resources:
               - 'es:ESHttp*'
             Resource:
               - !Sub '${Elasticsearch.Arn}/*'
-      Roles: 
-        - !Ref KibanaUserRole
+      Roles:
+        - !Ref KibanaReaderRole
+        - !Ref KibanaBasicRole
         - !Ref KibanaMasterRole
 
-  KibanaUserRole:
+  KibanaReaderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref KibanaIdentityPool
+              ForAnyValue:StringLike:
+                "cognito-identity.amazonaws.com:amr": authenticated
+
+  KibanaBasicRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -326,11 +343,20 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-  KibanaMasterUsers:
+  KibanaReaderGroup:
     Type: AWS::Cognito::UserPoolGroup
     Properties: 
-      Description: Master users of Kibana
-      GroupName: MasterUsers
+      Description: kibana_read_only on Kibana
+      GroupName: ReaderOnly
+      Precedence: 1
+      RoleArn: !GetAtt KibanaReaderRole.Arn
+      UserPoolId: !Ref KibanaUserPool
+
+  KibanaMasterGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: 
+      Description: all_access & security_manager on Kibana
+      GroupName: Master
       Precedence: 0
       RoleArn: !GetAtt KibanaMasterRole.Arn
       UserPoolId: !Ref KibanaUserPool
@@ -348,16 +374,34 @@ Resources:
     Properties:
       IdentityPoolId: !Ref KibanaIdentityPool
       Roles:
-        authenticated: !GetAtt KibanaUserRole.Arn
+        authenticated: !GetAtt KibanaBasicRole.Arn
       RoleMappings:
         userpool:
           IdentityProvider: !Sub '${KibanaUserPool.ProviderName}:${ClientId}'
           Type: Token
           AmbiguousRoleResolution: AuthenticatedRole
 
-  KibanaUserRoleMapping:
+  KibanaReaderRoleMapping:
     Type: Custom::RoleMapping
     Version: 1.0
+    DependsOn:
+      - KibanaPolicy
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Path: _opendistro/_security/api/rolesmapping/kibana_read_only
+      Body: !Sub |
+        {
+          "backend_roles" : [
+            "${KibanaReaderRole.Arn}"
+          ]
+        }
+
+  KibanaBasicRoleMapping:
+    Type: Custom::RoleMapping
+    Version: 1.0
+    DependsOn:
+      - KibanaPolicy
     Properties:
       ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
       Host: !GetAtt Elasticsearch.DomainEndpoint
@@ -365,13 +409,15 @@ Resources:
       Body: !Sub |
         {
           "backend_roles" : [
-            "${KibanaUserRole.Arn}"
+            "${KibanaBasicRole.Arn}"
           ]
         }
 
   TweetsTemplate:
     Type: Custom::Template
     Version: 1.0
+    DependsOn:
+      - KibanaPolicy
     Properties:
       ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
       Host: !GetAtt Elasticsearch.DomainEndpoint
@@ -494,16 +540,6 @@ Resources:
                     "type": "keyword"
                   },
                   "key_phrases": {
-                    "type": "keyword"
-                  }
-                }
-              },
-              "mecab": {
-                "properties": {
-                  "keywords": {
-                    "type": "keyword"
-                  },
-                  "wakati": {
                     "type": "keyword"
                   }
                 }

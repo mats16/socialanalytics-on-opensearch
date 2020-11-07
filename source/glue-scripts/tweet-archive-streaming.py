@@ -36,18 +36,19 @@ datasource0 = glueContext.create_data_frame.from_catalog(
 ## @return: datasink1
 ## @inputs: [frame = datasource0]
 def add_partition_column(rec):
-    timestamp = int(rec['timestamp_ms']) / 1000
-    dtime = datetime.utcfromtimestamp(timestamp)
-    rec['year'] = dtime.year
-    rec['month'] = dtime.month
-    rec['day'] = dtime.day
+    created_at = int(rec['created_at'])
+    dtime = datetime.utcfromtimestamp(created_at)
+    rec['year'] = '{:0>2}'.format(dtime.year)
+    rec['month'] = '{:0>2}'.format(dtime.month)
+    rec['day'] = '{:0>2}'.format(dtime.day)
     return rec
 
 def processBatch(data_frame, batchId):
     if (data_frame.count() > 0):
         #distinct_data_frame = data_frame.distinct().coalesce(1)
         dynamic_frame = DynamicFrame.fromDF(data_frame, glueContext, "from_data_frame")
-        mapped_dyF =  Map.apply(
+        # Partition 用のカラムを追加
+        mapped_dyF = Map.apply(
             frame = dynamic_frame,
             f = add_partition_column,
             transformation_ctx = "add_partition_column")
@@ -74,6 +75,6 @@ glueContext.forEachBatch(
     frame = datasource0,
     batch_function = processBatch,
     options = {
-        "windowSize": "600 seconds",
+        "windowSize": "1800 seconds",
         "checkpointLocation": dest_s3_path + "/checkpoint"})
 job.commit()
