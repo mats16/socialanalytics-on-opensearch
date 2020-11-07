@@ -17,12 +17,11 @@ Parameters:
     Description: Specific domains allowed to register on Kibana (Cognito User Pool)
     Default: amazon.com,amazon.co.jp
 
-  EsVersion:
-    Description: 7.x supported only
+  ElasticsearchVersion:
     Type: String
     Default: 7.8
 
-  EsAvailabilityZoneCount:
+  ElasticsearchAvailabilityZoneCount:
     Type: Number
     Default: 2
     AllowedValues:
@@ -30,24 +29,27 @@ Parameters:
       - 2
       - 3
 
-  EsDataNodeInstanceType:
+  ElasticsearchDataNodeInstanceType:
     Type: String
     Default: i3.large.elasticsearch
     AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
 
-  EsDataNodeInstanceCount:
+  ElasticsearchDataNodeInstanceCount:
     Type: Number
     Default: 2
 
-  EsMasterNodeInstanceType:
+  ElasticsearchMasterNodeInstanceType:
     Type: String
     Default: t3.medium.elasticsearch
     AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
 
-  EsMasterNodeInstanceCount:
+  ElasticsearchMasterNodeInstanceCount:
     Type: Number
     Default: 3
     AllowedValues: [ 3, 5 ]
+
+Conditions:
+  EBSEnabled: !Not [ !Equals [ !Select [ 0, !Split [ '.', !Ref ElasticsearchDataNodeInstanceType ] ], 'i3' ] ]
 
 Resources:
 
@@ -111,19 +113,19 @@ Resources:
       - KibanaUserPoolDomain
     DeletionPolicy: Retain
     Properties:
-      ElasticsearchVersion: !Ref EsVersion
+      ElasticsearchVersion: !Ref ElasticsearchVersion
       ElasticsearchClusterConfig:
         ZoneAwarenessEnabled: true
         ZoneAwarenessConfig:
-           AvailabilityZoneCount: !Ref EsAvailabilityZoneCount
-        InstanceType: !Ref EsDataNodeInstanceType
-        InstanceCount: !Ref EsDataNodeInstanceCount
+           AvailabilityZoneCount: !Ref ElasticsearchAvailabilityZoneCount
+        InstanceType: !Ref ElasticsearchDataNodeInstanceType
+        InstanceCount: !Ref ElasticsearchDataNodeInstanceCount
         DedicatedMasterEnabled: true
-        DedicatedMasterType: !Ref EsMasterNodeInstanceType
-        DedicatedMasterCount: !Ref EsMasterNodeInstanceCount
-      #EBSOptions:
-      #  EBSEnabled: !If [ EBSEnabled, true, !Ref AWS::NoValue ]
-      #  VolumeSize: !If [ EBSEnabled, 100, !Ref AWS::NoValue ]
+        DedicatedMasterType: !Ref ElasticsearchMasterNodeInstanceType
+        DedicatedMasterCount: !Ref ElasticsearchMasterNodeInstanceCount
+      EBSOptions:
+        EBSEnabled: !If [ EBSEnabled, true, !Ref AWS::NoValue ]
+        VolumeSize: !If [ EBSEnabled, 100, !Ref AWS::NoValue ]
       AdvancedSecurityOptions:
         Enabled: true
         InternalUserDatabaseEnabled: false
@@ -137,30 +139,24 @@ Resources:
       DomainEndpointOptions:
         EnforceHTTPS: true
         TLSSecurityPolicy: 'Policy-Min-TLS-1-2-2019-07'
+        #CustomEndpointEnabled: true
+        #CustomEndpoint: www.my-custom-endpoint.com
+        #CustomEndpointCertificateArn: 'arn:aws:iam::123456789012:certificate/my-certificate'
       NodeToNodeEncryptionOptions:
         Enabled: true
       EncryptionAtRestOptions:
         Enabled: true
       AdvancedOptions:
         rest.action.multi.allow_explicit_index: true
-      AccessPolicies: !Sub |
-        {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Principal": {
-                "AWS": [
-                  "${AWS::AccountId}"
-                ]
-              },
-              "Action": [
-                "es:*"
-              ],
-              "Resource": "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*/*"
-            }
-          ]
-        }
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Ref AWS::AccountId
+            Action: 'es:*'
+            Resource: !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*/*'
       LogPublishingOptions:
         SEARCH_SLOW_LOGS:
           Enabled: true
