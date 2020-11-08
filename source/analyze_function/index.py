@@ -165,24 +165,28 @@ def lambda_handler(event, context):
 
         if es_record['is_retweet_status']:
             retweet_count += 1
-            org_es_record = gen_es_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
+            es_record_org = gen_es_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
+            es_record_org['retweeted_status'] = {'name': 'original'}
+            es_record['retweeted_status'] = {'name': 'retweet', 'parent': f'{es_record_org["_index"]}.{es_record_org["_id"]}'}
+            if es_record_org['created_at'] < time_threshold:
+                continue  # 元tweetが365日以上前の場合は全てスキップ
         elif es_record['is_quote_status']:
             quote_count += 1
-            org_es_record = gen_es_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
+            es_record_org = gen_es_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
+            es_record['retweeted_status'] = {'name': 'original'}
+            if es_record_org['created_at'] < time_threshold:
+                es_record_org = None  # 元tweetが365日以上前の場合は引用tweetのみ
         else:
             tweet_count += 1
-            org_es_record = None
+            es_record_org = None
+            es_record['retweeted_status'] = {'name': 'original'}
 
-        if org_es_record and org_es_record['created_at'] >= time_threshold:
-            es_records.append({
-                'Data': json.dumps(org_es_record) + '\n',
-                'PartitionKey': org_es_record['_id']
-            })
-
-        es_records.append({
-            'Data': json.dumps(es_record) + '\n',
-            'PartitionKey': es_record['_id']
-        })
+        for i in [es_record_org, es_record]:
+            if i:
+                es_records.append({
+                    'Data': json.dumps(i) + '\n',
+                    'PartitionKey': i['_id']
+                })
 
     if live_metrics == 'enabled':
         metrics.add_dimension(name="SourceStream", value="Twitter")

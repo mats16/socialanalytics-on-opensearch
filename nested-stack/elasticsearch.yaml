@@ -543,6 +543,12 @@ Resources:
                     "type": "keyword"
                   }
                 }
+              },
+              "retweeted_status": {
+                "type": "join",
+                "relations": {
+                  "original": "retweet"
+                }
               }
             }
           }
