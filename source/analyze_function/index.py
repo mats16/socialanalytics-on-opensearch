@@ -20,6 +20,7 @@ tracer = Tracer(service="analytics")
 metrics = Metrics(namespace="SocialMediaDashboard")
 
 live_metrics = os.getenv('LIVE_METRICS')
+tweet_day_threshold = int(os.getenv('TWEET_DAY_THRESHOLD'))
 comprehend_entity_score_threshold = float(os.getenv('COMPREHEND_ENTITY_SCORE_THRESHOLD'))
 indexing_stream = os.getenv('INDEXING_STREAM')
 
@@ -157,7 +158,7 @@ def lambda_handler(event, context):
         tweet = json.loads(tweet_string)
 
         created_at = int(datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y').timestamp())
-        time_threshold = int((datetime.now(timezone.utc) - timedelta(days=365)).timestamp())
+        time_threshold = int((datetime.now(timezone.utc) - timedelta(days=tweet_day_threshold)).timestamp())
         if created_at < time_threshold:
             continue  # 365日以上前の場合はスキップ
 
