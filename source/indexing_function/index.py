@@ -20,9 +20,6 @@ metrics = Metrics(namespace="SocialMediaDashboard")
 es_host = os.getenv('ELASTICSEARCH_HOST')
 region = os.getenv('AWS_REGION')
 
-def gen_index(prefix, dtime):
-    return prefix + dtime.strftime('%Y-%m')
-
 def es_bulk_load(data):
     credentials = boto3.Session().get_credentials()
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, 'es', session_token=credentials.token)
@@ -40,17 +37,16 @@ def es_bulk_load(data):
 @tracer.capture_lambda_handler
 def lambda_handler(event, context):
     bulk_data = ''
-    for record in event['Records']:
-        b64_data = record['kinesis']['data']
-        record_string = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
+    records = set(map(lambda x: x['kinesis']['data'], event['Records']))  # 重複排除
+    for record in records:
+        record_string = base64.b64decode(record).decode('utf-8').rstrip('\n')
         record_dict = json.loads(record_string)
 
-        if 'created_at' in record_dict and 'id_str' in record_dict:
-            dtime = datetime.fromtimestamp(int(record_dict['created_at']), timezone.utc)
+        if '_index' in record_dict and '_id' in record_dict:
             bulk_header = {
                 'update': {
-                    '_index': gen_index('tweets-', dtime),
-                    '_id': record_dict.pop('id_str')
+                    '_index': record_dict.pop('_index'),
+                    '_id': record_dict.pop('_id'),
                 }
             }
             bulk_data += json.dumps(bulk_header) + '\n'

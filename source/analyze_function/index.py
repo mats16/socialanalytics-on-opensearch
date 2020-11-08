@@ -40,6 +40,9 @@ def normalize(text):
     text_replaced_indention = ' '.join(text_without_emoji.splitlines())
     return text_replaced_indention.lower()
 
+def gen_index(prefix, dtime):
+    return prefix + dtime.strftime('%Y-%m')
+
 @tracer.capture_method
 def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
     is_retweet_status = True if 'retweeted_status' in tweet else False
@@ -49,7 +52,9 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
     normalized_text = normalize(tweet_text)
     created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
     es_record = {
-        'id_str': tweet['id_str'],
+        '_index': gen_index('tweets-', created_at),
+        '_id': tweet['id_str'],
+        #'id_str': tweet['id_str'],
         'text': tweet_text,
         'normalized_text': normalized_text,
         'lang': tweet['lang'],
@@ -71,7 +76,10 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
         es_record['username'] = tweet['user']['screen_name']
         es_record['user'] = {}
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/user-object
-        for att in ['id_str', 'name', 'screen_name', 'lang']:
+        if 'id_str' in tweet['user']:
+            es_record['user']['id_str'] = tweet['user']['id_str']
+            es_record['url'] = f'https://twitter.com/{tweet["user"]["id_str"]}/status/{tweet["id_str"]}'
+        for att in ['name', 'screen_name', 'lang']:
             if att in tweet['user']:
                 es_record['user'][att] = tweet['user'][att]
         if update_user_metrics: # retweet の場合など、過去のフォロワー数等を上書きしたくない場合はスキップする
@@ -80,7 +88,7 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
                     es_record['user'][att] = tweet['user'][att]
     elif 'username' in tweet:  # クロールしたデータ用
         es_record['username'] = tweet['username']
-    es_record['url'] = f'https://twitter.com/{es_record["username"]}/status/{es_record["id_str"]}'
+        es_record['url'] = f'https://twitter.com/{tweet["username"]}/status/{tweet["id_str"]}'
     if enable_comprehend:
         # Translate before Comprehend
         if tweet['lang'] in ['en', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'ja', 'ko', 'zh']:
@@ -136,7 +144,7 @@ def lambda_handler(event, context):
         'record_count': len(event['Records']),
         'text': 'Get records from kinesis'
     })
-    records = set(map(lambda x: x['kinesis']['data'], event['Records']))
+    records = set(map(lambda x: x['kinesis']['data'], event['Records']))  # 重複排除
     logger.info({
         'state': 'deduplicate_records',
         'record_count': len(records),
@@ -168,12 +176,12 @@ def lambda_handler(event, context):
         if org_es_record and org_es_record['created_at'] >= time_threshold:
             es_records.append({
                 'Data': json.dumps(org_es_record) + '\n',
-                'PartitionKey': org_es_record['id_str']
+                'PartitionKey': org_es_record['_id']
             })
 
         es_records.append({
             'Data': json.dumps(es_record) + '\n',
-            'PartitionKey': es_record['id_str']
+            'PartitionKey': es_record['_id']
         })
 
     if live_metrics == 'enabled':
