@@ -39,7 +39,7 @@ def normalize(text):
     #tmp = re.sub(r'(\d)([,.])(\d+)', r'\1\3', text_without_emoji)
     #text_replaced_number = re.sub(r'\d+', '0', tmp)
     text_replaced_indention = ' '.join(text_without_emoji.splitlines())
-    return text_replaced_indention.lower()
+    return text_replaced_indention
 
 def gen_index(prefix, dtime):
     return prefix + dtime.strftime('%Y-%m')
@@ -107,7 +107,7 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
             Text=comprehend_text,
             LanguageCode=comprehend_lang
         )
-        comprehend_logger.info(res_sentiment)
+        #comprehend_logger.info(res_sentiment)
         es_record['comprehend'] = { 
             'text': comprehend_text,    
             'lang': comprehend_lang,    
@@ -124,7 +124,7 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
             Text=comprehend_text,
             LanguageCode=comprehend_lang
         )
-        comprehend_logger.info(res_entities)
+        #comprehend_logger.info(res_entities)
         entities = []
         for entity in res_entities['Entities']:
             if entity['Type'] in ['QUANTITY', 'DATE']:
@@ -166,17 +166,19 @@ def lambda_handler(event, context):
 
         if es_record['is_retweet_status']:
             retweet_count += 1
-            es_record_org = gen_es_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
-            es_record_org['retweeted_status'] = {'name': 'original'}
-            es_record['retweeted_status'] = {'name': 'retweet', 'parent': f'{es_record_org["_index"]}.{es_record_org["_id"]}'}
-            if es_record_org['created_at'] < time_threshold:
-                continue  # 元tweetが365日以上前の場合は全てスキップ
+            if 'retweeted_status' in tweet:
+                es_record_org = gen_es_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
+                es_record_org['retweeted_status'] = {'name': 'original'}
+                es_record['retweeted_status'] = {'name': 'retweet', 'parent': f'{es_record_org["_index"]}.{es_record_org["_id"]}'}
+                if es_record_org['created_at'] < time_threshold:
+                    continue  # 元tweetが365日以上前の場合は全てスキップ
         elif es_record['is_quote_status']:
             quote_count += 1
-            es_record_org = gen_es_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
             es_record['retweeted_status'] = {'name': 'original'}
-            if es_record_org['created_at'] < time_threshold:
-                es_record_org = None  # 元tweetが365日以上前の場合は引用tweetのみ
+            if 'quoted_status' in tweet:
+                es_record_org = gen_es_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
+                if es_record_org['created_at'] < time_threshold:
+                    es_record_org = None  # 元tweetが365日以上前の場合は引用tweetのみ
         else:
             tweet_count += 1
             es_record_org = None

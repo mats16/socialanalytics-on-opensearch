@@ -135,11 +135,11 @@ Resources:
         TableType: EXTERNAL_TABLE
         PartitionKeys:
           - Name: year
-            Type: int
+            Type: string
           - Name: month
-            Type: int
+            Type: string
           - Name: day
-            Type: int
+            Type: string
         StorageDescriptor:
           Location: !Sub 's3://${Bucket}/tweet_archived'
           InputFormat: org.apache.hadoop.mapred.TextInputFormat
