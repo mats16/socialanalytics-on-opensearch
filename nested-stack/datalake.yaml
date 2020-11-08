@@ -494,7 +494,7 @@ Resources:
         "--job-language": "python"
         "--SRC_DB_NAME": !Ref DataLakeDB
         "--SRC_TABLE_NAME": !Ref TweetArchivedTable
-        "--DEST_S3_PATH": !Sub 's3://${Bucket}/groundtruth/input/text'
+        "--DEST_S3_PATH": !Sub 's3://${Bucket}/groundtruth/input/tweet_text'
       MaxCapacity: 10
       MaxRetries: 2
       ExecutionProperty:
