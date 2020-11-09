@@ -438,7 +438,7 @@ Resources:
                 "type": "date",
                 "format": "epoch_second"
               },
-              "tweetid": {
+              "id_str": {
                 "type": "keyword"
               },
               "text": {
@@ -544,10 +544,91 @@ Resources:
                   }
                 }
               },
-              "retweeted_status": {
-                "type": "join",
-                "relations": {
-                  "original": "retweet"
+              "original_tweet": {
+                "properties": {
+                  "created_at": {
+                    "type": "date",
+                    "format": "epoch_second"
+                  },
+                  "id_str": {
+                    "type": "keyword"
+                  },
+                  "text": {
+                    "type": "text"
+                  },
+                  "normalized_text": {
+                    "type": "text"
+                  },
+                  "source": {
+                    "type": "keyword"
+                  },
+                  "filter_level": {
+                    "type": "keyword"
+                  },
+                  "lang": {
+                    "type": "keyword"
+                  },
+                  "hashtags": {
+                    "type": "keyword"
+                  },
+                  "url": {
+                    "type": "keyword"
+                  },
+                  "quote_count": {
+                    "type": "long"
+                  },
+                  "reply_count": {
+                    "type": "long"
+                  },
+                  "retweet_count": {
+                    "type": "long"
+                  },
+                  "favorite_count": {
+                    "type": "long"
+                  },
+                  "coordinates":{
+                    "type": "geo_point"
+                  },
+                  "is_retweet_status": {
+                    "type": "boolean"
+                  },
+                  "is_quote_status": {
+                    "type": "boolean"
+                  },
+                  "username": {
+                    "type": "keyword"
+                  },
+                  "user": {
+                    "properties": {
+                      "id_str": {
+                        "type": "keyword"
+                      },
+                      "name": {
+                        "type": "keyword"
+                      },
+                      "screen_name": {
+                        "type": "keyword"
+                      },
+                      "followers_count": {
+                        "type": "long"
+                      },
+                      "friends_count": {
+                        "type": "long"
+                      },
+                      "listed_count": {
+                        "type": "long"
+                      },
+                      "favourites_count": {
+                        "type": "long"
+                      },
+                      "favourites_count": {
+                        "type": "long"
+                      },
+                      "lang": {
+                        "type": "keyword"
+                      }
+                    }
+                  }
                 }
               }
             }

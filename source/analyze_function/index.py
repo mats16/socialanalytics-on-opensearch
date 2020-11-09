@@ -41,11 +41,15 @@ def normalize(text):
     text_replaced_indention = ' '.join(text_without_emoji.splitlines())
     return text_replaced_indention
 
-def gen_index(prefix, dtime):
-    return prefix + dtime.strftime('%Y-%m')
+def gen_es_record(transformed_record):
+    unixtime = transformed_record['created_at']
+    es_record = transformed_record
+    es_record['_index'] = 'tweets-' + datetime.fromtimestamp(unixtime).strftime('%Y-%m')
+    es_record['_id'] = transformed_record['id_str']
+    return es_record
 
 @tracer.capture_method
-def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
+def transform_record(tweet, update_user_metrics=True, enable_comprehend=True):
     is_retweet_status = True if 'retweeted_status' in tweet else False
     is_quote_status = tweet.get('is_quote_status', False)
 
@@ -53,9 +57,7 @@ def gen_es_record(tweet, update_user_metrics=True, enable_comprehend=True):
     normalized_text = normalize(tweet_text)
     created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
     es_record = {
-        '_index': gen_index('tweets-', created_at),
-        '_id': tweet['id_str'],
-        #'id_str': tweet['id_str'],
+        'id_str': tweet['id_str'],
         'text': tweet_text,
         'normalized_text': normalized_text,
         'lang': tweet['lang'],
@@ -162,32 +164,32 @@ def lambda_handler(event, context):
         if created_at < time_threshold:
             continue  # 365日以上前の場合はスキップ
 
-        es_record = gen_es_record(tweet)
+        transfored_record = transform_record(tweet)
 
-        if es_record['is_retweet_status']:
+        if transfored_record['is_retweet_status']:
             retweet_count += 1
             if 'retweeted_status' in tweet:
-                es_record_org = gen_es_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
-                es_record_org['retweeted_status'] = {'name': 'original'}
-                es_record['retweeted_status'] = {'name': 'retweet', 'parent': f'{es_record_org["_index"]}.{es_record_org["_id"]}'}
-                if es_record_org['created_at'] < time_threshold:
+                transfored_record_org = transform_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
+                transfored_record['original_tweet'] = transfored_record_org
+                if transfored_record_org['created_at'] < time_threshold:
                     continue  # 元tweetが365日以上前の場合は全てスキップ
-        elif es_record['is_quote_status']:
+        elif transfored_record['is_quote_status']:
             quote_count += 1
-            es_record['retweeted_status'] = {'name': 'original'}
             if 'quoted_status' in tweet:
-                es_record_org = gen_es_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
-                if es_record_org['created_at'] < time_threshold:
-                    es_record_org = None  # 元tweetが365日以上前の場合は引用tweetのみ
+                transfored_record_org = transform_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
+                if transfored_record_org['created_at'] < time_threshold:
+                    transfored_record_org = None  # 元tweetが365日以上前の場合は引用tweetのみ
+                else:
+                    transfored_record['original_tweet'] = transfored_record_org
         else:
             tweet_count += 1
-            es_record_org = None
-            es_record['retweeted_status'] = {'name': 'original'}
+            transfored_record_org = None
 
-        for i in [es_record_org, es_record]:
+        for i in [transfored_record_org, transfored_record]:
             if i:
+                es_record = gen_es_record(i)
                 es_records.append({
-                    'Data': json.dumps(i) + '\n',
+                    'Data': json.dumps(es_record) + '\n',
                     'PartitionKey': i['_id']
                 })
 
