@@ -1,5 +1,7 @@
 # Serverless Social Media Dashboard
 
+![full-arch-diagram.png](docs/architecture-diagrams/full-arch-diagram.png)
+
 ## Preparation before deployment
 
 ### Create service-linked IAM Role for Amazon ECS
@@ -9,15 +11,6 @@ If you use AWS ECS first time, you need to create service-linked roles.
 ```bash
 aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
 ```
-
-### Build & Host your own docker image
-
-This template uses [mats16/twitter-streaming-reader](https://hub.docker.com/repository/docker/mats16/twitter-streaming-reader) docker image.
-If you need to host own docker images, pleas build image.
-
-### Build & Deploy MeCab Lambda Layer
-
-If you want to analyze japanese with MeCab, please deploy [lambda-layer-mecab-neologd](https://github.com/mats16/lambda-layer-mecab-neologd) in your own AWS account.
 
 ## Installing the AWS SAM CLI
 
@@ -58,8 +51,8 @@ Configuring SAM deploy
 	#Shows you resources changes to be deployed and require a 'Y' to initiate deploy
 	Confirm changes before deploy [y/N]:
 	#SAM needs permission to be able to create roles to connect to the resources in your template
-	Allow SAM CLI IAM role creation [Y/n]: n
-	Capabilities [CAPABILITY_IAM]: CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
+👉	Allow SAM CLI IAM role creation [Y/n]: n
+👉	Capabilities [CAPABILITY_IAM]: CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
 	Save arguments to samconfig.toml [Y/n]:
 
 	Looking for resources needed for deployment: Found!

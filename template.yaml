@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: "AWS::Serverless-2016-10-31"
-Description: 'Social Media Dashboard Main Template'
+Description: 'Social Media Dashboard Main Stack'
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: serverless-social-media-dashboard
@@ -17,13 +17,13 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
-          default: Tweets Configuration
+          default: Twitter API Parameters
         Parameters:
           - TwitterTermList
           - TwitterLanguages
           - TwitterFilterLevel
       - Label:
-          default: Twitter API Parameters
+          default: Twitter API Credentials
         Parameters:
           - AuthConsumerKey
           - AuthConsumerSecret
@@ -33,9 +33,20 @@ Metadata:
           default: Application Parameters
         Parameters:
           - ComprehendEntityScoreThreshold
-          - MecabLambdaLayerArn
+          - SignupAllowedDomains
+          - CdnEnabled
+      - Label:
+          default: Elasticsearch Configuration
+        Parameters:
+          - ElasticsearchVersion
+          - ElasticsearchAvailabilityZoneCount
+          - ElasticsearchDataNodeInstanceType
+          - ElasticsearchDataNodeInstanceCount
+          - ElasticsearchMasterNodeInstanceType
+          - ElasticsearchMasterNodeInstanceCount
 
 Parameters:
+
   TwitterTermList:
     Description: List of terms for twitter to listen to
     Type: CommaDelimitedList
@@ -76,17 +87,61 @@ Parameters:
     MaxValue: 1
     MinValue: 0
 
-  MecabLambdaLayerArn:
-    Type: String
-    Default: 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1'
-
   SignupAllowedDomains:
     Type: CommaDelimitedList
     Description: Specific domains allowed to register on Cognito User Pool
     Default: amazon.com,amazon.co.jp
 
+  ElasticsearchVersion:
+    Type: String
+    Default: 7.8
+
+  ElasticsearchAvailabilityZoneCount:
+    Type: Number
+    Default: 2
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+
+  ElasticsearchDataNodeInstanceType:
+    Type: String
+    Default: i3.large.elasticsearch
+    AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
+
+  ElasticsearchDataNodeInstanceCount:
+    Type: Number
+    Default: 2
+
+  ElasticsearchMasterNodeInstanceType:
+    Type: String
+    Default: t3.medium.elasticsearch
+    AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
+
+  ElasticsearchMasterNodeInstanceCount:
+    Type: Number
+    Default: 3
+    AllowedValues: [ 3, 5 ]
+
+  CdnEnabled:
+    Description: CDN for Kibana
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+  
+  CdnDomainName:
+    Type: String
+    Default: ''
+  
+  CdnAcmCertificateArn:
+    Type: String
+    Default: 'arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+    AllowedPattern: ^arn:aws:acm:us-east-1:[0-9]{12}:certificate/[\w\-]+$
+
 Conditions:
-  CreateMecabLambda: !Not [!Equals [!Ref MecabLambdaLayerArn, 'arn:aws:lambda:us-east-1:123456789012:layer:dummy:1']]
+  CdnEnabled: !Equals [ !Ref CdnEnabled, 'true' ]
 
 Resources:
 
@@ -171,15 +226,20 @@ Resources:
   AnalyticsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: 'Analytics Function'
+      Description: '[Social Media Dashboard] Analytics Function'
       CodeUri: source/analyze_function/
       Handler: index.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.7
+      Layers: 
+        - !Ref LambdaPowertoolsPythonLayer
       MemorySize: 1024
       Timeout: 900
       Tracing: Active
       Environment:
         Variables:
+          LOG_LEVEL: INFO
+          LIVE_METRICS: enabled
+          TWEET_DAY_THRESHOLD: 180
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
           INDEXING_STREAM: !Ref IndexingStream
       Events:
@@ -210,70 +270,59 @@ Resources:
               Resource: !GetAtt IndexingStream.Arn
 
   AnalyticsFunctionForBatch:
-    Type: AWS::Lambda::EventSourceMapping
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !GetAtt AnalyticsFunction.Arn
-      EventSourceArn: !GetAtt TweetStreamForBatch.Arn
-      StartingPosition: LATEST
-      ParallelizationFactor: 10
-      BatchSize: 400
-      MaximumRecordAgeInSeconds: 604800
-      #MaximumBatchingWindowInSeconds: Integer
-
-#  MecabFunction:
-#    Type: AWS::Serverless::Function
-#    Condition: CreateMecabLambda
-#    Properties:
-#      Description: 'MeCab Function'
-#      CodeUri: source/mecab_function/
-#      Handler: index.lambda_handler
-#      Runtime: python3.8
-#      Layers:
-#        - !Ref MecabLambdaLayerArn
-#      MemorySize: 1024
-#      Timeout: 300
-#      Tracing: Active
-#      Environment:
-#        Variables:
-#          INDEXING_STREAM: !Ref IndexingStream
-#      Events:
-#        Stream:
-#          Type: Kinesis
-#          Properties:
-#            Stream: !GetAtt TweetStream.Arn
-#            StartingPosition: LATEST
-#            ParallelizationFactor: 1
-#            BatchSize: 200
-#            MaximumRecordAgeInSeconds: 300
-#      Policies:
-#        - Version: "2012-10-17"
-#          Statement:
-#            - Sid: KinesisAccess
-#              Effect: Allow
-#              Action:
-#                - 'kinesis:PutRecord'
-#                - 'kinesis:PutRecords'
-#              Resource: !GetAtt IndexingStream.Arn
-#
-#  MecabFunctionForBatch:
-#    Type: AWS::Lambda::EventSourceMapping
-#    Condition: CreateMecabLambda
-#    Properties:
-#      FunctionName: !GetAtt MecabFunction.Arn
-#      EventSourceArn: !GetAtt TweetStreamForBatch.Arn
-#      StartingPosition: LATEST
-#      ParallelizationFactor: 1
-#      BatchSize: 200
-#      MaximumRecordAgeInSeconds: 604800
-#      #MaximumBatchingWindowInSeconds: Integer
+      Description: '[Social Media Dashboard] Analytics Function for Batch'
+      CodeUri: source/analyze_function/
+      Handler: index.lambda_handler
+      Runtime: python3.7
+      Layers: 
+        - !Ref LambdaPowertoolsPythonLayer
+      MemorySize: 1024
+      Timeout: 900
+      Tracing: Active
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          LIVE_METRICS: disabled
+          TWEET_DAY_THRESHOLD: 730
+          COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
+          INDEXING_STREAM: !Ref IndexingStream
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt TweetStreamForBatch.Arn
+            StartingPosition: LATEST
+            ParallelizationFactor: 10
+            BatchSize: 200
+            MaximumRecordAgeInSeconds: 604800
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: ComprehendAccess
+              Effect: Allow
+              Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment', 'comprehend:DetectKeyPhrases']
+              Resource: '*'
+            - Sid: TranslateAccess
+              Effect: Allow
+              Action: ['translate:TranslateText']
+              Resource: '*'
+            - Sid: KinesisAccess
+              Effect: Allow
+              Action:
+                - 'kinesis:PutRecord'
+                - 'kinesis:PutRecords'
+              Resource: !GetAtt IndexingStream.Arn
 
   IndexingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: 'Indexing function  - KinesisStream to Elasticsearch '
+      Description: '[Social Media Dashboard] Indexing Function'
       Runtime: python3.7
       Layers: 
-        - !Ref PowertoolsLayer
+        - !Ref LambdaPowertoolsPythonLayer
+        - !Ref ElasticsearchClientLayer
       CodeUri: source/indexing_function/
       Handler: index.lambda_handler
       MemorySize: 192
@@ -281,6 +330,7 @@ Resources:
       Tracing: Active
       Environment:
         Variables:
+          LOG_LEVEL: INFO
           ELASTICSEARCH_HOST: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
       Events:
         Stream:
@@ -305,7 +355,8 @@ Resources:
     Version: 1.0
     Properties:
       ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
-      URL: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_opendistro/_security/api/roles/indexer'
+      Host: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
+      Path: _opendistro/_security/api/roles/indexer
       Body: !Sub |
         {
           "description": "Provide the minimum permissions for bulk indexer",
@@ -334,7 +385,8 @@ Resources:
     DependsOn: IndexerRole
     Properties:
       ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
-      URL: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_opendistro/_security/api/rolesmapping/indexer'
+      Host: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
+      Path: _opendistro/_security/api/rolesmapping/indexer
       Body: !Sub |
         {
           "backend_roles" : [
@@ -342,40 +394,40 @@ Resources:
           ]
         }
 
-  TweetEventBus:
-    Type: AWS::Events::EventBus
-    Properties: 
-      Name: !Ref AWS::StackName
-
-  PuEventFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Description: 'PutEvent function  - KinesisStream to EventBridge'
-      CodeUri: source/put_events_function/
-      Handler: index.lambda_handler
-      Runtime: python3.8
-      MemorySize: 128
-      Timeout: 10
-      Tracing: Active
-      Environment:
-        Variables:
-          EventBusName: !Ref TweetEventBus
-      Events:
-        Stream:
-          Type: Kinesis
-          Properties:
-            Stream: !GetAtt IndexingStream.Arn
-            BatchSize: 10
-            StartingPosition: LATEST
-      Policies:
-        - Version: "2012-10-17"
-          Statement:
-            - Sid: PutEvents
-              Effect: Allow
-              Action:
-                - events:PutEvents
-              Resource:
-                - !GetAtt TweetEventBus.Arn
+#  TweetEventBus:
+#    Type: AWS::Events::EventBus
+#    Properties: 
+#      Name: !Ref AWS::StackName
+#
+#  PuEventFunction:
+#    Type: AWS::Serverless::Function
+#    Properties:
+#      Description: 'PutEvent function  - KinesisStream to EventBridge'
+#      CodeUri: source/put_events_function/
+#      Handler: index.lambda_handler
+#      Runtime: python3.7
+#      MemorySize: 128
+#      Timeout: 10
+#      Tracing: Active
+#      Environment:
+#        Variables:
+#          EventBusName: !Ref TweetEventBus
+#      Events:
+#        Stream:
+#          Type: Kinesis
+#          Properties:
+#            Stream: !GetAtt IndexingStream.Arn
+#            BatchSize: 10
+#            StartingPosition: LATEST
+#      Policies:
+#        - Version: "2012-10-17"
+#          Statement:
+#            - Sid: PutEvents
+#              Effect: Allow
+#              Action:
+#                - events:PutEvents
+#              Resource:
+#                - !GetAtt TweetEventBus.Arn
 
   # Nested Stacks --------------------------------------
   VpcStack:
@@ -394,7 +446,6 @@ Resources:
         VpcId: !GetAtt VpcStack.Outputs.VpcId
         PublicSubnetList: !GetAtt VpcStack.Outputs.PublicSubnetList
         TweetStreamName: !Ref TweetStream
-        #DockerImage: mats16/twitter-streaming-reader:0.1.0
         DockerImage: !GetAtt ContainerRepoStack.Outputs.ImageName
         TwitterTopicsParameter: !Ref TwitterTopicsParameter
         TwitterLanguagesParameter: !Ref TwitterLanguagesParameter
@@ -420,7 +471,14 @@ Resources:
       Parameters:
         ParentStackName: !Ref AWS::StackName
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
-        RequestsAWS4AuthLayer: !Ref RequestsAWS4AuthLayer
+        ElasticsearchClientLayer: !Ref ElasticsearchClientLayer
+        SignupAllowedDomains: !Join [ ',', !Ref SignupAllowedDomains ]
+        ElasticsearchVersion: !Ref ElasticsearchVersion
+        ElasticsearchAvailabilityZoneCount: !Ref ElasticsearchAvailabilityZoneCount
+        ElasticsearchDataNodeInstanceType: !Ref ElasticsearchDataNodeInstanceType
+        ElasticsearchDataNodeInstanceCount: !Ref ElasticsearchDataNodeInstanceCount
+        ElasticsearchMasterNodeInstanceType: !Ref ElasticsearchMasterNodeInstanceType
+        ElasticsearchMasterNodeInstanceCount: !Ref ElasticsearchMasterNodeInstanceCount
 
   DataLakeStack:
     Type: AWS::CloudFormation::Stack
@@ -430,11 +488,22 @@ Resources:
         ParentStackName: !Ref AWS::StackName
         TweetStreamArn : !GetAtt TweetStream.Arn
 
+  CDNStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: CdnEnabled
+    Properties:
+      TemplateURL: nested-stack/cdn.yaml
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        OriginDomainName : !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
+        CdnDomainName: !Ref CdnDomainName
+        CdnAcmCertificateArn: !Ref CdnAcmCertificateArn
+
   # Lambda Layers --------------------------------------
-  PowertoolsLayer:
+  LambdaPowertoolsPythonLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'powertools-python-${AWS::StackName}'
+      LayerName: !Sub 'lambda-powertools-python-${AWS::StackName}'
       Description: AWS Lambda Powertools (Python)
       ContentUri: layers/powertools/
       CompatibleRuntimes:
@@ -456,20 +525,9 @@ Resources:
   ElasticsearchClientLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'elasticsearch-${AWS::StackName}'
+      LayerName: !Sub 'elasticsearch-client-${AWS::StackName}'
       Description: Python Elasticsearch Client
       ContentUri: layers/elasticsearch/
-      CompatibleRuntimes:
-        - python3.7
-    Metadata:
-      BuildMethod: python3.7
-
-  RequestsAWS4AuthLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: !Sub 'requests-aws4auth-${AWS::StackName}'
-      Description: AWS v4 authentication for the Python Requests library.
-      ContentUri: layers/requests-aws4auth/
       CompatibleRuntimes:
         - python3.7
     Metadata:

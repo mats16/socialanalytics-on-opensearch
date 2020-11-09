@@ -9,7 +9,7 @@ Parameters:
   CustomResourceHelperLayer:
     Type: String
   
-  RequestsAWS4AuthLayer:
+  ElasticsearchClientLayer:
     Type: String
 
   SignupAllowedDomains:
@@ -17,12 +17,11 @@ Parameters:
     Description: Specific domains allowed to register on Kibana (Cognito User Pool)
     Default: amazon.com,amazon.co.jp
 
-  EsVersion:
-    Description: 7.x supported only
+  ElasticsearchVersion:
     Type: String
     Default: 7.8
 
-  EsAvailabilityZoneCount:
+  ElasticsearchAvailabilityZoneCount:
     Type: Number
     Default: 2
     AllowedValues:
@@ -30,24 +29,27 @@ Parameters:
       - 2
       - 3
 
-  EsDataNodeInstanceType:
+  ElasticsearchDataNodeInstanceType:
     Type: String
     Default: i3.large.elasticsearch
     AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
 
-  EsDataNodeInstanceCount:
+  ElasticsearchDataNodeInstanceCount:
     Type: Number
     Default: 2
 
-  EsMasterNodeInstanceType:
+  ElasticsearchMasterNodeInstanceType:
     Type: String
     Default: t3.medium.elasticsearch
     AllowedPattern: ^[a-z1-9]+\.[a-z1-9]+\.elasticsearch$
 
-  EsMasterNodeInstanceCount:
+  ElasticsearchMasterNodeInstanceCount:
     Type: Number
     Default: 3
     AllowedValues: [ 3, 5 ]
+
+Conditions:
+  EBSEnabled: !Not [ !Equals [ !Select [ 0, !Split [ '.', !Ref ElasticsearchDataNodeInstanceType ] ], 'i3' ] ]
 
 Resources:
 
@@ -111,19 +113,19 @@ Resources:
       - KibanaUserPoolDomain
     DeletionPolicy: Retain
     Properties:
-      ElasticsearchVersion: !Ref EsVersion
+      ElasticsearchVersion: !Ref ElasticsearchVersion
       ElasticsearchClusterConfig:
         ZoneAwarenessEnabled: true
         ZoneAwarenessConfig:
-           AvailabilityZoneCount: !Ref EsAvailabilityZoneCount
-        InstanceType: !Ref EsDataNodeInstanceType
-        InstanceCount: !Ref EsDataNodeInstanceCount
+           AvailabilityZoneCount: !Ref ElasticsearchAvailabilityZoneCount
+        InstanceType: !Ref ElasticsearchDataNodeInstanceType
+        InstanceCount: !Ref ElasticsearchDataNodeInstanceCount
         DedicatedMasterEnabled: true
-        DedicatedMasterType: !Ref EsMasterNodeInstanceType
-        DedicatedMasterCount: !Ref EsMasterNodeInstanceCount
-      #EBSOptions:
-      #  EBSEnabled: !If [ EBSEnabled, true, !Ref AWS::NoValue ]
-      #  VolumeSize: !If [ EBSEnabled, 100, !Ref AWS::NoValue ]
+        DedicatedMasterType: !Ref ElasticsearchMasterNodeInstanceType
+        DedicatedMasterCount: !Ref ElasticsearchMasterNodeInstanceCount
+      EBSOptions:
+        EBSEnabled: !If [ EBSEnabled, true, !Ref AWS::NoValue ]
+        VolumeSize: !If [ EBSEnabled, 100, !Ref AWS::NoValue ]
       AdvancedSecurityOptions:
         Enabled: true
         InternalUserDatabaseEnabled: false
@@ -137,30 +139,24 @@ Resources:
       DomainEndpointOptions:
         EnforceHTTPS: true
         TLSSecurityPolicy: 'Policy-Min-TLS-1-2-2019-07'
+        #CustomEndpointEnabled: true
+        #CustomEndpoint: www.my-custom-endpoint.com
+        #CustomEndpointCertificateArn: 'arn:aws:iam::123456789012:certificate/my-certificate'
       NodeToNodeEncryptionOptions:
         Enabled: true
       EncryptionAtRestOptions:
         Enabled: true
       AdvancedOptions:
         rest.action.multi.allow_explicit_index: true
-      AccessPolicies: !Sub |
-        {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Principal": {
-                "AWS": [
-                  "${AWS::AccountId}"
-                ]
-              },
-              "Action": [
-                "es:*"
-              ],
-              "Resource": "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*/*"
-            }
-          ]
-        }
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Ref AWS::AccountId
+            Action: 'es:*'
+            Resource: !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*/*'
       LogPublishingOptions:
         SEARCH_SLOW_LOGS:
           Enabled: true
@@ -276,10 +272,10 @@ Resources:
     Properties:
       AllowUnauthenticatedIdentities: true
 
-  KibanaBasicPolicy:
+  KibanaPolicy:
     Type: AWS::IAM::Policy
     Properties: 
-      PolicyName: KibanaBasicPolicy
+      PolicyName: KibanaPolicy
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -288,11 +284,28 @@ Resources:
               - 'es:ESHttp*'
             Resource:
               - !Sub '${Elasticsearch.Arn}/*'
-      Roles: 
-        - !Ref KibanaUserRole
+      Roles:
+        - !Ref KibanaReaderRole
+        - !Ref KibanaBasicRole
         - !Ref KibanaMasterRole
 
-  KibanaUserRole:
+  KibanaReaderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref KibanaIdentityPool
+              ForAnyValue:StringLike:
+                "cognito-identity.amazonaws.com:amr": authenticated
+
+  KibanaBasicRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -330,11 +343,20 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-  KibanaMasterUsers:
+  KibanaReaderGroup:
     Type: AWS::Cognito::UserPoolGroup
     Properties: 
-      Description: Master users of Kibana
-      GroupName: MasterUsers
+      Description: kibana_read_only on Kibana
+      GroupName: ReaderOnly
+      Precedence: 1
+      RoleArn: !GetAtt KibanaReaderRole.Arn
+      UserPoolId: !Ref KibanaUserPool
+
+  KibanaMasterGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: 
+      Description: all_access & security_manager on Kibana
+      GroupName: Master
       Precedence: 0
       RoleArn: !GetAtt KibanaMasterRole.Arn
       UserPoolId: !Ref KibanaUserPool
@@ -352,32 +374,54 @@ Resources:
     Properties:
       IdentityPoolId: !Ref KibanaIdentityPool
       Roles:
-        authenticated: !GetAtt KibanaUserRole.Arn
+        authenticated: !GetAtt KibanaBasicRole.Arn
       RoleMappings:
         userpool:
           IdentityProvider: !Sub '${KibanaUserPool.ProviderName}:${ClientId}'
           Type: Token
           AmbiguousRoleResolution: AuthenticatedRole
 
-  KibanaUserRoleMapping:
+  KibanaReaderRoleMapping:
     Type: Custom::RoleMapping
     Version: 1.0
+    DependsOn:
+      - KibanaPolicy
     Properties:
       ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
-      URL: !Sub 'https://${Elasticsearch.DomainEndpoint}/_opendistro/_security/api/rolesmapping/kibana_user'
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Path: _opendistro/_security/api/rolesmapping/kibana_read_only
       Body: !Sub |
         {
           "backend_roles" : [
-            "${KibanaUserRole.Arn}"
+            "${KibanaReaderRole.Arn}"
+          ]
+        }
+
+  KibanaBasicRoleMapping:
+    Type: Custom::RoleMapping
+    Version: 1.0
+    DependsOn:
+      - KibanaPolicy
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Path: _opendistro/_security/api/rolesmapping/kibana_user
+      Body: !Sub |
+        {
+          "backend_roles" : [
+            "${KibanaBasicRole.Arn}"
           ]
         }
 
   TweetsTemplate:
     Type: Custom::Template
     Version: 1.0
+    DependsOn:
+      - KibanaPolicy
     Properties:
       ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
-      URL: !Sub 'https://${Elasticsearch.DomainEndpoint}/_template/tweets'
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Path: _template/tweets
       Body: '
         {
           "index_patterns": ["tweets-*"],
@@ -394,11 +438,7 @@ Resources:
                 "type": "date",
                 "format": "epoch_second"
               },
-              "timestamp_ms": {
-                "type": "date",
-                "format": "epoch_millis"
-              },
-              "tweetid": {
+              "id_str": {
                 "type": "keyword"
               },
               "text": {
@@ -437,10 +477,10 @@ Resources:
               "coordinates":{
                 "type": "geo_point"
               },
-              "is_retweet": {
+              "is_retweet_status": {
                 "type": "boolean"
               },
-              "is_crawled": {
+              "is_quote_status": {
                 "type": "boolean"
               },
               "username": {
@@ -504,13 +544,90 @@ Resources:
                   }
                 }
               },
-              "mecab": {
+              "original_tweet": {
                 "properties": {
-                  "keywords": {
+                  "created_at": {
+                    "type": "date",
+                    "format": "epoch_second"
+                  },
+                  "id_str": {
                     "type": "keyword"
                   },
-                  "wakati": {
+                  "text": {
+                    "type": "text"
+                  },
+                  "normalized_text": {
+                    "type": "text"
+                  },
+                  "source": {
                     "type": "keyword"
+                  },
+                  "filter_level": {
+                    "type": "keyword"
+                  },
+                  "lang": {
+                    "type": "keyword"
+                  },
+                  "hashtags": {
+                    "type": "keyword"
+                  },
+                  "url": {
+                    "type": "keyword"
+                  },
+                  "quote_count": {
+                    "type": "long"
+                  },
+                  "reply_count": {
+                    "type": "long"
+                  },
+                  "retweet_count": {
+                    "type": "long"
+                  },
+                  "favorite_count": {
+                    "type": "long"
+                  },
+                  "coordinates":{
+                    "type": "geo_point"
+                  },
+                  "is_retweet_status": {
+                    "type": "boolean"
+                  },
+                  "is_quote_status": {
+                    "type": "boolean"
+                  },
+                  "username": {
+                    "type": "keyword"
+                  },
+                  "user": {
+                    "properties": {
+                      "id_str": {
+                        "type": "keyword"
+                      },
+                      "name": {
+                        "type": "keyword"
+                      },
+                      "screen_name": {
+                        "type": "keyword"
+                      },
+                      "followers_count": {
+                        "type": "long"
+                      },
+                      "friends_count": {
+                        "type": "long"
+                      },
+                      "listed_count": {
+                        "type": "long"
+                      },
+                      "favourites_count": {
+                        "type": "long"
+                      },
+                      "favourites_count": {
+                        "type": "long"
+                      },
+                      "lang": {
+                        "type": "keyword"
+                      }
+                    }
                   }
                 }
               }
@@ -681,11 +798,12 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Description: '[Custom Resource] Modify elasticsearch resources'
+      Timeout: 300
       Runtime: python3.7
       Role: !GetAtt KibanaMasterRole.Arn
       Layers: 
         - !Ref CustomResourceHelperLayer
-        - !Ref RequestsAWS4AuthLayer
+        - !Ref ElasticsearchClientLayer
       Handler: index.lambda_handler
       Code:
         ZipFile: |
@@ -697,6 +815,7 @@ Resources:
           import os
           import requests
           from requests_aws4auth import AWS4Auth
+          from time import sleep
 
           try:
               logger = logging.getLogger(__name__)
@@ -715,20 +834,29 @@ Resources:
           @helper.create
           @helper.update
           def create(event, context):
-              url = event['ResourceProperties']['URL']
+              host = event['ResourceProperties']['Host']
+              path = event['ResourceProperties']['Path']
               body = json.loads(event['ResourceProperties']['Body'])
-              res = requests.put(url, auth=awsauth, json=body)
-              if res.status_code in [200, 201]:
-                  logger.info(res.text)
-              else:
-                  logger.error(res.text)
-                  raise ValueError(res.text)
+              url = f'https://{host}/{path}'
+              while True:
+                  res = requests.put(url, auth=awsauth, json=body)
+                  if res.status_code in [200, 201]:
+                      logger.info(res.text)
+                      break
+                  elif res.status_code == 401:
+                      logger.warning(res.text)
+                      sleep(20)
+                  else:
+                      logger.error(res.text)
+                      raise ValueError(res.text)
               physical_resource_id = url
               return physical_resource_id
 
           @helper.delete
           def delete(event, context):
-              url = event['PhysicalResourceId']
+              host = event['ResourceProperties']['Host']
+              path = event['ResourceProperties']['Path']
+              url = f'https://{host}/{path}'
               try:
                   res = requests.delete(url, auth=awsauth)
                   logger.info(res.text)

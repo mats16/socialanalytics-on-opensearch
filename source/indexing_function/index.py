@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from aws_lambda_powertools import Logger
+from aws_lambda_powertools import Tracer
+from aws_lambda_powertools import Metrics
+from aws_lambda_powertools.metrics import MetricUnit
 import json
 import boto3
 import os
@@ -9,17 +13,12 @@ from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch.client import IndicesClient
 from requests_aws4auth import AWS4Auth
 
-from aws_xray_sdk.core import patch
-patch(('httplib',))
+logger = Logger(service="indexing")
+tracer = Tracer(service="indexing", patch_modules=['httplib'])
+metrics = Metrics(namespace="SocialMediaDashboard")
 
 es_host = os.getenv('ELASTICSEARCH_HOST')
 region = os.getenv('AWS_REGION')
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-def gen_index(prefix, dtime):
-    return prefix + dtime.strftime('%Y-%m')
 
 def es_bulk_load(data):
     credentials = boto3.Session().get_credentials()
@@ -34,19 +33,20 @@ def es_bulk_load(data):
     r = es.bulk(data)
     return r
 
+@metrics.log_metrics
+@tracer.capture_lambda_handler
 def lambda_handler(event, context):
     bulk_data = ''
-    for record in event['Records']:
-        b64_data = record['kinesis']['data']
-        record_string = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
+    records = set(map(lambda x: x['kinesis']['data'], event['Records']))  # 重複排除
+    for record in records:
+        record_string = base64.b64decode(record).decode('utf-8').rstrip('\n')
         record_dict = json.loads(record_string)
 
-        if 'timestamp_ms' in record_dict and 'id_str' in record_dict:
-            dtime = datetime.fromtimestamp(int(record_dict['timestamp_ms']) / 1000, timezone.utc)
+        if '_index' in record_dict and '_id' in record_dict:
             bulk_header = {
                 'update': {
-                    '_index': gen_index('tweets-', dtime),
-                    '_id': record_dict.pop('id_str')
+                    '_index': record_dict.pop('_index'),
+                    '_id': record_dict.pop('_id'),
                 }
             }
             bulk_data += json.dumps(bulk_header) + '\n'
@@ -55,6 +55,8 @@ def lambda_handler(event, context):
     if len(bulk_data) > 0:
         res = es_bulk_load(bulk_data)
         logger.info(res)
+        metrics.add_dimension(name="Elasticsearch", value="BulkAPI")
+        metrics.add_metric(name="TookTime", unit=MetricUnit.Count, value=res['took'])
         if res['errors']:
             logger.error(res['errors'])
             return 'false' 
