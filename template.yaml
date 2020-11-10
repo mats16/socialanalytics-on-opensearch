@@ -34,7 +34,6 @@ Metadata:
         Parameters:
           - ComprehendEntityScoreThreshold
           - SignupAllowedDomains
-          - CdnEnabled
       - Label:
           default: Elasticsearch Configuration
         Parameters:
@@ -44,6 +43,7 @@ Metadata:
           - ElasticsearchDataNodeInstanceCount
           - ElasticsearchMasterNodeInstanceType
           - ElasticsearchMasterNodeInstanceCount
+          - ElasticsearchAdvancedSecurityEnabled
 
 Parameters:
 
@@ -123,25 +123,16 @@ Parameters:
     Default: 3
     AllowedValues: [ 3, 5 ]
 
-  CdnEnabled:
-    Description: CDN for Kibana
+  ElasticsearchAdvancedSecurityEnabled:
+    Description: Fine-Grained Access Control
     Type: String
-    Default: 'false'
+    Default: 'true'
     AllowedValues:
       - 'true'
       - 'false'
-  
-  CdnDomainName:
-    Type: String
-    Default: ''
-  
-  CdnAcmCertificateArn:
-    Type: String
-    Default: 'arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
-    AllowedPattern: ^arn:aws:acm:us-east-1:[0-9]{12}:certificate/[\w\-]+$
 
 Conditions:
-  CdnEnabled: !Equals [ !Ref CdnEnabled, 'true' ]
+  ElasticsearchAdvancedSecurityEnabled: !Equals [ !Ref ElasticsearchAdvancedSecurityEnabled, 'true' ]
 
 Resources:
 
@@ -348,11 +339,12 @@ Resources:
                 - es:ESHttpPut
                 - es:ESHttpPost
               Resource:
-                - !Sub '${ElasticsearchStack.Outputs.ElasticsearchArn}/*'
+                - !Sub '${ElasticsearchStack.Outputs.ElasticsearchArn}/_bulk'
 
   IndexerRole:
     Type: Custom::Role
     Version: 1.0
+    Condition: ElasticsearchAdvancedSecurityEnabled
     Properties:
       ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
       Host: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
@@ -383,6 +375,7 @@ Resources:
     Type: Custom::RoleMapping
     Version: 1.0
     DependsOn: IndexerRole
+    Condition: ElasticsearchAdvancedSecurityEnabled
     Properties:
       ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
       Host: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
@@ -479,6 +472,7 @@ Resources:
         ElasticsearchDataNodeInstanceCount: !Ref ElasticsearchDataNodeInstanceCount
         ElasticsearchMasterNodeInstanceType: !Ref ElasticsearchMasterNodeInstanceType
         ElasticsearchMasterNodeInstanceCount: !Ref ElasticsearchMasterNodeInstanceCount
+        ElasticsearchAdvancedSecurityEnabled: !Ref ElasticsearchAdvancedSecurityEnabled
 
   DataLakeStack:
     Type: AWS::CloudFormation::Stack
@@ -487,17 +481,6 @@ Resources:
       Parameters:
         ParentStackName: !Ref AWS::StackName
         TweetStreamArn : !GetAtt TweetStream.Arn
-
-  CDNStack:
-    Type: AWS::CloudFormation::Stack
-    Condition: CdnEnabled
-    Properties:
-      TemplateURL: nested-stack/cdn.yaml
-      Parameters:
-        ParentStackName: !Ref AWS::StackName
-        OriginDomainName : !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
-        CdnDomainName: !Ref CdnDomainName
-        CdnAcmCertificateArn: !Ref CdnAcmCertificateArn
 
   # Lambda Layers --------------------------------------
   LambdaPowertoolsPythonLayer:

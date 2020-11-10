@@ -16,6 +16,20 @@ Parameters:
     Type: String
     AllowedPattern: ^arn:aws:acm:us-east-1:[0-9]{12}:certificate/[\w\-]+$
 
+Mappings: 
+  Policies: 
+    CachePolicyId: 
+      ManagedCachingOptimized: 658327ea-f89d-4fab-a63d-7e88639e58f6
+      ManagedCachingDisabled: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+      ManagedCachingOptimizedForUncompressedObjects: b2884449-e4de-46a7-ac36-70bc7f1ddd6d
+      ManagedElementalMediaPackage: 08627262-05a9-4f76-9ded-b50ca2e3a84f
+    OriginRequestPolicyId:
+      ManagedUserAgentRefererHeaders: acba4595-bd28-49b8-b9fe-13317c0390fa
+      ManagedAllViewer: 216adef6-5c7f-47e4-b989-5492eafa07d3
+      ManagedCORSS3Origin: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf
+      ManagedCORSCustomOrigin: 59781a5b-3903-41f3-afcb-af62929ccde1
+      ManagedElementalMediaTailorPersonalizedManifests: 775133bc-15f2-49f9-abea-afb2e0bf67d2
+
 Resources:
 
   Distribution:
@@ -37,6 +51,8 @@ Resources:
             DomainName: !Ref OriginDomainName
             CustomOriginConfig:
               OriginProtocolPolicy: https-only
+              OriginKeepaliveTimeout: 60
+              OriginReadTimeout: 60
             #OriginCustomHeaders:
             #  - HeaderName: Host
             #    HeaderValue: !Ref OriginDomainName
@@ -45,33 +61,13 @@ Resources:
           ViewerProtocolPolicy: redirect-to-https
           AllowedMethods: [ GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE ]
           CachedMethods: [ GET, HEAD ]
-          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-          OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+          CachePolicyId: !FindInMap [Policies, CachePolicyId, ManagedCachingDisabled]
+          OriginRequestPolicyId: !FindInMap [Policies, OriginRequestPolicyId, ManagedAllViewer]
           Compress: true
-        CacheBehaviors:
-          - PathPattern: '*.css'
-            TargetOriginId: amazon-elasticsearch
-            ViewerProtocolPolicy: redirect-to-https
-            AllowedMethods: [ GET, HEAD ]
-            CachedMethods: [ GET, HEAD ]
-            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
-            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
-            Compress: true
-          - PathPattern: '*.svg'
-            TargetOriginId: amazon-elasticsearch
-            ViewerProtocolPolicy: redirect-to-https
-            AllowedMethods: [ GET, HEAD ]
-            CachedMethods: [ GET, HEAD ]
-            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
-            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
-            Compress: true
-          - PathPattern: '*/bundles/*.js'
-            TargetOriginId: amazon-elasticsearch
-            ViewerProtocolPolicy: redirect-to-https
-            AllowedMethods: [ GET, HEAD ]
-            CachedMethods: [ GET, HEAD ]
-            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
-            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
-            Compress: true
+        #CustomErrorResponses:
+        #  - ErrorCode: 403
+        #    ErrorCachingMinTTL: 0
+        #  - ErrorCode: 503
+        #    ErrorCachingMinTTL: 0
 
 Outputs: {}

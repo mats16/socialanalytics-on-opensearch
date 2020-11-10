@@ -131,8 +131,8 @@ def transform_record(tweet, update_user_metrics=True, enable_comprehend=True):
         for entity in res_entities['Entities']:
             if entity['Type'] in ['QUANTITY', 'DATE']:
                 continue
-            #elif len(entity['Text']) < 2:  # 1文字のとき
-            #    continue
+            elif len(entity['Text']) < 2:  # 1文字のとき
+                continue
             elif entity['Score'] >= comprehend_entity_score_threshold:
                 entities.append(entity['Text'].lower())
         if len(entities) > 0:
@@ -165,27 +165,27 @@ def lambda_handler(event, context):
             continue  # 365日以上前の場合はスキップ
 
         transfored_record = transform_record(tweet)
+        tweet_count += 1
 
         if transfored_record['is_retweet_status']:
-            retweet_count += 1
             if 'retweeted_status' in tweet:
+                retweet_count += 1
                 transfored_record_org = transform_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
-                transfored_record['original_tweet'] = transfored_record_org
+                transfored_record['retweeted_status'] = transfored_record_org
                 if transfored_record_org['created_at'] < time_threshold:
                     continue  # 元tweetが365日以上前の場合は全てスキップ
         elif transfored_record['is_quote_status']:
-            quote_count += 1
             if 'quoted_status' in tweet:
+                quote_count += 1
                 transfored_record_org = transform_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
                 if transfored_record_org['created_at'] < time_threshold:
                     transfored_record_org = None  # 元tweetが365日以上前の場合は引用tweetのみ
                 else:
-                    transfored_record['original_tweet'] = transfored_record_org
+                    transfored_record['quoted_status'] = transfored_record_org
         else:
-            tweet_count += 1
             transfored_record_org = None
 
-        for i in [transfored_record_org, transfored_record]:
+        for i in [transfored_record, transfored_record_org]:
             if i:
                 es_record = gen_es_record(i)
                 es_records.append({

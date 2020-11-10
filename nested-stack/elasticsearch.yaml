@@ -48,8 +48,16 @@ Parameters:
     Default: 3
     AllowedValues: [ 3, 5 ]
 
+  ElasticsearchAdvancedSecurityEnabled:
+    Description: Fine-Grained Access Control
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+
 Conditions:
   EBSEnabled: !Not [ !Equals [ !Select [ 0, !Split [ '.', !Ref ElasticsearchDataNodeInstanceType ] ], 'i3' ] ]
+  ElasticsearchAdvancedSecurityEnabled: !Equals [ !Ref ElasticsearchAdvancedSecurityEnabled, 'true' ]
 
 Resources:
 
@@ -111,6 +119,8 @@ Resources:
     DependsOn:
       - LogsResourcePolicy
       - KibanaUserPoolDomain
+    UpdatePolicy:
+      EnableVersionUpgrade: true
     DeletionPolicy: Retain
     Properties:
       ElasticsearchVersion: !Ref ElasticsearchVersion
@@ -127,10 +137,10 @@ Resources:
         EBSEnabled: !If [ EBSEnabled, true, !Ref AWS::NoValue ]
         VolumeSize: !If [ EBSEnabled, 100, !Ref AWS::NoValue ]
       AdvancedSecurityOptions:
-        Enabled: true
-        InternalUserDatabaseEnabled: false
+        Enabled: !If [ ElasticsearchAdvancedSecurityEnabled, true, !Ref AWS::NoValue ]
+        InternalUserDatabaseEnabled: !If [ ElasticsearchAdvancedSecurityEnabled, false, !Ref AWS::NoValue ]
         MasterUserOptions: 
-          MasterUserARN: !GetAtt KibanaMasterRole.Arn
+          MasterUserARN: !If [ ElasticsearchAdvancedSecurityEnabled, !GetAtt KibanaMasterRole.Arn, !Ref AWS::NoValue ]
       CognitoOptions:
         Enabled: true
         UserPoolId: !Ref KibanaUserPool
@@ -155,7 +165,8 @@ Resources:
             Principal:
               AWS:
                 - !Ref AWS::AccountId
-            Action: 'es:*'
+            Action:
+              - 'es:ESHttp*'
             Resource: !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*/*'
       LogPublishingOptions:
         SEARCH_SLOW_LOGS:
@@ -168,7 +179,7 @@ Resources:
           Enabled: true
           CloudWatchLogsLogGroupArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${ApplicationLogs}'
         AUDIT_LOGS:
-          Enabled: true
+          Enabled: !If [ ElasticsearchAdvancedSecurityEnabled, true, false ]
           CloudWatchLogsLogGroupArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AuditLogs}'
 
   CognitoAccessForAmazonES:
@@ -285,25 +296,8 @@ Resources:
             Resource:
               - !Sub '${Elasticsearch.Arn}/*'
       Roles:
-        - !Ref KibanaReaderRole
         - !Ref KibanaBasicRole
         - !Ref KibanaMasterRole
-
-  KibanaReaderRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action: "sts:AssumeRoleWithWebIdentity"
-            Principal:
-              Federated: cognito-identity.amazonaws.com
-            Condition:
-              StringEquals:
-                "cognito-identity.amazonaws.com:aud": !Ref KibanaIdentityPool
-              ForAnyValue:StringLike:
-                "cognito-identity.amazonaws.com:amr": authenticated
 
   KibanaBasicRole:
     Type: AWS::IAM::Role
@@ -343,17 +337,9 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-  KibanaReaderGroup:
-    Type: AWS::Cognito::UserPoolGroup
-    Properties: 
-      Description: kibana_read_only on Kibana
-      GroupName: ReaderOnly
-      Precedence: 1
-      RoleArn: !GetAtt KibanaReaderRole.Arn
-      UserPoolId: !Ref KibanaUserPool
-
   KibanaMasterGroup:
     Type: AWS::Cognito::UserPoolGroup
+    Condition: ElasticsearchAdvancedSecurityEnabled
     Properties: 
       Description: all_access & security_manager on Kibana
       GroupName: Master
@@ -381,31 +367,33 @@ Resources:
           Type: Token
           AmbiguousRoleResolution: AuthenticatedRole
 
-  KibanaReaderRoleMapping:
+  KibanaUserRoleMapping:
     Type: Custom::RoleMapping
     Version: 1.0
     DependsOn:
       - KibanaPolicy
-    Properties:
-      ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
-      Host: !GetAtt Elasticsearch.DomainEndpoint
-      Path: _opendistro/_security/api/rolesmapping/kibana_read_only
-      Body: !Sub |
-        {
-          "backend_roles" : [
-            "${KibanaReaderRole.Arn}"
-          ]
-        }
-
-  KibanaBasicRoleMapping:
-    Type: Custom::RoleMapping
-    Version: 1.0
-    DependsOn:
-      - KibanaPolicy
+    Condition: ElasticsearchAdvancedSecurityEnabled
     Properties:
       ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
       Host: !GetAtt Elasticsearch.DomainEndpoint
       Path: _opendistro/_security/api/rolesmapping/kibana_user
+      Body: !Sub |
+        {
+          "backend_roles" : [
+            "${KibanaBasicRole.Arn}"
+          ]
+        }
+
+  ReadAllRoleMapping:
+    Type: Custom::RoleMapping
+    Version: 1.0
+    DependsOn:
+      - KibanaPolicy
+    Condition: ElasticsearchAdvancedSecurityEnabled
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Path: _opendistro/_security/api/rolesmapping/readall
       Body: !Sub |
         {
           "backend_roles" : [
@@ -422,11 +410,11 @@ Resources:
       ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
       Host: !GetAtt Elasticsearch.DomainEndpoint
       Path: _template/tweets
-      Body: '
+      Body: !Sub '
         {
           "index_patterns": ["tweets-*"],
           "settings": {
-            "number_of_shards": 1,
+            "number_of_shards": ${ElasticsearchDataNodeInstanceCount},
             "number_of_replicas": 1
           },
           "mappings": {
@@ -544,7 +532,94 @@ Resources:
                   }
                 }
               },
-              "original_tweet": {
+              "retweeted_status": {
+                "properties": {
+                  "created_at": {
+                    "type": "date",
+                    "format": "epoch_second"
+                  },
+                  "id_str": {
+                    "type": "keyword"
+                  },
+                  "text": {
+                    "type": "text"
+                  },
+                  "normalized_text": {
+                    "type": "text"
+                  },
+                  "source": {
+                    "type": "keyword"
+                  },
+                  "filter_level": {
+                    "type": "keyword"
+                  },
+                  "lang": {
+                    "type": "keyword"
+                  },
+                  "hashtags": {
+                    "type": "keyword"
+                  },
+                  "url": {
+                    "type": "keyword"
+                  },
+                  "quote_count": {
+                    "type": "long"
+                  },
+                  "reply_count": {
+                    "type": "long"
+                  },
+                  "retweet_count": {
+                    "type": "long"
+                  },
+                  "favorite_count": {
+                    "type": "long"
+                  },
+                  "coordinates":{
+                    "type": "geo_point"
+                  },
+                  "is_retweet_status": {
+                    "type": "boolean"
+                  },
+                  "is_quote_status": {
+                    "type": "boolean"
+                  },
+                  "username": {
+                    "type": "keyword"
+                  },
+                  "user": {
+                    "properties": {
+                      "id_str": {
+                        "type": "keyword"
+                      },
+                      "name": {
+                        "type": "keyword"
+                      },
+                      "screen_name": {
+                        "type": "keyword"
+                      },
+                      "followers_count": {
+                        "type": "long"
+                      },
+                      "friends_count": {
+                        "type": "long"
+                      },
+                      "listed_count": {
+                        "type": "long"
+                      },
+                      "favourites_count": {
+                        "type": "long"
+                      },
+                      "favourites_count": {
+                        "type": "long"
+                      },
+                      "lang": {
+                        "type": "keyword"
+                      }
+                    }
+                  }
+                }
+              },
+              "quoted_status": {
                 "properties": {
                   "created_at": {
                     "type": "date",
