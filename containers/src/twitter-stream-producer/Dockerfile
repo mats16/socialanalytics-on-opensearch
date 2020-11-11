@@ -16,9 +16,8 @@ COPY --from=builder /home/node/node_modules/ ./node_modules
 
 COPY src/ ./
 
-ENV TWITTER_TOPICS='*' \
+ENV TWITTER_TOPICS='AWS' \
     TWITTER_LANGUAGES=en,ja \
-    TWITTER_FILTER_LEVEL=none \
-    DESTINATION=stdout
+    TWITTER_FILTER_LEVEL=none
 
 CMD [ "node", "./twitter_stream_producer_app.js" ]

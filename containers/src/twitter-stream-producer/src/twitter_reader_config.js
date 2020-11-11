@@ -7,6 +7,5 @@ const twitter_config = module.exports = {
     },
     topics: process.env.TWITTER_TOPICS.split(','),
     languages: process.env.TWITTER_LANGUAGES.split(','),
-    filter_level: process.env.TWITTER_FILTER_LEVEL,
-    dest: process.env.DESTINATION.split(',')
+    filter_level: process.env.TWITTER_FILTER_LEVEL
 }

@@ -15,9 +15,11 @@ Parameters:
   TweetStreamName:
     Type: String
 
-  DockerImage:
+  TwitterProducerImage:
     Type: String
-    Default: mats16/twitter-streaming-reader:0.1.0
+
+  FluentBitImage:
+    Type: String
 
   TwitterTopicsParameter:
     Type: String
@@ -128,11 +130,11 @@ Resources:
       ExecutionRoleArn: !Ref TaskExecutionRole
       ContainerDefinitions: 
         - Name: twitter-stream-producer
-          Image: !Ref DockerImage
+          Image: !Ref TwitterProducerImage
           Essential: "true"
-          Environment:
-            - Name: DESTINATION
-              Value: !Sub 'kinesis:${TweetStreamName}'
+          DependsOn:
+            - ContainerName: fluent-bit
+              Condition: START
           Secrets:
             - Name: TWITTER_TOPICS
               ValueFrom: !Ref TwitterTopicsParameter
@@ -154,7 +156,21 @@ Resources:
             Options:
               awslogs-region: !Ref AWS::Region
               awslogs-group: !Ref EcsLogGroup
-              awslogs-stream-prefix: producer
+              awslogs-stream-prefix: twitter-producer
+        - Name: fluent-bit
+          Image: !Ref FluentBitImage
+          Essential: "true"
+          Environment:
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref AWS::Region
+            - Name: DELIVERY_STREAM_NAME
+              Value: !Ref TweetStreamName
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref EcsLogGroup
+              awslogs-stream-prefix: fluent-bit
 
   EcsService:
     Type: AWS::ECS::Service

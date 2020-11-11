@@ -41,6 +41,29 @@ Resources:
             - ecr:BatchGetImage
             - ecr:BatchCheckLayerAvailability
 
+  FluentBitRepo:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Delete
+    Properties:
+      RepositoryName: !Sub '${ParentStackName}/fluent-bit'
+      ImageScanningConfiguration: 
+        scanOnPush: "true"
+      #LifecyclePolicy:
+      #  LifecyclePolicyText: !Sub
+      #    - '{"rules":[{"rulePriority":1,"description":"Retained Image count: ${RetainedImageCount}","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":${RetainedImageCount}},"action":{"type":"expire"}}]}'
+      #    - { RetainedImageCount: !Ref RetainedImageCount }
+      RepositoryPolicyText:
+        Version: '2012-10-17'
+        Statement:
+          Sid: AllowPull
+          Effect: Allow
+          Principal:
+            AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+          Action:
+            - ecr:GetDownloadUrlForLayer
+            - ecr:BatchGetImage
+            - ecr:BatchCheckLayerAvailability
+
   ArtifactBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
@@ -98,6 +121,7 @@ Resources:
                   - ecr:CompleteLayerUpload
                 Resource:
                   - !GetAtt TwitterProducerRepo.Arn
+                  - !GetAtt FluentBitRepo.Arn
               - Effect: Allow
                 Action:
                   - ecr:GetAuthorizationToken
@@ -147,20 +171,19 @@ Resources:
           phases:
             pre_build:
               commands:
-                - echo ${IMAGE_VERSION}
-                - $(aws ecr get-login --no-include-email)
-                - IMAGE_URI="${REPO_URI}"                
+                - $(aws ecr get-login --no-include-email)           
             build:
               commands:
-                - ls -l
                 - echo Build started on `date`
                 - echo Building the Docker image...
-                - docker build --tag $IMAGE_URI:${IMAGE_VERSION} ./twitter-stream-producer
+                - docker build --tag ${ECR_DOMAIN}/${TWITTER_PRODUCER_REPO}:${IMAGE_VERSION} ./twitter-stream-producer
+                - docker build --tag ${ECR_DOMAIN}/${FLUENT_BIT_REPO}:${IMAGE_VERSION} ./fluent-bit
             post_build:
               commands:
                 - echo Build completed on `date`
                 - echo Pushing the Docker image...
-                - docker push $IMAGE_URI:${IMAGE_VERSION}
+                - docker push ${ECR_DOMAIN}/${TWITTER_PRODUCER_REPO}:${IMAGE_VERSION}
+                - docker push ${ECR_DOMAIN}/${FLUENT_BIT_REPO}:${IMAGE_VERSION}
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/docker:18.09.0
@@ -168,12 +191,18 @@ Resources:
         EnvironmentVariables:
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
-          #- Name: ECR_DOMAIN
-          #  Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com'
-          - Name: REPO_URI
-            Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${TwitterProducerRepo}'
+          - Name: ECR_DOMAIN
+            Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com'
+          - Name: TWITTER_PRODUCER_REPO
+            Value: !Ref TwitterProducerRepo
+          - Name: FLUENT_BIT_REPO
+            Value: !Ref FluentBitRepo
           - Name: IMAGE_VERSION
             Value: !Ref ImageVersion
+      Cache:
+        Type: LOCAL
+        Modes:
+          - LOCAL_DOCKER_LAYER_CACHE
 
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -311,6 +340,9 @@ Resources:
 
 
 Outputs:
-
-  ImageName:
+  
+  TwitterProducerImage:
     Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${TwitterProducerRepo}:${ImageVersion}'
+
+  FluentBitImage:
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FluentBitRepo}:${ImageVersion}'
