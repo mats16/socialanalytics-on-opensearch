@@ -134,6 +134,11 @@ Parameters:
 Conditions:
   ElasticsearchAdvancedSecurityEnabled: !Equals [ !Ref ElasticsearchAdvancedSecurityEnabled, 'true' ]
 
+Globals:
+  Function:
+    Layers:
+      - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+
 Resources:
 
   TwitterTopicsParameter:
@@ -243,6 +248,7 @@ Resources:
             BatchSize: 200
             MaximumRecordAgeInSeconds: 300
       Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"
           Statement:
             - Sid: ComprehendAccess
@@ -289,6 +295,7 @@ Resources:
             BatchSize: 200
             MaximumRecordAgeInSeconds: 604800
       Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"
           Statement:
             - Sid: ComprehendAccess
@@ -331,6 +338,7 @@ Resources:
             BatchSize: 1000
             StartingPosition: LATEST
       Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"
           Statement:
             - Sid: ElasticsearchHttpAccess
