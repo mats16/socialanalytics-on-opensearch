@@ -45,7 +45,6 @@ def add_partition_column(rec):
 
 def processBatch(data_frame, batchId):
     if (data_frame.count() > 0):
-        #distinct_data_frame = data_frame.distinct().coalesce(1)
         dynamic_frame = DynamicFrame.fromDF(data_frame, glueContext, "from_data_frame")
         # Partition 用のカラムを追加
         mapped_dyF = Map.apply(
@@ -68,13 +67,13 @@ def processBatch(data_frame, batchId):
         #    },
         #    format = "json",
         #    transformation_ctx = "datasink1")
-        drop_duplicates_df = apply_mapping.toDF().dropDuplicates(subset = ["id_str"])
+        drop_duplicates_df = apply_mapping.toDF().dropDuplicates(['id_str'])
         drop_duplicates_df.repartition("year", "month", "day").write.partitionBy(["year", "month", "day"]).mode('append').json(dest_s3_path, compression='gzip')
 
 glueContext.forEachBatch(
     frame = datasource0,
     batch_function = processBatch,
     options = {
-        "windowSize": "1800 seconds",
-        "checkpointLocation": dest_s3_path + "/checkpoint"})
+        "windowSize": "7200 seconds",
+        "checkpointLocation": dest_s3_path + "/spark-streaming-checkpoint"})
 job.commit()

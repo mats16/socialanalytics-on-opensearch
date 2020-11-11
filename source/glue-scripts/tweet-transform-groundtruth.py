@@ -68,5 +68,6 @@ applymapping1 = ApplyMapping.apply(
 ## @return: datasink2
 ## @inputs: [frame = applymapping1]
 
-applymapping1.toDF().repartition("year", "month").write.partitionBy(["year", "month"]).option("maxRecordsPerFile", 30000).mode('append').json(dest_s3_path)
+drop_duplicates_df = applymapping1.toDF().dropDuplicates(['id_str'])
+drop_duplicates_df.repartition("year", "month").write.partitionBy(["year", "month"]).option("maxRecordsPerFile", 30000).mode('append').json(dest_s3_path)
 job.commit()
