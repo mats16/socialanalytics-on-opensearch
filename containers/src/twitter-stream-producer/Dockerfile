@@ -1,4 +1,4 @@
-FROM node:10.19.0-alpine as builder
+FROM node:14.15.0-alpine as builder
 
 WORKDIR /home/node
 
@@ -6,7 +6,7 @@ COPY ["src/package.json", "./"]
 
 RUN npm install
 
-FROM node:10.19.0-alpine
+FROM node:14.15.0-alpine
 
 USER node
 
