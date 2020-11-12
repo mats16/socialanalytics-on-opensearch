@@ -465,9 +465,10 @@ Resources:
       TemplateURL: nested-stack/container-repo.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
-        CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
+        LayerToS3FunctionArn: !GetAtt LayerToS3Function.Arn
+        #CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
         DockerfileLayer: !Ref DockerfileLayer
-        ImageVersion: '1.0'
+        ImageVersion: '1.0.0'
 
   ElasticsearchStack:
     Type: AWS::CloudFormation::Stack
@@ -493,6 +494,27 @@ Resources:
       Parameters:
         ParentStackName: !Ref AWS::StackName
         TweetStreamArn : !GetAtt TweetStream.Arn
+
+  # Custom Resource --------------------------------------
+  LayerToS3Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Custom Resource] Create s3 objects from lambda layer'
+      Runtime: python3.7
+      Layers: 
+        - !Ref CustomResourceHelperLayer
+      CodeUri: custom-resources/layer-to-s3/
+      Handler: index.lambda_handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'lambda:GetLayerVersion'
+                - 's3:PutObject'
+                #- 's3:GetObject'
+                #- 's3:DeleteObject'
+              Resource: '*'
 
   # Lambda Layers --------------------------------------
   LambdaPowertoolsPythonLayer:
@@ -534,10 +556,6 @@ Resources:
       LayerName: !Sub 'dockerfile-${AWS::StackName}'
       Description: Dockerfile
       ContentUri: containers/
-      CompatibleRuntimes:
-        - python3.7
-    Metadata:
-      BuildMethod: python3.7
 
 Outputs:
 

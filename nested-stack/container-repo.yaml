@@ -6,15 +6,18 @@ Parameters:
   ParentStackName:
     Type: String
 
-  ImageVersion:
+  LayerToS3FunctionArn:
     Type: String
-    Default: latest
 
-  CustomResourceHelperLayer:
-    Type: String
+  #CustomResourceHelperLayer:
+  #  Type: String
 
   DockerfileLayer:
     Type: String
+
+  ImageVersion:
+    Type: String
+    Default: latest
 
 Resources:
 
@@ -222,7 +225,7 @@ Resources:
                 Provider: S3
               Configuration:
                 S3Bucket: !Sub ${ArtifactBucket}
-                S3ObjectKey: dockerfile.zip
+                S3ObjectKey: src/dockerfile.zip
               OutputArtifacts:
                 - Name: TwitterStreamProducer
               RunOrder: 1
@@ -243,101 +246,14 @@ Resources:
               RunOrder: 1
 
   DockerfileZip:
-    Type: Custom::Dockerfile
+    Type: Custom::S3Object
     Version: 1.0
     Properties:
-      ServiceToken: !GetAtt SetupDockerfileFunction.Arn
-      DockerfileLayer: !Ref DockerfileLayer
+      ServiceToken: !Ref LayerToS3FunctionArn
       Bucket: !Ref ArtifactBucket
+      Path: src/
       Key: dockerfile.zip
-
-  # Custom Resources ------------------------------------
-  SetupDockerfileFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action: "sts:AssumeRole"
-            Principal:
-              Service: lambda.amazonaws.com
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: PutObject
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 's3:Put*'
-                Resource: '*'
-
-  SetupDockerfileFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: '[Custom Resource] Setup Dockerfile'
-      Runtime: python3.7
-      Role: !GetAtt SetupDockerfileFunctionRole.Arn
-      Layers: 
-        - !Ref CustomResourceHelperLayer
-        - !Ref DockerfileLayer
-      Handler: index.lambda_handler
-      Code:
-        ZipFile: !Sub |
-          from __future__ import print_function
-          from crhelper import CfnResource
-          import logging
-          import json
-          import os
-          import shutil
-          import boto3
-          from s3urls import parse_url
-
-          logger = logging.getLogger(__name__)
-          helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
-
-          try:
-              client = boto3.client('s3')
-          except Exception as e:
-              helper.init_failure(e)
-
-          def lambda_handler(event, context):
-              print(json.dumps(event))
-              helper(event, context)
-
-          @helper.create
-          @helper.update
-          def create(event, context):
-              bucket = event['ResourceProperties']['Bucket']
-              key = event['ResourceProperties']['Key']
-              fn = '/tmp/data'
-              shutil.make_archive(fn, 'zip', root_dir='/opt/python/src')
-              data = open(f'{fn}.zip', 'rb')
-              res = client.put_object(
-                  Bucket=bucket,
-                  Key=key,
-                  Body=data
-              )
-              physical_resource_id = f's3://{bucket}/{key}'
-              return physical_resource_id
-
-          @helper.delete
-          def delete(event, context):
-              try:
-                  physical_resource_id = event['PhysicalResourceId']
-                  bucket = parse_url(physical_resource_id)['bucket']
-                  key = parse_url(physical_resource_id)['key']
-                  res = client.delete_object(
-                      Bucket=bucket,
-                      Key=key
-                  )
-                  logger.info(res.text)
-              except Exception as e:
-                  logger.error(e)
-
-
+      SourceLayerArn: !Ref DockerfileLayer
 
 Outputs:
   
