@@ -236,6 +236,7 @@ Resources:
           LOG_LEVEL: INFO
           LIVE_METRICS: enabled
           TWEET_DAY_THRESHOLD: 180
+          TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
           INDEXING_STREAM: !Ref IndexingStream
       Events:
@@ -283,6 +284,7 @@ Resources:
           LOG_LEVEL: INFO
           LIVE_METRICS: disabled
           TWEET_DAY_THRESHOLD: 730
+          TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
           INDEXING_STREAM: !Ref IndexingStream
       Events:

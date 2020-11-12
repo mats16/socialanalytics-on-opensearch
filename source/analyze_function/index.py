@@ -21,6 +21,7 @@ metrics = Metrics(namespace="SocialMediaDashboard")
 
 live_metrics = os.getenv('LIVE_METRICS')
 tweet_day_threshold = int(os.getenv('TWEET_DAY_THRESHOLD'))
+tweet_langs = os.getenv('TWEET_LANGS').split(',')
 comprehend_entity_score_threshold = float(os.getenv('COMPREHEND_ENTITY_SCORE_THRESHOLD'))
 indexing_stream = os.getenv('INDEXING_STREAM')
 
@@ -172,16 +173,37 @@ def lambda_handler(event, context):
                 retweet_count += 1
                 transfored_record_org = transform_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
                 transfored_record['retweeted_status'] = transfored_record_org
-                if transfored_record_org['created_at'] < time_threshold:
-                    continue  # 元tweetが365日以上前の場合は全てスキップ
+                if transfored_record_org['lang'] not in tweet_langs:
+                    transfored_record_org = None  # 元tweetが他言語の場合、取り込まない
+                elif transfored_record_org['created_at'] < time_threshold:
+                    logger.info({
+                        'state': 'skip_record',
+                        'reason': 'The tweet is too old.',
+                        'tweet_type': 'retweet',
+                        'tweet': transfored_record_org
+                    })
+                    continue  # 元tweetが一定以上古い場合は全てスキップ
         elif transfored_record['is_quote_status']:
             if 'quoted_status' in tweet:
                 quote_count += 1
                 transfored_record_org = transform_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
-                if transfored_record_org['created_at'] < time_threshold:
-                    transfored_record_org = None  # 元tweetが365日以上前の場合は引用tweetのみ
-                else:
-                    transfored_record['quoted_status'] = transfored_record_org
+                transfored_record['quoted_status'] = transfored_record_org
+                if transfored_record_org['lang'] not in tweet_langs:
+                    logger.info({
+                        'state': 'skip_record',
+                        'reason': f'The tweet is not in {str(tweet_langs)}.',
+                        'tweet_type': 'quote',
+                        'tweet': transfored_record_org
+                    })
+                    transfored_record_org = None
+                elif transfored_record_org['created_at'] < time_threshold:
+                    logger.info({
+                        'state': 'skip_record',
+                        'reason': 'The tweet is too old.',
+                        'tweet_type': 'quote',
+                        'tweet': transfored_record_org
+                    })
+                    transfored_record_org = None  # 元tweetが一定以上古い場合は引用tweetのみ（過去indexが無限にできるので）
         else:
             transfored_record_org = None
 
