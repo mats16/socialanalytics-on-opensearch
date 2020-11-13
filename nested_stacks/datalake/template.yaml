@@ -461,7 +461,7 @@ Resources:
       Command:
         Name: gluestreaming
         PythonVersion: 3
-        ScriptLocation: ../source/glue-scripts/tweet-archive-streaming.py
+        ScriptLocation: glue_scripts/tweet-archive-streaming.py
       DefaultArguments:
         "--TempDir": !Sub "s3://aws-glue-temporary-${AWS::AccountId}-${AWS::Region}/${AWS::StackName}"
         "--enable-continuous-cloudwatch-log": "true"
@@ -485,7 +485,7 @@ Resources:
       Command:
         Name: glueetl
         PythonVersion: 3
-        ScriptLocation: ../source/glue-scripts/tweet-transform-groundtruth.py
+        ScriptLocation: glue_scripts/tweet-transform-groundtruth.py
       DefaultArguments:
         "--TempDir": !Sub "s3://aws-glue-temporary-${AWS::AccountId}-${AWS::Region}/${AWS::StackName}"
         "--enable-continuous-cloudwatch-log": "true"

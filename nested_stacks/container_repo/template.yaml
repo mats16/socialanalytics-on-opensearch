@@ -6,11 +6,8 @@ Parameters:
   ParentStackName:
     Type: String
 
-  LayerToS3FunctionArn:
+  S3ObjectsFunctionArn:
     Type: String
-
-  #CustomResourceHelperLayer:
-  #  Type: String
 
   DockerfileLayer:
     Type: String
@@ -246,10 +243,9 @@ Resources:
               RunOrder: 1
 
   DockerfileZip:
-    Type: Custom::S3Object
-    Version: 1.0
+    Type: Custom::S3Objects
     Properties:
-      ServiceToken: !Ref LayerToS3FunctionArn
+      ServiceToken: !Ref S3ObjectsFunctionArn
       Bucket: !Ref ArtifactBucket
       Path: src/
       Key: dockerfile.zip

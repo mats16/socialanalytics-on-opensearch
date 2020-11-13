@@ -1,0 +1,14 @@
+{
+  "document-version": "2018-11-28",
+  "labels": [
+    {
+      "label": "*label_1*"
+    },
+    {
+      "label": "*label_2*"
+    },
+    {
+      "label": "*label_n*"
+    }
+  ]
+}

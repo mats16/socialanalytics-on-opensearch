@@ -1,9 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Transform: "AWS::Serverless-2016-10-31"
 Description: '[Social Media Dashboard] Elasticsearch Stack'
 
 Parameters:
 
   ParentStackName:
+    Type: String
+
+  IndexingStreamArn:
+    Type: String
+
+  LambdaPowertoolsPythonLayer:
     Type: String
 
   CustomResourceHelperLayer:
@@ -61,6 +68,91 @@ Conditions:
 
 Resources:
 
+  IndexingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Social Media Dashboard] Indexing Function'
+      Runtime: python3.7
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+        - !Ref LambdaPowertoolsPythonLayer
+        - !Ref ElasticsearchClientLayer
+      CodeUri: functions/indexing/
+      Handler: index.lambda_handler
+      MemorySize: 192
+      Timeout: 300
+      Tracing: Active
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          ELASTICSEARCH_HOST: !GetAtt Elasticsearch.DomainEndpoint
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !Ref IndexingStreamArn
+            BatchSize: 1000
+            StartingPosition: LATEST
+      Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: ElasticsearchHttpAccess
+              Effect: Allow
+              Action:
+                - es:ESHttpPut
+                - es:ESHttpPost
+              Resource:
+                - !Sub '${Elasticsearch.Arn}/_bulk'
+
+  IndexerRole:
+    Type: Custom::Role
+    DependsOn:
+      - KibanaPolicy
+    Condition: ElasticsearchAdvancedSecurityEnabled
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Path: _opendistro/_security/api/roles/indexer
+      Body: !Sub |
+        {
+          "description": "Provide the minimum permissions for bulk indexer",
+          "index_permissions": [
+            {
+              "index_patterns": [
+                "tweets-*"
+              ],
+              "fls": [],
+              "masked_fields": [],
+              "allowed_actions": [
+                "crud",
+                "create_index"
+              ]
+            }
+          ],
+          "tenant_permissions": [],
+          "cluster_permissions": [
+            "indices:data/write/bulk"
+          ]
+        }
+
+  IndexerRoleMapping:
+    Type: Custom::RoleMapping
+    DependsOn:
+      - KibanaPolicy
+      - IndexerRole
+    Condition: ElasticsearchAdvancedSecurityEnabled
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Path: _opendistro/_security/api/rolesmapping/indexer
+      Body: !Sub |
+        {
+          "backend_roles" : [
+            "${IndexingFunctionRole.Arn}"
+          ]
+        }
+
   SearchLogs: 
     Type: AWS::Logs::LogGroup
     Properties:
@@ -87,7 +179,6 @@ Resources:
 
   LogsResourcePolicy:
     Type: AWS::CloudFormation::CustomResource
-    Version: 1.0
     Properties:
       ServiceToken: !GetAtt LogsResourcePolicyFunction.Arn
       PolicyName: !Sub 'AES-${ParentStackName}'
@@ -197,57 +288,22 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonESCognitoAccess
       Path: /service-role/
 
-  CognitoLambdaTriggerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action: "sts:AssumeRole"
-            Principal:
-              Service: lambda.amazonaws.com
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-  PreSignUpTrigger:
-    Type: AWS::Lambda::Function
+  PreSignUpTriggerFunction:
+    Type: AWS::Serverless::Function
     Properties:
       Description: 'PreSignUp Lambda Trigger for Cognito User Pool'
       Runtime: python3.7
-      Role: !GetAtt CognitoLambdaTriggerRole.Arn
+      CodeUri: functions/pre_signup_trigger/
       Handler: index.lambda_handler
       Environment:
         Variables:
-          ALLOWED_DOMAINS: !Join [',', !Ref SignupAllowedDomains] 
-      Code:
-        ZipFile: |
-          from __future__ import print_function
-          import logging
-          import os
-
-          allowed_domains = os.environ.get('ALLOWED_DOMAINS')
-          logger = logging.getLogger(__name__)
-
-          def lambda_handler(event, context):
-              email = event['request']['userAttributes']['email']
-              domain = email.split('@')[1]
-              if allowed_domains == '*':
-                  pass
-              elif domain in allowed_domains.split(','):
-                  pass
-              else:
-                  raise Exception('@{0} is not allowed to regiter.'.format(domain))
-              # Return to Amazon Cognito
-              return event
-
-  PreSignUpTriggerPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !GetAtt PreSignUpTrigger.Arn
-      Principal: cognito-idp.amazonaws.com
-      SourceArn: !GetAtt KibanaUserPool.Arn
+          ALLOWED_DOMAINS: !Join [',', !Ref SignupAllowedDomains]
+      Events:
+        Stream:
+          Type: Cognito
+          Properties:
+            Trigger: PreSignUp
+            UserPool: !Ref KibanaUserPool
 
   KibanaUserPool:
     Type: AWS::Cognito::UserPool
@@ -269,8 +325,6 @@ Resources:
           DeveloperOnlyAttribute: false
           Mutable: true
           Required: true
-      LambdaConfig:
-        PreSignUp: !GetAtt PreSignUpTrigger.Arn
 
   KibanaUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain 
@@ -349,7 +403,6 @@ Resources:
 
   ClientId:
     Type: AWS::CloudFormation::CustomResource
-    Version: 1.0
     Properties:
       ServiceToken: !GetAtt FetchClientIdFunction.Arn
       UserPoolId: !Ref KibanaUserPool
@@ -369,7 +422,6 @@ Resources:
 
   KibanaUserRoleMapping:
     Type: Custom::RoleMapping
-    Version: 1.0
     DependsOn:
       - KibanaPolicy
     Condition: ElasticsearchAdvancedSecurityEnabled
@@ -386,7 +438,6 @@ Resources:
 
   ReadAllRoleMapping:
     Type: Custom::RoleMapping
-    Version: 1.0
     DependsOn:
       - KibanaPolicy
     Condition: ElasticsearchAdvancedSecurityEnabled
@@ -403,7 +454,6 @@ Resources:
 
   TweetsTemplate:
     Type: Custom::Template
-    Version: 1.0
     DependsOn:
       - KibanaPolicy
     Properties:
@@ -711,162 +761,198 @@ Resources:
         }'
 
   # Custom Resources ------------------------------------
-  LogsResourcePolicyFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action: "sts:AssumeRole"
-            Principal:
-              Service: lambda.amazonaws.com
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: ResourcePolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'logs:DescribeResourcePolicies'
-                  - 'logs:PutResourcePolicy'
-                  - 'logs:DeleteResourcePolicy'
-                Resource: '*'
-
   LogsResourcePolicyFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       Description: '[Custom Resource] Resource Policy of CloudWatch Logs'
       Runtime: python3.7
-      Role: !GetAtt LogsResourcePolicyFunctionRole.Arn
-      Layers: 
+      Layers:
         - !Ref CustomResourceHelperLayer
+      CodeUri: custom_resources/logs_resource_policy/
       Handler: index.lambda_handler
-      Code:
-        ZipFile: |
-          from __future__ import print_function
-          from crhelper import CfnResource
-          import logging
-          import json
-          import boto3
-
-          try:
-              logger = logging.getLogger(__name__)
-              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
-              client = boto3.client('logs')
-          except Exception as e:
-              helper.init_failure(e)
-          
-          def lambda_handler(event, context):
-              print(json.dumps(event))
-              helper(event, context)
-
-          @helper.create
-          def create(event, context):
-              policy_name = event['ResourceProperties']['PolicyName']
-              policy_document = event['ResourceProperties']['PolicyDocument']
-              res = client.put_resource_policy(
-                  policyName=policy_name,
-                  policyDocument=policy_document
-              )
-              physical_resource_id = res['resourcePolicy']['policyName']
-              return physical_resource_id
-
-          @helper.update
-          def update(event, context):
-              old_resource_properties = event['OldResourceProperties']
-              old_policy_name = old_resource_properties['PolicyName']
-              policy_name = event['ResourceProperties']['PolicyName']
-              policy_document = event['ResourceProperties']['PolicyDocument']
-              if old_policy_name != policy_name:
-                  res = client.delete_resource_policy(
-                      policyName=old_policy_name
-                  )
-              res = client.put_resource_policy(
-                  policyName=policy_name,
-                  policyDocument=policy_document
-              )
-              physical_resource_id = res['resourcePolicy']['policyName']
-              return physical_resource_id
-                  
-          @helper.delete
-          def delete(event, context):
-              policy_name = event['PhysicalResourceId']
-              try:
-                  res = client.delete_resource_policy(
-                      policyName=policy_name
-                  )
-              except Exception as e:
-                  logger.error(e)
-
-  FetchClientIdFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action: "sts:AssumeRole"
-            Principal:
-              Service: lambda.amazonaws.com
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: ListUserPoolClients
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'cognito-idp:ListUserPoolClients'
-                Resource: '*'
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'logs:DescribeResourcePolicies'
+                - 'logs:PutResourcePolicy'
+                - 'logs:DeleteResourcePolicy'
+              Resource: '*'
+
+#  LogsResourcePolicyFunctionRole:
+#    Type: AWS::IAM::Role
+#    Properties:
+#      AssumeRolePolicyDocument:
+#        Version: "2012-10-17"
+#        Statement:
+#          - Effect: Allow
+#            Action: "sts:AssumeRole"
+#            Principal:
+#              Service: lambda.amazonaws.com
+#      ManagedPolicyArns:
+#        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+#      Policies:
+#        - PolicyName: ResourcePolicy
+#          PolicyDocument:
+#            Version: '2012-10-17'
+#            Statement:
+#              - Effect: Allow
+#                Action:
+#                  - 'logs:DescribeResourcePolicies'
+#                  - 'logs:PutResourcePolicy'
+#                  - 'logs:DeleteResourcePolicy'
+#                Resource: '*'
+#
+#  LogsResourcePolicyFunction:
+#    Type: AWS::Lambda::Function
+#    Properties:
+#      Description: '[Custom Resource] Resource Policy of CloudWatch Logs'
+#      Runtime: python3.7
+#      Role: !GetAtt LogsResourcePolicyFunctionRole.Arn
+#      Layers: 
+#        - !Ref CustomResourceHelperLayer
+#      Handler: index.lambda_handler
+#      Code:
+#        ZipFile: |
+#          from __future__ import print_function
+#          from crhelper import CfnResource
+#          import logging
+#          import json
+#          import boto3
+#
+#          try:
+#              logger = logging.getLogger(__name__)
+#              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
+#              client = boto3.client('logs')
+#          except Exception as e:
+#              helper.init_failure(e)
+#          
+#          def lambda_handler(event, context):
+#              print(json.dumps(event))
+#              helper(event, context)
+#
+#          @helper.create
+#          def create(event, context):
+#              policy_name = event['ResourceProperties']['PolicyName']
+#              policy_document = event['ResourceProperties']['PolicyDocument']
+#              res = client.put_resource_policy(
+#                  policyName=policy_name,
+#                  policyDocument=policy_document
+#              )
+#              physical_resource_id = res['resourcePolicy']['policyName']
+#              return physical_resource_id
+#
+#          @helper.update
+#          def update(event, context):
+#              old_resource_properties = event['OldResourceProperties']
+#              old_policy_name = old_resource_properties['PolicyName']
+#              policy_name = event['ResourceProperties']['PolicyName']
+#              policy_document = event['ResourceProperties']['PolicyDocument']
+#              if old_policy_name != policy_name:
+#                  res = client.delete_resource_policy(
+#                      policyName=old_policy_name
+#                  )
+#              res = client.put_resource_policy(
+#                  policyName=policy_name,
+#                  policyDocument=policy_document
+#              )
+#              physical_resource_id = res['resourcePolicy']['policyName']
+#              return physical_resource_id
+#                  
+#          @helper.delete
+#          def delete(event, context):
+#              policy_name = event['PhysicalResourceId']
+#              try:
+#                  res = client.delete_resource_policy(
+#                      policyName=policy_name
+#                  )
+#              except Exception as e:
+#                  logger.error(e)
 
   FetchClientIdFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       Description: '[Custom Resource] Fetch Client ID from Cognito User Pool'
       Runtime: python3.7
-      Role: !GetAtt FetchClientIdFunctionRole.Arn
-      Layers: 
+      Layers:
         - !Ref CustomResourceHelperLayer
+      CodeUri: custom_resources/fetch_client_id/
       Handler: index.lambda_handler
-      Code:
-        ZipFile: |
-          from __future__ import print_function
-          from crhelper import CfnResource
-          import logging
-          import json
-          import boto3
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'cognito-idp:ListUserPoolClients'
+              Resource: '*'
 
-          try:
-              logger = logging.getLogger(__name__)
-              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
-              client = boto3.client('cognito-idp')
-          except Exception as e:
-              helper.init_failure(e)
-          
-          def lambda_handler(event, context):
-              print(json.dumps(event))
-              helper(event, context)
-          
-          @helper.create
-          @helper.update
-          def fetch_client_id(event, context):
-              user_pool_id = event['ResourceProperties']['UserPoolId']
-              client_name_prefix = event['ResourceProperties']['ClientNamePrefix']
-              user_pool_clients = client.list_user_pool_clients(UserPoolId=user_pool_id)['UserPoolClients']
-              for user_pool_client in user_pool_clients:
-                  client_id = user_pool_client['ClientId']
-                  client_name = user_pool_client['ClientName']
-                  if client_name.startswith(client_name_prefix):
-                      physical_resource_id = client_id
-              return physical_resource_id
-                  
-          @helper.delete
-          def delete(event, context):
-              return
+#  FetchClientIdFunctionRole:
+#    Type: AWS::IAM::Role
+#    Properties:
+#      AssumeRolePolicyDocument:
+#        Version: "2012-10-17"
+#        Statement:
+#          - Effect: Allow
+#            Action: "sts:AssumeRole"
+#            Principal:
+#              Service: lambda.amazonaws.com
+#      ManagedPolicyArns:
+#        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+#      Policies:
+#        - PolicyName: ListUserPoolClients
+#          PolicyDocument:
+#            Version: '2012-10-17'
+#            Statement:
+#              - Effect: Allow
+#                Action:
+#                  - 'cognito-idp:ListUserPoolClients'
+#                Resource: '*'
+#
+#  FetchClientIdFunction:
+#    Type: AWS::Lambda::Function
+#    Properties:
+#      Description: '[Custom Resource] Fetch Client ID from Cognito User Pool'
+#      Runtime: python3.7
+#      Role: !GetAtt FetchClientIdFunctionRole.Arn
+#      Layers: 
+#        - !Ref CustomResourceHelperLayer
+#      Handler: index.lambda_handler
+#      Code:
+#        ZipFile: |
+#          from __future__ import print_function
+#          from crhelper import CfnResource
+#          import logging
+#          import json
+#          import boto3
+#
+#          try:
+#              logger = logging.getLogger(__name__)
+#              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
+#              client = boto3.client('cognito-idp')
+#          except Exception as e:
+#              helper.init_failure(e)
+#          
+#          def lambda_handler(event, context):
+#              print(json.dumps(event))
+#              helper(event, context)
+#          
+#          @helper.create
+#          @helper.update
+#          def fetch_client_id(event, context):
+#              user_pool_id = event['ResourceProperties']['UserPoolId']
+#              client_name_prefix = event['ResourceProperties']['ClientNamePrefix']
+#              user_pool_clients = client.list_user_pool_clients(UserPoolId=user_pool_id)['UserPoolClients']
+#              for user_pool_client in user_pool_clients:
+#                  client_id = user_pool_client['ClientId']
+#                  client_name = user_pool_client['ClientName']
+#                  if client_name.startswith(client_name_prefix):
+#                      physical_resource_id = client_id
+#              return physical_resource_id
+#                  
+#          @helper.delete
+#          def delete(event, context):
+#              return
 
   # https://docs.aws.amazon.com/ja_jp/elasticsearch-service/latest/developerguide/es-request-signing.html#es-request-signing-python
   ElasticsearchResourceFunction:

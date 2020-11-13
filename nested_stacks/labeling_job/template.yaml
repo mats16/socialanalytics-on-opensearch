@@ -1,0 +1,192 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: "AWS::Serverless-2016-10-31"
+Description: '[Social Media Dashboard] Annotation Stack'
+
+Parameters:
+
+  ParentStackName:
+    Type: String
+
+  TweetStreamArn:
+    Type: String
+
+  DataLakeBucket:
+    Type: String
+
+  S3ObjectsFunctionArn:
+    Type: String
+
+  Boto3Layer:
+    Type: String
+
+  LambdaPowertoolsPythonLayer:
+    Type: String
+
+  CustomResourceHelperLayer:
+    Type: String
+  
+  LabelingUiTemplateLayer:
+    Type: String
+
+Resources:
+
+  PutInputTopicFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Social Media Dashboard] Put tweets to topic for Ground Truth'
+      CodeUri: functions/put_sns_topic/
+      Handler: index.lambda_handler
+      Runtime: python3.7
+      Layers: 
+        - !Ref LambdaPowertoolsPythonLayer
+      MemorySize: 128
+      Timeout: 10
+      Tracing: Active
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          SERVICE_NAME: 'put_labeling_topic'
+          INPUT_TOPIC_ARN: !Ref GroundTruthInputTopic
+          TWEET_DAY_THRESHOLD: 90
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !Ref TweetStreamArn
+            StartingPosition: LATEST
+            ParallelizationFactor: 1
+            BatchSize: 100
+            MaximumRecordAgeInSeconds: 300
+      Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: 'sns:Publish'
+              Resource: !Ref GroundTruthInputTopic
+
+  GroundTruthInputTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: GroundTruthInputTopic
+      Tags: 
+        - Key: cloudformation:stack-name
+          Value: !Ref AWS::StackName
+        - Key: cloudformation:stack-id
+          Value: !Ref AWS::StackId
+        - Key: cloudformation:logical-id
+          Value: GroundTruthInputTopic
+
+  GroundTruthOutputTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: GroundTruthOutputTopic
+      Tags: 
+        - Key: cloudformation:stack-name
+          Value: !Ref AWS::StackName
+        - Key: cloudformation:stack-id
+          Value: !Ref AWS::StackId
+        - Key: cloudformation:logical-id
+          Value: GroundTruthOutputTopic
+
+  UiTemplateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+
+  LabelingUiAssets:
+    Type: Custom::S3Objects
+    Properties:
+      ServiceToken: !Ref S3ObjectsFunctionArn
+      Bucket: !Ref UiTemplateBucket
+      Path: groundtruth/assets/
+      SourceLayerArn: !Ref LabelingUiTemplateLayer
+
+  GroundTruthExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: sagemaker.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSageMakerGroundTruthExecution
+
+  GtRecipePreHumanTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Custom Resource] PreProcess'
+      Runtime: python3.7
+      #Layers: 
+      #  - !Ref CustomResourceHelperLayer
+      #  - !Ref Boto3Layer
+      CodeUri: functions/pre_human_task/
+      Handler: index.lambda_handler
+
+  TweetClassificationJob:
+    Type: Custom::LabelingJob
+    Properties:
+      ServiceToken: !GetAtt StreamingLabelingJobFunction.Arn
+      HumanTaskTitle: 'Tweet Classification'
+      HumanTaskDescription: 'Tweet の分類をするやつ'
+      PreHumanTaskLambdaArn: !GetAtt GtRecipePreHumanTaskFunction.Arn
+      InputTopicArn: !Ref GroundTruthInputTopic
+      OutputTopicArn: !Ref GroundTruthOutputTopic
+      S3OutputPath: !Sub 's3://${DataLakeBucket}/groundtruth/'
+      LabelCategoryConfigS3Uri: !Sub 's3://${UiTemplateBucket}/groundtruth/assets/label-category-config.json'
+      WorkteamArn: arn:aws:sagemaker:us-west-2:589283126846:workteam/private-crowd/KibanaUsers
+      UiTemplateS3Uri: !Sub 's3://${UiTemplateBucket}/groundtruth/assets/tweet-classification.html'
+      # 開発用
+      SourceLayerArn: !Ref LabelingUiTemplateLayer
+
+  StreamingLabelingJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Custom Resource] Streaming Labe lingJob'
+      Runtime: python3.7
+      Layers: 
+        - !Ref CustomResourceHelperLayer
+        - !Ref Boto3Layer
+      CodeUri: custom_resources/streaming_labeling_job/
+      Handler: index.lambda_handler
+      Environment:
+        Variables:
+          GROUND_TRUTH_ROLE_ARN: !GetAtt GroundTruthExecutionRole.Arn
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'sagemaker:CreateLabelingJob'
+                - 'sagemaker:StopLabelingJob'
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'sqs:DeleteQueue'
+              Resource:
+                - !Sub 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:GroundTruth-*'
+            - Effect: Allow
+              Action:
+                - 'iam:PassRole'
+              Resource:
+                - !GetAtt GroundTruthExecutionRole.Arn
+
+
+Outputs:
+
+  InputTopicArn:
+    Value: !Ref GroundTruthInputTopic
+  
+  #LabelingJobName:
+  #  Value: !Ref StreamingLabelingJob

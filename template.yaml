@@ -131,13 +131,8 @@ Parameters:
       - 'true'
       - 'false'
 
-Conditions:
-  ElasticsearchAdvancedSecurityEnabled: !Equals [ !Ref ElasticsearchAdvancedSecurityEnabled, 'true' ]
-
-Globals:
-  Function:
-    Layers:
-      - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+#Conditions:
+#  ElasticsearchAdvancedSecurityEnabled: !Equals [ !Ref ElasticsearchAdvancedSecurityEnabled, 'true' ]
 
 Resources:
 
@@ -223,10 +218,11 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Social Media Dashboard] Analytics Function'
-      CodeUri: source/analyze_function/
+      CodeUri: functions/analytics/
       Handler: index.lambda_handler
       Runtime: python3.7
-      Layers: 
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
         - !Ref LambdaPowertoolsPythonLayer
       MemorySize: 1024
       Timeout: 900
@@ -271,10 +267,11 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Social Media Dashboard] Analytics Function for Batch'
-      CodeUri: source/analyze_function/
+      CodeUri: functions/analytics/
       Handler: index.lambda_handler
       Runtime: python3.7
-      Layers: 
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
         - !Ref LambdaPowertoolsPythonLayer
       MemorySize: 1024
       Timeout: 900
@@ -315,88 +312,6 @@ Resources:
                 - 'kinesis:PutRecords'
               Resource: !GetAtt IndexingStream.Arn
 
-  IndexingFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Description: '[Social Media Dashboard] Indexing Function'
-      Runtime: python3.7
-      Layers: 
-        - !Ref LambdaPowertoolsPythonLayer
-        - !Ref ElasticsearchClientLayer
-      CodeUri: source/indexing_function/
-      Handler: index.lambda_handler
-      MemorySize: 192
-      Timeout: 300
-      Tracing: Active
-      Environment:
-        Variables:
-          LOG_LEVEL: INFO
-          ELASTICSEARCH_HOST: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
-      Events:
-        Stream:
-          Type: Kinesis
-          Properties:
-            Stream: !GetAtt IndexingStream.Arn
-            BatchSize: 1000
-            StartingPosition: LATEST
-      Policies:
-        - CloudWatchLambdaInsightsExecutionRolePolicy
-        - Version: "2012-10-17"
-          Statement:
-            - Sid: ElasticsearchHttpAccess
-              Effect: Allow
-              Action:
-                - es:ESHttpPut
-                - es:ESHttpPost
-              Resource:
-                - !Sub '${ElasticsearchStack.Outputs.ElasticsearchArn}/_bulk'
-
-  IndexerRole:
-    Type: Custom::Role
-    Version: 1.0
-    Condition: ElasticsearchAdvancedSecurityEnabled
-    Properties:
-      ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
-      Host: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
-      Path: _opendistro/_security/api/roles/indexer
-      Body: !Sub |
-        {
-          "description": "Provide the minimum permissions for bulk indexer",
-          "index_permissions": [
-            {
-              "index_patterns": [
-                "tweets-*"
-              ],
-              "fls": [],
-              "masked_fields": [],
-              "allowed_actions": [
-                "crud",
-                "create_index"
-              ]
-            }
-          ],
-          "tenant_permissions": [],
-          "cluster_permissions": [
-            "indices:data/write/bulk"
-          ]
-        }
-
-  IndexerRoleMapping:
-    Type: Custom::RoleMapping
-    Version: 1.0
-    DependsOn: IndexerRole
-    Condition: ElasticsearchAdvancedSecurityEnabled
-    Properties:
-      ServiceToken: !GetAtt ElasticsearchStack.Outputs.ElasticsearchResourceFunctionArn
-      Host: !GetAtt ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint
-      Path: _opendistro/_security/api/rolesmapping/indexer
-      Body: !Sub |
-        {
-          "backend_roles" : [
-            "${IndexingFunctionRole.Arn}"
-          ]
-        }
-
 #  TweetEventBus:
 #    Type: AWS::Events::EventBus
 #    Properties: 
@@ -436,14 +351,14 @@ Resources:
   VpcStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: nested-stack/vpc.yaml
+      TemplateURL: nested_stacks/vpc/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
 
   TwitterProducerStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: nested-stack/twitter-producer.yaml
+      TemplateURL: nested_stacks/twitter_producer/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
         VpcId: !GetAtt VpcStack.Outputs.VpcId
@@ -462,20 +377,21 @@ Resources:
   ContainerRepoStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: nested-stack/container-repo.yaml
+      TemplateURL: nested_stacks/container_repo/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
-        LayerToS3FunctionArn: !GetAtt LayerToS3Function.Arn
-        #CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
+        S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
         DockerfileLayer: !Ref DockerfileLayer
         ImageVersion: '1.0.0'
 
   ElasticsearchStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: nested-stack/elasticsearch.yaml
+      TemplateURL: nested_stacks/elasticsearch/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
+        IndexingStreamArn: !GetAtt IndexingStream.Arn
+        LambdaPowertoolsPythonLayer: !Ref LambdaPowertoolsPythonLayer
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
         ElasticsearchClientLayer: !Ref ElasticsearchClientLayer
         SignupAllowedDomains: !Join [ ',', !Ref SignupAllowedDomains ]
@@ -490,20 +406,34 @@ Resources:
   DataLakeStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: nested-stack/datalake.yaml
+      TemplateURL: nested_stacks/datalake/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
-        TweetStreamArn : !GetAtt TweetStream.Arn
+        TweetStreamArn: !GetAtt TweetStream.Arn
+
+  LabelingStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: nested_stacks/labeling_job/template.yaml
+      Parameters:
+        ParentStackName: !Ref AWS::StackName
+        TweetStreamArn: !GetAtt TweetStream.Arn
+        DataLakeBucket: !GetAtt DataLakeStack.Outputs.Bucket
+        S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
+        Boto3Layer: !Ref Boto3Layer
+        LambdaPowertoolsPythonLayer: !Ref LambdaPowertoolsPythonLayer
+        CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
+        LabelingUiTemplateLayer: !Ref LabelingUiTemplateLayer
 
   # Custom Resource --------------------------------------
-  LayerToS3Function:
+  S3ObjectsFunction:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Custom Resource] Create s3 objects from lambda layer'
       Runtime: python3.7
       Layers: 
         - !Ref CustomResourceHelperLayer
-      CodeUri: custom-resources/layer-to-s3/
+      CodeUri: custom_resources/s3_objects/
       Handler: index.lambda_handler
       Policies:
         - Version: '2012-10-17'
@@ -512,11 +442,21 @@ Resources:
               Action:
                 - 'lambda:GetLayerVersion'
                 - 's3:PutObject'
-                #- 's3:GetObject'
-                #- 's3:DeleteObject'
               Resource: '*'
 
   # Lambda Layers --------------------------------------
+  Boto3Layer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'boto3-${AWS::StackName}'
+      Description: Latest boto3
+      ContentUri: layers/boto3/
+      CompatibleRuntimes:
+        - python3.7
+    Metadata:
+      BuildMethod: python3.7
+
+
   LambdaPowertoolsPythonLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
@@ -544,7 +484,7 @@ Resources:
     Properties:
       LayerName: !Sub 'elasticsearch-client-${AWS::StackName}'
       Description: Python Elasticsearch Client
-      ContentUri: layers/elasticsearch/
+      ContentUri: layers/elasticsearch_client/
       CompatibleRuntimes:
         - python3.7
     Metadata:
@@ -555,7 +495,14 @@ Resources:
     Properties:
       LayerName: !Sub 'dockerfile-${AWS::StackName}'
       Description: Dockerfile
-      ContentUri: containers/
+      ContentUri: nested_stacks/container_repo/containers/
+
+  LabelingUiTemplateLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'labeling-ui-template-${AWS::StackName}'
+      Description: Ground Truth Labeling UI
+      ContentUri: nested_stacks/labeling_job/ui_template
 
 Outputs:
 

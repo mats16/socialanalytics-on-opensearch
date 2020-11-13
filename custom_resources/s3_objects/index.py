@@ -27,6 +27,7 @@ def create(event, context):
     bucket = event['ResourceProperties']['Bucket']
     path = event['ResourceProperties'].get('Path', '')
     key = event['ResourceProperties'].get('Key', None)
+    acl = event['ResourceProperties'].get('ACL', 'private')
     source_layer_arn = event['ResourceProperties']['SourceLayerArn']
     layer_url = _lambda.get_layer_version_by_arn(Arn=source_layer_arn)['Content']['Location']
     tmp_f = '/tmp/layer.zip'
@@ -38,7 +39,8 @@ def create(event, context):
             res = _s3.put_object(
                 Bucket=bucket,
                 Key=f'{path}{key}',
-                Body=f
+                Body=f,
+                ACL=acl,
             )
     else:
         fmp_dir = '/tmp/layer/'
@@ -50,7 +52,8 @@ def create(event, context):
                 res = _s3.put_object(
                     Bucket=bucket,
                     Key=f'{path}{fn}',
-                    Body=f
+                    Body=f,
+                    ACL=acl,
                 )
     physical_resource_id = f's3://{bucket}/{path}{key}'
     return physical_resource_id
