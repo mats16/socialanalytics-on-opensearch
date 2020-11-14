@@ -131,8 +131,16 @@ Parameters:
       - 'true'
       - 'false'
 
-#Conditions:
-#  ElasticsearchAdvancedSecurityEnabled: !Equals [ !Ref ElasticsearchAdvancedSecurityEnabled, 'true' ]
+  LabelingJobEnabled:
+    Description: Enable labeling job for machine-learning
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+Conditions:
+  LabelingJobEnabled: !Equals [ !Ref LabelingJobEnabled, 'true' ]
 
 Resources:
 
@@ -413,6 +421,7 @@ Resources:
 
   LabelingStack:
     Type: AWS::CloudFormation::Stack
+    Condition: LabelingJobEnabled
     Properties:
       TemplateURL: nested_stacks/labeling_job/template.yaml
       Parameters:
