@@ -61,10 +61,10 @@ def create(event, context):
                 )
     if key:
         physical_resource_id = f's3://{bucket}/{path_with_version}{key}'
-        helper.Data.update({ 'Bucket': bucket, 'Path': f'{path_with_version}{key}' })
+        helper.Data.update({ 'Bucket': bucket, 'Path': f'{path_with_version}{key}', 'Version': layer_version })
     else:
         physical_resource_id = f's3://{bucket}/{path_with_version}'
-        helper.Data.update({ 'Bucket': bucket, 'Path': path_with_version })
+        helper.Data.update({ 'Bucket': bucket, 'Path': path_with_version, 'Version': layer_version })
     return physical_resource_id
 
 @helper.delete

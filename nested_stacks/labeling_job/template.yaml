@@ -138,14 +138,14 @@ Resources:
     Type: Custom::LabelingJob
     Properties:
       ServiceToken: !GetAtt StreamingLabelingJobFunction.Arn
+      LabelingJobName: !Sub 'TweetClassification-v${GroundTruthAssets.Version}'
       InputTopicArn: !Ref GroundTruthInputTopic
       OutputTopicArn: !Ref GroundTruthOutputTopic
       S3OutputPath: !Sub 's3://${DataLakeBucket}/groundtruth/'
       WorkteamArn: !Ref Workteam
-      HumanTaskTitle: 'Tweet Classification'
-      HumanTaskDescription: 'Tweet の分類をするやつ'
+      HumanTaskTitle: !Sub 'Tweet Classification v${GroundTruthAssets.Version}'
+      HumanTaskDescription: !Sub 'Tweet Classification v${GroundTruthAssets.Version}'
       UiTemplateS3Uri: !Sub 's3://${GroundTruthAssets.Bucket}/${GroundTruthAssets.Path}tweet-classification.html'
-      LabelCategoryConfigS3Uri: !Sub 's3://${GroundTruthAssets.Bucket}/${GroundTruthAssets.Path}label-category-config.json'
       PreHumanTaskLambdaArn: !GetAtt GtRecipePreHumanTaskFunction.Arn
 
   UserPoolClient:

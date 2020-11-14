@@ -27,14 +27,14 @@ def create(event, context):
     logical_resource_id = event['LogicalResourceId']
     request_id = event['RequestId']
 
-    labeling_job_name = logical_resource_id + '-' + request_id.split('-')[-1]
-    human_task_title = event['ResourceProperties']['HumanTaskTitle']
-    human_task_description = event['ResourceProperties']['HumanTaskDescription']
+    labeling_job_name = event['ResourceProperties'].get('LabelingJobName', logical_resource_id) + '-' + request_id.split('-')[-1]
+    human_task_title = event['ResourceProperties'].get('HumanTaskTitle', labeling_job_name)
+    human_task_description = event['ResourceProperties'].get('HumanTaskDescription', human_task_title)
     pre_human_task_lambda_arn = event['ResourceProperties']['PreHumanTaskLambdaArn']
     input_topic_arn = event['ResourceProperties']['InputTopicArn']
     output_topic_arn = event['ResourceProperties']['OutputTopicArn']
     s3_output_path = event['ResourceProperties']['S3OutputPath']
-    label_category_config_s3_uri = event['ResourceProperties']['LabelCategoryConfigS3Uri']
+    #label_category_config_s3_uri = event['ResourceProperties']['LabelCategoryConfigS3Uri']
     workteam_arn = event['ResourceProperties']['WorkteamArn']
     ui_template_s3_uri = event['ResourceProperties']['UiTemplateS3Uri']
 
@@ -53,7 +53,7 @@ def create(event, context):
             'S3OutputPath': s3_output_path
         },
         RoleArn=ground_truth_role_arn,
-        LabelCategoryConfigS3Uri=label_category_config_s3_uri,
+        #LabelCategoryConfigS3Uri=label_category_config_s3_uri,
         #StoppingConditions={
         #    'MaxHumanLabeledObjectCount': 123,
         #    'MaxPercentageOfInputDatasetLabeled': 123
@@ -95,19 +95,6 @@ def create(event, context):
 
 @helper.update
 def update(event, context):
-    try:
-        old_labeling_job_name = event['PhysicalResourceId']
-        sagemaker.stop_labeling_job(
-            LabelingJobName=old_labeling_job_name
-        )
-        account_id = event['ServiceToken'].split(':')[4]
-        old_queue_name = 'GroundTruth-' + old_labeling_job_name.lower()
-        queue_url = f'https://sqs.{region}.amazonaws.com/{account_id}/{old_queue_name}'
-        sqs.delete_queue(
-            QueueUrl=queue_url
-        )
-    except Exception as e:
-        logger.error(e)
     physical_resource_id = create(event, context)
     return physical_resource_id
                   
