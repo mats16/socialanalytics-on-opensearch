@@ -221,8 +221,8 @@ Resources:
                 Version: '1'
                 Provider: S3
               Configuration:
-                S3Bucket: !Sub ${ArtifactBucket}
-                S3ObjectKey: src/dockerfile.zip
+                S3Bucket: !GetAtt DockerfileZip.Bucket
+                S3ObjectKey: !GetAtt DockerfileZip.Path
               OutputArtifacts:
                 - Name: TwitterStreamProducer
               RunOrder: 1

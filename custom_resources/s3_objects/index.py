@@ -29,16 +29,20 @@ def create(event, context):
     key = event['ResourceProperties'].get('Key', None)
     acl = event['ResourceProperties'].get('ACL', 'private')
     source_layer_arn = event['ResourceProperties']['SourceLayerArn']
-    layer_url = _lambda.get_layer_version_by_arn(Arn=source_layer_arn)['Content']['Location']
+
+    layer = _lambda.get_layer_version_by_arn(Arn=source_layer_arn)
+    layer_content_location = layer['Content']['Location']
+    layer_version = layer['Version']
+    path_with_version = f'{path}v{layer_version}/'
     tmp_f = '/tmp/layer.zip'
     with open(tmp_f, 'wb') as f:
-        res = request_methods.request('GET', layer_url)
+        res = request_methods.request('GET', layer_content_location)
         f.write(res.data)
     if key:
         with open(tmp_f, 'rb') as f:
             res = _s3.put_object(
                 Bucket=bucket,
-                Key=f'{path}{key}',
+                Key=f'{path_with_version}{key}',
                 Body=f,
                 ACL=acl,
             )
@@ -51,11 +55,16 @@ def create(event, context):
             with open(f'{fmp_dir}{fn}', 'rb') as f:
                 res = _s3.put_object(
                     Bucket=bucket,
-                    Key=f'{path}{fn}',
+                    Key=f'{path_with_version}{fn}',
                     Body=f,
                     ACL=acl,
                 )
-    physical_resource_id = f's3://{bucket}/{path}{key}'
+    if key:
+        physical_resource_id = f's3://{bucket}/{path_with_version}{key}'
+        helper.Data.update({ 'Bucket': bucket, 'Path': f'{path_with_version}{key}' })
+    else:
+        physical_resource_id = f's3://{bucket}/{path_with_version}'
+        helper.Data.update({ 'Bucket': bucket, 'Path': path_with_version })
     return physical_resource_id
 
 @helper.delete

@@ -89,7 +89,7 @@ def create(event, context):
             },
         ]
     )
-
+    helper.Data.update({ 'Arn': res['LabelingJobArn'] })
     physical_resource_id = labeling_job_name
     return physical_resource_id
 

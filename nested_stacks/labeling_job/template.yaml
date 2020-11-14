@@ -92,7 +92,7 @@ Resources:
         - Key: cloudformation:logical-id
           Value: GroundTruthOutputTopic
 
-  UiTemplateBucket:
+  GroundTruthBucket:
     Type: AWS::S3::Bucket
     Properties:
       PublicAccessBlockConfiguration:
@@ -105,12 +105,12 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: "AES256"
 
-  LabelingUiAssets:
+  GroundTruthAssets:
     Type: Custom::S3Objects
     Properties:
       ServiceToken: !Ref S3ObjectsFunctionArn
-      Bucket: !Ref UiTemplateBucket
-      Path: groundtruth/assets/
+      Bucket: !Ref GroundTruthBucket
+      Path: assets/
       SourceLayerArn: !Ref LabelingUiTemplateLayer
 
   GroundTruthExecutionRole:
@@ -144,10 +144,9 @@ Resources:
       WorkteamArn: !Ref Workteam
       HumanTaskTitle: 'Tweet Classification'
       HumanTaskDescription: 'Tweet の分類をするやつ'
-      UiTemplateS3Uri: !Sub 's3://${UiTemplateBucket}/groundtruth/assets/tweet-classification.html'
-      LabelCategoryConfigS3Uri: !Sub 's3://${UiTemplateBucket}/groundtruth/assets/label-category-config.json'
+      UiTemplateS3Uri: !Sub 's3://${GroundTruthAssets.Bucket}/${GroundTruthAssets.Path}tweet-classification.html'
+      LabelCategoryConfigS3Uri: !Sub 's3://${GroundTruthAssets.Bucket}/${GroundTruthAssets.Path}label-category-config.json'
       PreHumanTaskLambdaArn: !GetAtt GtRecipePreHumanTaskFunction.Arn
-      #SourceLayerArn: !Ref LabelingUiTemplateLayer  # 開発用
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -225,7 +224,7 @@ Resources:
                 - 'sagemaker:CreateLabelingJob'
                 - 'sagemaker:StopLabelingJob'
               Resource:
-                - !Sub 'arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:labeling-job/tweetclassification-*'
+                - !Sub 'arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:labeling-job/*'
             - Effect: Allow
               Action:
                 - 'sqs:DeleteQueue'
