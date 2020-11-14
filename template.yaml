@@ -418,6 +418,7 @@ Resources:
       Parameters:
         ParentStackName: !Ref AWS::StackName
         TweetStreamArn: !GetAtt TweetStream.Arn
+        UserPoolId: !GetAtt ElasticsearchStack.Outputs.UserPoolId
         DataLakeBucket: !GetAtt DataLakeStack.Outputs.Bucket
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
         Boto3Layer: !Ref Boto3Layer

@@ -1034,3 +1034,6 @@ Outputs:
 
   ElasticsearchResourceFunctionArn:
     Value: !GetAtt ElasticsearchResourceFunction.Arn
+
+  UserPoolId:
+    Value: !Ref KibanaUserPool

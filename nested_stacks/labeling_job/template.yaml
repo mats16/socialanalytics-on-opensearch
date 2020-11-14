@@ -10,6 +10,9 @@ Parameters:
   TweetStreamArn:
     Type: String
 
+  UserPoolId:
+    Type: String
+
   DataLakeBucket:
     Type: String
 
@@ -128,27 +131,78 @@ Resources:
     Properties:
       Description: '[Custom Resource] PreProcess'
       Runtime: python3.7
-      #Layers: 
-      #  - !Ref CustomResourceHelperLayer
-      #  - !Ref Boto3Layer
       CodeUri: functions/pre_human_task/
       Handler: index.lambda_handler
 
-  TweetClassificationJob:
+  TweetClassification:
     Type: Custom::LabelingJob
     Properties:
       ServiceToken: !GetAtt StreamingLabelingJobFunction.Arn
-      HumanTaskTitle: 'Tweet Classification'
-      HumanTaskDescription: 'Tweet の分類をするやつ'
-      PreHumanTaskLambdaArn: !GetAtt GtRecipePreHumanTaskFunction.Arn
       InputTopicArn: !Ref GroundTruthInputTopic
       OutputTopicArn: !Ref GroundTruthOutputTopic
       S3OutputPath: !Sub 's3://${DataLakeBucket}/groundtruth/'
-      LabelCategoryConfigS3Uri: !Sub 's3://${UiTemplateBucket}/groundtruth/assets/label-category-config.json'
-      WorkteamArn: arn:aws:sagemaker:us-west-2:589283126846:workteam/private-crowd/KibanaUsers
+      WorkteamArn: !Ref Workteam
+      HumanTaskTitle: 'Tweet Classification'
+      HumanTaskDescription: 'Tweet の分類をするやつ'
       UiTemplateS3Uri: !Sub 's3://${UiTemplateBucket}/groundtruth/assets/tweet-classification.html'
-      # 開発用
-      SourceLayerArn: !Ref LabelingUiTemplateLayer
+      LabelCategoryConfigS3Uri: !Sub 's3://${UiTemplateBucket}/groundtruth/assets/label-category-config.json'
+      PreHumanTaskLambdaArn: !GetAtt GtRecipePreHumanTaskFunction.Arn
+      #SourceLayerArn: !Ref LabelingUiTemplateLayer  # 開発用
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPoolId
+      ClientName: sagemaker-groundtruth-app-client
+      GenerateSecret: true
+      RefreshTokenValidity: 30
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      ExplicitAuthFlows: 
+        - ALLOW_CUSTOM_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      # App client settings
+      SupportedIdentityProviders: 
+        - COGNITO
+      CallbackURLs: 
+        - 'https://d3c4ozbynv3jtc.cloudfront.net'  # Dummy URL
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: 
+        - code
+        - implicit
+      AllowedOAuthScopes: 
+        - email
+        - openid
+        - profile
+
+  WorkforceGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: GroundTruthWorkforce
+      Description: Labeling Workforce Group
+      UserPoolId: !Ref UserPoolId
+
+  Workteam:
+    Type: AWS::SageMaker::Workteam
+    Properties:
+      WorkteamName: KibanaUsers
+      Description: Kibana Users
+      MemberDefinitions: 
+        - CognitoMemberDefinition: 
+            CognitoClientId: !Ref UserPoolClient
+            CognitoUserGroup: !Ref WorkforceGroup
+            CognitoUserPool: !Ref UserPoolId
+      #NotificationConfiguration: 
+      #  NotificationConfiguration
+      Tags: 
+        - Key: cloudformation:stack-name
+          Value: !Ref AWS::StackName
+        - Key: cloudformation:stack-id
+          Value: !Ref AWS::StackId
+        - Key: cloudformation:logical-id
+          Value: GroundTruthOutputTopic
 
   StreamingLabelingJobFunction:
     Type: AWS::Serverless::Function
@@ -170,7 +224,8 @@ Resources:
               Action:
                 - 'sagemaker:CreateLabelingJob'
                 - 'sagemaker:StopLabelingJob'
-              Resource: '*'
+              Resource:
+                - !Sub 'arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:labeling-job/tweetclassification-*'
             - Effect: Allow
               Action:
                 - 'sqs:DeleteQueue'
@@ -181,7 +236,6 @@ Resources:
                 - 'iam:PassRole'
               Resource:
                 - !GetAtt GroundTruthExecutionRole.Arn
-
 
 Outputs:
 

@@ -47,11 +47,6 @@ def create(event, context):
                     'SnsTopicArn': input_topic_arn
                 }
             },
-            #'DataAttributes': {
-            #    'ContentClassifiers': [
-            #        'FreeOfPersonallyIdentifiableInformation'|'FreeOfAdultContent',
-            #    ]
-            #}
         },
         OutputConfig={
             'SnsTopicArn': output_topic_arn,
@@ -63,28 +58,18 @@ def create(event, context):
         #    'MaxHumanLabeledObjectCount': 123,
         #    'MaxPercentageOfInputDatasetLabeled': 123
         #},
-        #LabelingJobAlgorithmsConfig={
-        #    'LabelingJobAlgorithmSpecificationArn': f'arn:aws:sagemaker:{region}:027400017018:labeling-job-algorithm-specification/text-classification',
-        #    #'InitialActiveLearningModelArn': 'string',
-        #    #'LabelingJobResourceConfig': {
-        #    #    'VolumeKmsKeyId': 'string'
-        #    #}
-        #},
         HumanTaskConfig={
             'TaskTitle': human_task_title,
             'TaskDescription': human_task_description,
             'WorkteamArn': workteam_arn,
             'UiConfig': {
                 'UiTemplateS3Uri': ui_template_s3_uri,
-                #'HumanTaskUiArn': ''
             },
-            #'PreHumanTaskLambdaArn': 'arn:aws:lambda:us-west-2:081040173940:function:PRE-TextMultiClass',
             'PreHumanTaskLambdaArn': pre_human_task_lambda_arn,
             'NumberOfHumanWorkersPerDataObject': 1,
-            'TaskTimeLimitInSeconds': 300,
+            'TaskTimeLimitInSeconds': 600,
             'TaskAvailabilityLifetimeInSeconds': 864000, # default:10days
-            #'MaxConcurrentTaskCount': 1000,  # default
-            'MaxConcurrentTaskCount': 100,
+            'MaxConcurrentTaskCount': 1000,  # default
             'AnnotationConsolidationConfig': {
                 'AnnotationConsolidationLambdaArn': 'arn:aws:lambda:us-west-2:081040173940:function:ACS-TextMultiClass'
             },
