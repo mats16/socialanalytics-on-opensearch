@@ -32,8 +32,7 @@ def create(event, context):
 
     layer = _lambda.get_layer_version_by_arn(Arn=source_layer_arn)
     layer_content_location = layer['Content']['Location']
-    layer_version = layer['Version']
-    path_with_version = f'{path}v{layer_version}/'
+    layer_version = str(layer['Version'])
     tmp_f = '/tmp/layer.zip'
     with open(tmp_f, 'wb') as f:
         res = request_methods.request('GET', layer_content_location)
@@ -42,10 +41,15 @@ def create(event, context):
         with open(tmp_f, 'rb') as f:
             res = _s3.put_object(
                 Bucket=bucket,
-                Key=f'{path_with_version}{key}',
+                Key=f'{path}{key}',
                 Body=f,
                 ACL=acl,
+                Metadata={
+                    'LayerVersion': layer_version
+                },
             )
+            etag = res['ETag'].strip('"')
+            version_id = res['VersionId']
     else:
         fmp_dir = '/tmp/layer/'
         with zipfile.ZipFile('/tmp/layer.zip') as zf:
@@ -55,16 +59,20 @@ def create(event, context):
             with open(f'{fmp_dir}{fn}', 'rb') as f:
                 res = _s3.put_object(
                     Bucket=bucket,
-                    Key=f'{path_with_version}{fn}',
+                    Key=f'{path}{fn}',
                     Body=f,
                     ACL=acl,
+                    Metadata={
+                        'LayerVersion': layer_version
+                    },
                 )
+    print(res)
     if key:
-        physical_resource_id = f's3://{bucket}/{path_with_version}{key}'
-        helper.Data.update({ 'Bucket': bucket, 'Path': f'{path_with_version}{key}', 'Version': layer_version })
+        physical_resource_id = f's3://{bucket}/{path}{key}'
+        helper.Data.update({ 'Bucket': bucket, 'Path': f'{path}{key}', 'LayerVersion': layer_version, 'ETag': etag, 'VersionId': version_id })
     else:
-        physical_resource_id = f's3://{bucket}/{path_with_version}'
-        helper.Data.update({ 'Bucket': bucket, 'Path': path_with_version, 'Version': layer_version })
+        physical_resource_id = f's3://{bucket}/{path}'
+        helper.Data.update({ 'Bucket': bucket, 'Path': path, 'LayerVersion': layer_version, 'ETag': 'None', 'VersionId': 'None' })
     return physical_resource_id
 
 @helper.delete

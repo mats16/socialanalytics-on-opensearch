@@ -12,10 +12,6 @@ Parameters:
   DockerfileLayer:
     Type: String
 
-  ImageVersion:
-    Type: String
-    Default: latest
-
 Resources:
 
   TwitterProducerRepo:
@@ -156,9 +152,9 @@ Resources:
                   - codebuild:BatchGetBuilds
                   - codebuild:StartBuild
                 Resource:
-                  - !GetAtt CodeBuildProject.Arn
+                  - !GetAtt DockerBuildProject.Arn
 
-  CodeBuildProject:
+  DockerBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
       ServiceRole: !GetAtt CodeBuildRole.Arn
@@ -176,14 +172,12 @@ Resources:
               commands:
                 - echo Build started on `date`
                 - echo Building the Docker image...
-                - docker build --tag ${ECR_DOMAIN}/${TWITTER_PRODUCER_REPO}:${IMAGE_VERSION} ./twitter-stream-producer
-                - docker build --tag ${ECR_DOMAIN}/${FLUENT_BIT_REPO}:${IMAGE_VERSION} ./fluent-bit
+                - docker build --tag ${ECR_DOMAIN}/${REPO_NAME}:${ETAG} ${BUILD_DIR}
             post_build:
               commands:
                 - echo Build completed on `date`
                 - echo Pushing the Docker image...
-                - docker push ${ECR_DOMAIN}/${TWITTER_PRODUCER_REPO}:${IMAGE_VERSION}
-                - docker push ${ECR_DOMAIN}/${FLUENT_BIT_REPO}:${IMAGE_VERSION}
+                - docker push ${ECR_DOMAIN}/${REPO_NAME}:${ETAG}
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/docker:18.09.0
@@ -193,12 +187,6 @@ Resources:
             Value: !Ref AWS::Region
           - Name: ECR_DOMAIN
             Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com'
-          - Name: TWITTER_PRODUCER_REPO
-            Value: !Ref TwitterProducerRepo
-          - Name: FLUENT_BIT_REPO
-            Value: !Ref FluentBitRepo
-          - Name: IMAGE_VERSION
-            Value: !Ref ImageVersion
       Cache:
         Type: LOCAL
         Modes:
@@ -214,7 +202,8 @@ Resources:
       Stages:
         - Name: Source
           Actions:
-            - Name: App
+            - Name: Dockerfile
+              Namespace: SourceVariables
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -224,22 +213,43 @@ Resources:
                 S3Bucket: !GetAtt DockerfileZip.Bucket
                 S3ObjectKey: !GetAtt DockerfileZip.Path
               OutputArtifacts:
-                - Name: TwitterStreamProducer
+                - Name: DockerfileZip
               RunOrder: 1
-        - Name: Build
+        - Name: Build-Containers
           Actions:
-            - Name: Build
+            - Name: twitter-stream-producer
               ActionTypeId:
                 Category: Build
                 Owner: AWS
                 Version: '1'
                 Provider: CodeBuild
               Configuration:
-                ProjectName: !Ref CodeBuildProject
+                ProjectName: !Ref DockerBuildProject
+                EnvironmentVariables: !Sub |
+                  [
+                    {"name": "ETAG", "value": "#{SourceVariables.ETag}","type": "PLAINTEXT"},
+                    {"name": "REPO_NAME", "value": "${TwitterProducerRepo}","type": "PLAINTEXT"},
+                    {"name": "BUILD_DIR", "value": "./twitter-stream-producer", "type": "PLAINTEXT"}
+                  ]
               InputArtifacts:
-                - Name: TwitterStreamProducer
-              OutputArtifacts:
-                - Name: BuildOutput
+                - Name: DockerfileZip
+              RunOrder: 1
+            - Name: fluent-bit
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref DockerBuildProject
+                EnvironmentVariables: !Sub |
+                  [
+                    {"name": "ETAG", "value": "#{SourceVariables.ETag}","type": "PLAINTEXT"},
+                    {"name": "REPO_NAME", "value": "${FluentBitRepo}","type": "PLAINTEXT"},
+                    {"name": "BUILD_DIR", "value": "./fluent-bit", "type": "PLAINTEXT"}
+                  ]
+              InputArtifacts:
+                - Name: DockerfileZip
               RunOrder: 1
 
   DockerfileZip:
@@ -254,7 +264,7 @@ Resources:
 Outputs:
   
   TwitterProducerImage:
-    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${TwitterProducerRepo}:${ImageVersion}'
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${TwitterProducerRepo}:${DockerfileZip.ETag}'
 
   FluentBitImage:
-    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FluentBitRepo}:${ImageVersion}'
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FluentBitRepo}:${DockerfileZip.ETag}'

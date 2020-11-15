@@ -390,7 +390,6 @@ Resources:
         ParentStackName: !Ref AWS::StackName
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
         DockerfileLayer: !Ref DockerfileLayer
-        ImageVersion: '1.0.0'
 
   ElasticsearchStack:
     Type: AWS::CloudFormation::Stack
