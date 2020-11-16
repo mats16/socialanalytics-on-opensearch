@@ -10,7 +10,7 @@ Parameters:
   IndexingStreamArn:
     Type: String
 
-  LambdaPowertoolsPythonLayer:
+  PowertoolsLayer:
     Type: String
 
   CustomResourceHelperLayer:
@@ -71,8 +71,7 @@ Globals:
     Runtime: python3.8
     Handler: index.lambda_handler
     Layers:
-      - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
-      - !Ref LambdaPowertoolsPythonLayer
+      - !Ref PowertoolsLayer
       - !Ref CustomResourceHelperLayer
 
 Resources:
@@ -83,6 +82,7 @@ Resources:
       Description: '[Social Media Dashboard] Indexing Function'
       CodeUri: functions/indexing/
       Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
         - !Ref ElasticsearchClientLayer
       MemorySize: 192
       Timeout: 300
@@ -307,8 +307,6 @@ Resources:
           Properties:
             Trigger: PreSignUp
             UserPool: !Ref KibanaUserPool
-      Policies:
-        - CloudWatchLambdaInsightsExecutionRolePolicy
 
   KibanaUserPool:
     Type: AWS::Cognito::UserPool
@@ -769,10 +767,9 @@ Resources:
   LogsResourcePolicyFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: '[Custom Resource] Resource Policy of CloudWatch Logs'
+      Description: '[Custom Resource] Resource Policy for CloudWatch Logs'
       CodeUri: custom_resources/logs_resource_policy/
       Policies:
-        - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"
           Statement:
             - Effect: Allow
@@ -788,7 +785,6 @@ Resources:
       Description: '[Custom Resource] Fetch Client ID from Cognito User Pool'
       CodeUri: custom_resources/fetch_client_id/
       Policies:
-        - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"
           Statement:
             - Effect: Allow
@@ -802,8 +798,8 @@ Resources:
       Description: '[Custom Resource] Modify elasticsearch resources'
       CodeUri: custom_resources/elasticsearch_resource/
       Role: !GetAtt KibanaMasterRole.Arn
-      Policies:
-        - CloudWatchLambdaInsightsExecutionRolePolicy
+      Layers:
+        - !Ref ElasticsearchClientLayer
 
 Outputs:
 

@@ -147,9 +147,7 @@ Globals:
     Runtime: python3.8
     Handler: index.lambda_handler
     Layers:
-      - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
-      - !Ref LambdaPowertoolsPythonLayer
-      - !Ref Boto3Layer
+      - !Ref PowertoolsLayer
 
 Resources:
 
@@ -236,9 +234,11 @@ Resources:
     Properties:
       Description: '[Social Media Dashboard] Analytics Function'
       CodeUri: functions/analytics/
-      MemorySize: 1024
+      MemorySize: 192
       Timeout: 900
       Tracing: Active
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
       Environment:
         Variables:
           LOG_LEVEL: INFO
@@ -280,9 +280,11 @@ Resources:
     Properties:
       Description: '[Social Media Dashboard] Analytics Function for Batch'
       CodeUri: functions/analytics/
-      MemorySize: 1024
+      MemorySize: 192
       Timeout: 900
       Tracing: Active
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
       Environment:
         Variables:
           LOG_LEVEL: INFO
@@ -397,7 +399,7 @@ Resources:
       Parameters:
         ParentStackName: !Ref AWS::StackName
         IndexingStreamArn: !GetAtt IndexingStream.Arn
-        LambdaPowertoolsPythonLayer: !Ref LambdaPowertoolsPythonLayer
+        PowertoolsLayer: !Ref PowertoolsLayer
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
         ElasticsearchClientLayer: !Ref ElasticsearchClientLayer
         SignupAllowedDomains: !Join [ ',', !Ref SignupAllowedDomains ]
@@ -428,8 +430,7 @@ Resources:
         UserPoolId: !GetAtt ElasticsearchStack.Outputs.UserPoolId
         DataLakeBucket: !GetAtt DataLakeStack.Outputs.Bucket
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
-        Boto3Layer: !Ref Boto3Layer
-        LambdaPowertoolsPythonLayer: !Ref LambdaPowertoolsPythonLayer
+        PowertoolsLayer: !Ref PowertoolsLayer
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
         LabelingUiTemplateLayer: !Ref LabelingUiTemplateLayer
 
@@ -451,22 +452,10 @@ Resources:
               Resource: '*'
 
   # Lambda Layers --------------------------------------
-  Boto3Layer:
+  PowertoolsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'boto3-${AWS::StackName}'
-      Description: Latest boto3
-      ContentUri: layers/boto3/
-      CompatibleRuntimes:
-        - python3.8
-    Metadata:
-      BuildMethod: python3.8
-
-
-  LambdaPowertoolsPythonLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: !Sub 'lambda-powertools-python-${AWS::StackName}'
+      LayerName: !Sub 'powertools-${AWS::StackName}'
       Description: AWS Lambda Powertools (Python)
       ContentUri: layers/powertools/
       CompatibleRuntimes:

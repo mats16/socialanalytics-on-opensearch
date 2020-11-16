@@ -19,13 +19,10 @@ Parameters:
   S3ObjectsFunctionArn:
     Type: String
 
-  LambdaPowertoolsPythonLayer:
+  PowertoolsLayer:
     Type: String
 
   CustomResourceHelperLayer:
-    Type: String
-  
-  Boto3Layer:
     Type: String
 
   LabelingUiTemplateLayer:
@@ -36,21 +33,21 @@ Globals:
     Runtime: python3.8
     Handler: index.lambda_handler
     Layers:
-      - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
-      - !Ref LambdaPowertoolsPythonLayer
+      - !Ref PowertoolsLayer
       - !Ref CustomResourceHelperLayer
-      - !Ref Boto3Layer
 
 Resources:
 
-  PutInputTopicFunction:
+  GroundTruthStreamFunction:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Social Media Dashboard] Put tweets to topic for Ground Truth'
       CodeUri: functions/put_sns_topic/
-      MemorySize: 128
+      MemorySize: 192
       Timeout: 10
       Tracing: Active
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
       Environment:
         Variables:
           LOG_LEVEL: INFO
@@ -137,8 +134,6 @@ Resources:
     Properties:
       Description: '[Ground Truth] PreProcess'
       CodeUri: functions/pre_human_task/
-      Policies:
-        - CloudWatchLambdaInsightsExecutionRolePolicy
 
   TweetClassification:
     Type: Custom::LabelingJob
@@ -218,7 +213,6 @@ Resources:
         Variables:
           GROUND_TRUTH_ROLE_ARN: !GetAtt GroundTruthExecutionRole.Arn
       Policies:
-        - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow

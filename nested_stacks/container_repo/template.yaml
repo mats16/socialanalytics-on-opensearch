@@ -12,6 +12,10 @@ Parameters:
   DockerfileLayer:
     Type: String
 
+  RetainedImageCount:
+    Type: Number
+    Default: 5
+
 Resources:
 
   TwitterProducerRepo:
@@ -21,10 +25,8 @@ Resources:
       RepositoryName: !Sub '${ParentStackName}/twitter-stream-producer'
       ImageScanningConfiguration: 
         scanOnPush: "true"
-      #LifecyclePolicy:
-      #  LifecyclePolicyText: !Sub
-      #    - '{"rules":[{"rulePriority":1,"description":"Retained Image count: ${RetainedImageCount}","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":${RetainedImageCount}},"action":{"type":"expire"}}]}'
-      #    - { RetainedImageCount: !Ref RetainedImageCount }
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub '{"rules": [{"rulePriority": 1, "description": "Retained Image count: ${RetainedImageCount}", "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": ${RetainedImageCount}}, "action": {"type": "expire"}}]}'
       RepositoryPolicyText:
         Version: '2012-10-17'
         Statement:
@@ -44,10 +46,8 @@ Resources:
       RepositoryName: !Sub '${ParentStackName}/fluent-bit'
       ImageScanningConfiguration: 
         scanOnPush: "true"
-      #LifecyclePolicy:
-      #  LifecyclePolicyText: !Sub
-      #    - '{"rules":[{"rulePriority":1,"description":"Retained Image count: ${RetainedImageCount}","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":${RetainedImageCount}},"action":{"type":"expire"}}]}'
-      #    - { RetainedImageCount: !Ref RetainedImageCount }
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub '{"rules": [{"rulePriority": 1, "description": "Retained Image count: ${RetainedImageCount}", "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": ${RetainedImageCount}}, "action": {"type": "expire"}}]}'
       RepositoryPolicyText:
         Version: '2012-10-17'
         Statement:
