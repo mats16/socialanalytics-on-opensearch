@@ -66,19 +66,24 @@ Conditions:
   EBSEnabled: !Not [ !Equals [ !Select [ 0, !Split [ '.', !Ref ElasticsearchDataNodeInstanceType ] ], 'i3' ] ]
   ElasticsearchAdvancedSecurityEnabled: !Equals [ !Ref ElasticsearchAdvancedSecurityEnabled, 'true' ]
 
+Globals:
+  Function:
+    Runtime: python3.8
+    Handler: index.lambda_handler
+    Layers:
+      - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+      - !Ref LambdaPowertoolsPythonLayer
+      - !Ref CustomResourceHelperLayer
+
 Resources:
 
   IndexingFunction:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Social Media Dashboard] Indexing Function'
-      Runtime: python3.7
-      Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
-        - !Ref LambdaPowertoolsPythonLayer
-        - !Ref ElasticsearchClientLayer
       CodeUri: functions/indexing/
-      Handler: index.lambda_handler
+      Layers:
+        - !Ref ElasticsearchClientLayer
       MemorySize: 192
       Timeout: 300
       Tracing: Active
@@ -292,9 +297,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: 'PreSignUp Lambda Trigger for Cognito User Pool'
-      Runtime: python3.7
       CodeUri: functions/pre_signup_trigger/
-      Handler: index.lambda_handler
       Environment:
         Variables:
           ALLOWED_DOMAINS: !Join [',', !Ref SignupAllowedDomains]
@@ -304,6 +307,8 @@ Resources:
           Properties:
             Trigger: PreSignUp
             UserPool: !Ref KibanaUserPool
+      Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
 
   KibanaUserPool:
     Type: AWS::Cognito::UserPool
@@ -765,12 +770,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Custom Resource] Resource Policy of CloudWatch Logs'
-      Runtime: python3.7
-      Layers:
-        - !Ref CustomResourceHelperLayer
       CodeUri: custom_resources/logs_resource_policy/
-      Handler: index.lambda_handler
       Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"
           Statement:
             - Effect: Allow
@@ -780,106 +782,13 @@ Resources:
                 - 'logs:DeleteResourcePolicy'
               Resource: '*'
 
-#  LogsResourcePolicyFunctionRole:
-#    Type: AWS::IAM::Role
-#    Properties:
-#      AssumeRolePolicyDocument:
-#        Version: "2012-10-17"
-#        Statement:
-#          - Effect: Allow
-#            Action: "sts:AssumeRole"
-#            Principal:
-#              Service: lambda.amazonaws.com
-#      ManagedPolicyArns:
-#        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-#      Policies:
-#        - PolicyName: ResourcePolicy
-#          PolicyDocument:
-#            Version: '2012-10-17'
-#            Statement:
-#              - Effect: Allow
-#                Action:
-#                  - 'logs:DescribeResourcePolicies'
-#                  - 'logs:PutResourcePolicy'
-#                  - 'logs:DeleteResourcePolicy'
-#                Resource: '*'
-#
-#  LogsResourcePolicyFunction:
-#    Type: AWS::Lambda::Function
-#    Properties:
-#      Description: '[Custom Resource] Resource Policy of CloudWatch Logs'
-#      Runtime: python3.7
-#      Role: !GetAtt LogsResourcePolicyFunctionRole.Arn
-#      Layers: 
-#        - !Ref CustomResourceHelperLayer
-#      Handler: index.lambda_handler
-#      Code:
-#        ZipFile: |
-#          from __future__ import print_function
-#          from crhelper import CfnResource
-#          import logging
-#          import json
-#          import boto3
-#
-#          try:
-#              logger = logging.getLogger(__name__)
-#              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
-#              client = boto3.client('logs')
-#          except Exception as e:
-#              helper.init_failure(e)
-#          
-#          def lambda_handler(event, context):
-#              print(json.dumps(event))
-#              helper(event, context)
-#
-#          @helper.create
-#          def create(event, context):
-#              policy_name = event['ResourceProperties']['PolicyName']
-#              policy_document = event['ResourceProperties']['PolicyDocument']
-#              res = client.put_resource_policy(
-#                  policyName=policy_name,
-#                  policyDocument=policy_document
-#              )
-#              physical_resource_id = res['resourcePolicy']['policyName']
-#              return physical_resource_id
-#
-#          @helper.update
-#          def update(event, context):
-#              old_resource_properties = event['OldResourceProperties']
-#              old_policy_name = old_resource_properties['PolicyName']
-#              policy_name = event['ResourceProperties']['PolicyName']
-#              policy_document = event['ResourceProperties']['PolicyDocument']
-#              if old_policy_name != policy_name:
-#                  res = client.delete_resource_policy(
-#                      policyName=old_policy_name
-#                  )
-#              res = client.put_resource_policy(
-#                  policyName=policy_name,
-#                  policyDocument=policy_document
-#              )
-#              physical_resource_id = res['resourcePolicy']['policyName']
-#              return physical_resource_id
-#                  
-#          @helper.delete
-#          def delete(event, context):
-#              policy_name = event['PhysicalResourceId']
-#              try:
-#                  res = client.delete_resource_policy(
-#                      policyName=policy_name
-#                  )
-#              except Exception as e:
-#                  logger.error(e)
-
   FetchClientIdFunction:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Custom Resource] Fetch Client ID from Cognito User Pool'
-      Runtime: python3.7
-      Layers:
-        - !Ref CustomResourceHelperLayer
       CodeUri: custom_resources/fetch_client_id/
-      Handler: index.lambda_handler
       Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"
           Statement:
             - Effect: Allow
@@ -887,142 +796,14 @@ Resources:
                 - 'cognito-idp:ListUserPoolClients'
               Resource: '*'
 
-#  FetchClientIdFunctionRole:
-#    Type: AWS::IAM::Role
-#    Properties:
-#      AssumeRolePolicyDocument:
-#        Version: "2012-10-17"
-#        Statement:
-#          - Effect: Allow
-#            Action: "sts:AssumeRole"
-#            Principal:
-#              Service: lambda.amazonaws.com
-#      ManagedPolicyArns:
-#        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-#      Policies:
-#        - PolicyName: ListUserPoolClients
-#          PolicyDocument:
-#            Version: '2012-10-17'
-#            Statement:
-#              - Effect: Allow
-#                Action:
-#                  - 'cognito-idp:ListUserPoolClients'
-#                Resource: '*'
-#
-#  FetchClientIdFunction:
-#    Type: AWS::Lambda::Function
-#    Properties:
-#      Description: '[Custom Resource] Fetch Client ID from Cognito User Pool'
-#      Runtime: python3.7
-#      Role: !GetAtt FetchClientIdFunctionRole.Arn
-#      Layers: 
-#        - !Ref CustomResourceHelperLayer
-#      Handler: index.lambda_handler
-#      Code:
-#        ZipFile: |
-#          from __future__ import print_function
-#          from crhelper import CfnResource
-#          import logging
-#          import json
-#          import boto3
-#
-#          try:
-#              logger = logging.getLogger(__name__)
-#              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
-#              client = boto3.client('cognito-idp')
-#          except Exception as e:
-#              helper.init_failure(e)
-#          
-#          def lambda_handler(event, context):
-#              print(json.dumps(event))
-#              helper(event, context)
-#          
-#          @helper.create
-#          @helper.update
-#          def fetch_client_id(event, context):
-#              user_pool_id = event['ResourceProperties']['UserPoolId']
-#              client_name_prefix = event['ResourceProperties']['ClientNamePrefix']
-#              user_pool_clients = client.list_user_pool_clients(UserPoolId=user_pool_id)['UserPoolClients']
-#              for user_pool_client in user_pool_clients:
-#                  client_id = user_pool_client['ClientId']
-#                  client_name = user_pool_client['ClientName']
-#                  if client_name.startswith(client_name_prefix):
-#                      physical_resource_id = client_id
-#              return physical_resource_id
-#                  
-#          @helper.delete
-#          def delete(event, context):
-#              return
-
-  # https://docs.aws.amazon.com/ja_jp/elasticsearch-service/latest/developerguide/es-request-signing.html#es-request-signing-python
   ElasticsearchResourceFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       Description: '[Custom Resource] Modify elasticsearch resources'
-      Timeout: 300
-      Runtime: python3.7
+      CodeUri: custom_resources/elasticsearch_resource/
       Role: !GetAtt KibanaMasterRole.Arn
-      Layers: 
-        - !Ref CustomResourceHelperLayer
-        - !Ref ElasticsearchClientLayer
-      Handler: index.lambda_handler
-      Code:
-        ZipFile: |
-          from __future__ import print_function
-          from crhelper import CfnResource
-          import logging
-          import json
-          import boto3
-          import os
-          import requests
-          from requests_aws4auth import AWS4Auth
-          from time import sleep
-
-          try:
-              logger = logging.getLogger(__name__)
-              helper = CfnResource(json_logging=False, log_level='DEBUG', boto_level='CRITICAL')
-              region = os.environ['AWS_REGION']
-              service='es'
-              credentials = boto3.Session().get_credentials()
-              awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
-          except Exception as e:
-              helper.init_failure(e)
-
-          def lambda_handler(event, context):
-              print(json.dumps(event))
-              helper(event, context)
-
-          @helper.create
-          @helper.update
-          def create(event, context):
-              host = event['ResourceProperties']['Host']
-              path = event['ResourceProperties']['Path']
-              body = json.loads(event['ResourceProperties']['Body'])
-              url = f'https://{host}/{path}'
-              while True:
-                  res = requests.put(url, auth=awsauth, json=body)
-                  if res.status_code in [200, 201]:
-                      logger.info(res.text)
-                      break
-                  elif res.status_code == 401:
-                      logger.warning(res.text)
-                      sleep(20)
-                  else:
-                      logger.error(res.text)
-                      raise ValueError(res.text)
-              physical_resource_id = url
-              return physical_resource_id
-
-          @helper.delete
-          def delete(event, context):
-              host = event['ResourceProperties']['Host']
-              path = event['ResourceProperties']['Path']
-              url = f'https://{host}/{path}'
-              try:
-                  res = requests.delete(url, auth=awsauth)
-                  logger.info(res.text)
-              except Exception as e:
-                  logger.error(e)
+      Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
 
 Outputs:
 

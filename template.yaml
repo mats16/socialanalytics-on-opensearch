@@ -142,6 +142,15 @@ Parameters:
 Conditions:
   LabelingJobEnabled: !Equals [ !Ref LabelingJobEnabled, 'true' ]
 
+Globals:
+  Function:
+    Runtime: python3.8
+    Handler: index.lambda_handler
+    Layers:
+      - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+      - !Ref LambdaPowertoolsPythonLayer
+      - !Ref Boto3Layer
+
 Resources:
 
   TwitterTopicsParameter:
@@ -227,11 +236,6 @@ Resources:
     Properties:
       Description: '[Social Media Dashboard] Analytics Function'
       CodeUri: functions/analytics/
-      Handler: index.lambda_handler
-      Runtime: python3.7
-      Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
-        - !Ref LambdaPowertoolsPythonLayer
       MemorySize: 1024
       Timeout: 900
       Tracing: Active
@@ -276,11 +280,6 @@ Resources:
     Properties:
       Description: '[Social Media Dashboard] Analytics Function for Batch'
       CodeUri: functions/analytics/
-      Handler: index.lambda_handler
-      Runtime: python3.7
-      Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
-        - !Ref LambdaPowertoolsPythonLayer
       MemorySize: 1024
       Timeout: 900
       Tracing: Active
@@ -439,11 +438,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Custom Resource] Create s3 objects from lambda layer'
-      Runtime: python3.7
+      CodeUri: custom_resources/s3_objects/
       Layers: 
         - !Ref CustomResourceHelperLayer
-      CodeUri: custom_resources/s3_objects/
-      Handler: index.lambda_handler
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -461,9 +458,9 @@ Resources:
       Description: Latest boto3
       ContentUri: layers/boto3/
       CompatibleRuntimes:
-        - python3.7
+        - python3.8
     Metadata:
-      BuildMethod: python3.7
+      BuildMethod: python3.8
 
 
   LambdaPowertoolsPythonLayer:
@@ -473,9 +470,9 @@ Resources:
       Description: AWS Lambda Powertools (Python)
       ContentUri: layers/powertools/
       CompatibleRuntimes:
-        - python3.7
+        - python3.8
     Metadata:
-      BuildMethod: python3.7
+      BuildMethod: python3.8
 
   CustomResourceHelperLayer:
     Type: AWS::Serverless::LayerVersion
@@ -484,9 +481,9 @@ Resources:
       Description: Custom Resource Helper
       ContentUri: layers/crhelper/
       CompatibleRuntimes:
-        - python3.7
+        - python3.8
     Metadata:
-      BuildMethod: python3.7
+      BuildMethod: python3.8
 
   ElasticsearchClientLayer:
     Type: AWS::Serverless::LayerVersion
@@ -495,9 +492,9 @@ Resources:
       Description: Python Elasticsearch Client
       ContentUri: layers/elasticsearch_client/
       CompatibleRuntimes:
-        - python3.7
+        - python3.8
     Metadata:
-      BuildMethod: python3.7
+      BuildMethod: python3.8
 
   DockerfileLayer:
     Type: AWS::Serverless::LayerVersion

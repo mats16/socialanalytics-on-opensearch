@@ -32,7 +32,7 @@ function twitterStreamProducer() {
 
     log.info('start streaming...')
     stream.on('tweet', function (tweet) {
-      fluentLogger.emit('realtime', tweet);
+      fluentLogger.emit('stream', tweet);
     }
     );
   }

@@ -19,17 +19,27 @@ Parameters:
   S3ObjectsFunctionArn:
     Type: String
 
-  Boto3Layer:
-    Type: String
-
   LambdaPowertoolsPythonLayer:
     Type: String
 
   CustomResourceHelperLayer:
     Type: String
   
+  Boto3Layer:
+    Type: String
+
   LabelingUiTemplateLayer:
     Type: String
+
+Globals:
+  Function:
+    Runtime: python3.8
+    Handler: index.lambda_handler
+    Layers:
+      - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+      - !Ref LambdaPowertoolsPythonLayer
+      - !Ref CustomResourceHelperLayer
+      - !Ref Boto3Layer
 
 Resources:
 
@@ -38,10 +48,6 @@ Resources:
     Properties:
       Description: '[Social Media Dashboard] Put tweets to topic for Ground Truth'
       CodeUri: functions/put_sns_topic/
-      Handler: index.lambda_handler
-      Runtime: python3.7
-      Layers: 
-        - !Ref LambdaPowertoolsPythonLayer
       MemorySize: 128
       Timeout: 10
       Tracing: Active
@@ -129,22 +135,22 @@ Resources:
   GtRecipePreHumanTaskFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: '[Custom Resource] PreProcess'
-      Runtime: python3.7
+      Description: '[Ground Truth] PreProcess'
       CodeUri: functions/pre_human_task/
-      Handler: index.lambda_handler
+      Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
 
   TweetClassification:
     Type: Custom::LabelingJob
     Properties:
       ServiceToken: !GetAtt StreamingLabelingJobFunction.Arn
-      LabelingJobName: !Sub 'TweetClassification-v${GroundTruthAssets.Version}'
+      LabelingJobName: !Sub 'TweetClassification-v${GroundTruthAssets.LayerVersion}'
       InputTopicArn: !Ref GroundTruthInputTopic
       OutputTopicArn: !Ref GroundTruthOutputTopic
       S3OutputPath: !Sub 's3://${DataLakeBucket}/groundtruth/'
       WorkteamArn: !Ref Workteam
-      HumanTaskTitle: !Sub 'Tweet Classification v${GroundTruthAssets.Version}'
-      HumanTaskDescription: !Sub 'Tweet Classification v${GroundTruthAssets.Version}'
+      HumanTaskTitle: !Sub 'Tweet Classification v${GroundTruthAssets.LayerVersion}'
+      HumanTaskDescription: !Sub 'Tweet Classification v${GroundTruthAssets.LayerVersion}'
       UiTemplateS3Uri: !Sub 's3://${GroundTruthAssets.Bucket}/${GroundTruthAssets.Path}tweet-classification.html'
       PreHumanTaskLambdaArn: !GetAtt GtRecipePreHumanTaskFunction.Arn
 
@@ -207,16 +213,12 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Custom Resource] Streaming Labe lingJob'
-      Runtime: python3.7
-      Layers: 
-        - !Ref CustomResourceHelperLayer
-        - !Ref Boto3Layer
       CodeUri: custom_resources/streaming_labeling_job/
-      Handler: index.lambda_handler
       Environment:
         Variables:
           GROUND_TRUTH_ROLE_ARN: !GetAtt GroundTruthExecutionRole.Arn
       Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
