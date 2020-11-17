@@ -14,12 +14,11 @@ import emoji
 import re
 from datetime import datetime, timedelta, timezone
 
-logger = Logger(service="analytics")
 comprehend_logger = Logger(service="comprehend")
-tracer = Tracer(service="analytics")
-metrics = Metrics(namespace="SocialMediaDashboard")
+logger = Logger()
+tracer = Tracer()
+metrics = Metrics()
 
-live_metrics = os.getenv('LIVE_METRICS')
 tweet_day_threshold = int(os.getenv('TWEET_DAY_THRESHOLD'))
 tweet_langs = os.getenv('TWEET_LANGS').split(',')
 comprehend_entity_score_threshold = float(os.getenv('COMPREHEND_ENTITY_SCORE_THRESHOLD'))
@@ -154,7 +153,7 @@ def lambda_handler(event, context):
         'record_count': len(records),
         'text': 'Deduplicate records'
     })
-    tweet_count, retweet_count, quote_count = 0, 0, 0
+    tweet_count, retweet_count, quote_count, old_count = 0, 0, 0, 0
     es_records = []
     for record in records:
         tweet_string = base64.b64decode(record).decode('utf-8').rstrip('\n')
@@ -215,11 +214,10 @@ def lambda_handler(event, context):
                     'PartitionKey': i['_id']
                 })
 
-    if live_metrics == 'enabled':
-        metrics.add_dimension(name="SourceStream", value="Twitter")
-        metrics.add_metric(name="TweetCount", unit=MetricUnit.Count, value=tweet_count)
-        metrics.add_metric(name="RetweetCount", unit=MetricUnit.Count, value=retweet_count)
-        metrics.add_metric(name="QuoteCount", unit=MetricUnit.Count, value=quote_count)
+    metrics.add_dimension(name="FunctionName", value=context.function_name)
+    metrics.add_metric(name="ProcessedTweetRecords", unit=MetricUnit.Count, value=tweet_count)
+    metrics.add_metric(name="ProcessedRetweetRecords", unit=MetricUnit.Count, value=retweet_count)
+    metrics.add_metric(name="ProcessedQuoteRecords", unit=MetricUnit.Count, value=quote_count)
     if len(es_records) > 0:
         res = kinesis.put_records(
             Records=es_records,

@@ -7,7 +7,13 @@ Parameters:
   ParentStackName:
     Type: String
 
+  AlarmTopic:
+    Type: String
+
   IndexingStreamArn:
+    Type: String
+
+  UserPool:
     Type: String
 
   PowertoolsLayer:
@@ -18,11 +24,6 @@ Parameters:
   
   ElasticsearchClientLayer:
     Type: String
-
-  SignupAllowedDomains:
-    Type: CommaDelimitedList
-    Description: Specific domains allowed to register on Kibana (Cognito User Pool)
-    Default: amazon.com,amazon.co.jp
 
   ElasticsearchVersion:
     Type: String
@@ -90,6 +91,8 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
+          POWERTOOLS_SERVICE_NAME: Indexing
+          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
           ELASTICSEARCH_HOST: !GetAtt Elasticsearch.DomainEndpoint
       Events:
         Stream:
@@ -109,6 +112,26 @@ Resources:
                 - es:ESHttpPost
               Resource:
                 - !Sub '${Elasticsearch.Arn}/_bulk'
+
+  IndexingFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Errors of Indexing Function
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: 
+        - Name: FunctionName
+          Value: !Ref IndexingFunction
+      Statistic: Sum
+      Period: 60
+      AlarmActions: 
+        - !Ref AlarmTopic
+      OKActions: 
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
 
   IndexerRole:
     Type: Custom::Role
@@ -214,7 +237,7 @@ Resources:
     Type: AWS::Elasticsearch::Domain
     DependsOn:
       - LogsResourcePolicy
-      - KibanaUserPoolDomain
+      - UserPoolDomain
     UpdatePolicy:
       EnableVersionUpgrade: true
     DeletionPolicy: Retain
@@ -239,7 +262,7 @@ Resources:
           MasterUserARN: !If [ ElasticsearchAdvancedSecurityEnabled, !GetAtt KibanaMasterRole.Arn, !Ref AWS::NoValue ]
       CognitoOptions:
         Enabled: true
-        UserPoolId: !Ref KibanaUserPool
+        UserPoolId: !Ref UserPool
         IdentityPoolId: !Ref KibanaIdentityPool
         RoleArn: !GetAtt CognitoAccessForAmazonES.Arn
       DomainEndpointOptions:
@@ -293,46 +316,10 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonESCognitoAccess
       Path: /service-role/
 
-  PreSignUpTriggerFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Description: 'PreSignUp Lambda Trigger for Cognito User Pool'
-      CodeUri: functions/pre_signup_trigger/
-      Environment:
-        Variables:
-          ALLOWED_DOMAINS: !Join [',', !Ref SignupAllowedDomains]
-      Events:
-        Stream:
-          Type: Cognito
-          Properties:
-            Trigger: PreSignUp
-            UserPool: !Ref KibanaUserPool
-
-  KibanaUserPool:
-    Type: AWS::Cognito::UserPool
-    Properties:
-      UsernameAttributes:
-        - email
-      AutoVerifiedAttributes:
-        - email
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: true
-          RequireUppercase: true
-      Schema:
-        - Name: email
-          AttributeDataType: String
-          DeveloperOnlyAttribute: false
-          Mutable: true
-          Required: true
-
-  KibanaUserPoolDomain:
+  UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain 
     Properties:
-      UserPoolId: !Ref KibanaUserPool
+      UserPoolId: !Ref UserPool
       Domain: !Select [ 2, !Split [ '/', !Ref AWS::StackId ] ]
 
   KibanaIdentityPool:
@@ -402,13 +389,13 @@ Resources:
       GroupName: Master
       Precedence: 0
       RoleArn: !GetAtt KibanaMasterRole.Arn
-      UserPoolId: !Ref KibanaUserPool
+      UserPoolId: !Ref UserPool
 
   ClientId:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt FetchClientIdFunction.Arn
-      UserPoolId: !Ref KibanaUserPool
+      UserPoolId: !Ref UserPool
       ClientNamePrefix: !Sub 'AWSElasticsearch-${Elasticsearch}-'
 
   IdentityPoolRoleAttachment:
@@ -419,7 +406,7 @@ Resources:
         authenticated: !GetAtt KibanaBasicRole.Arn
       RoleMappings:
         userpool:
-          IdentityProvider: !Sub '${KibanaUserPool.ProviderName}:${ClientId}'
+          IdentityProvider: !Sub 'cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}:${ClientId}'
           Type: Token
           AmbiguousRoleResolution: AuthenticatedRole
 
@@ -467,7 +454,7 @@ Resources:
         {
           "index_patterns": ["tweets-*"],
           "settings": {
-            "number_of_shards": ${ElasticsearchDataNodeInstanceCount},
+            "number_of_shards": 1,
             "number_of_replicas": 1
           },
           "mappings": {
@@ -812,5 +799,5 @@ Outputs:
   ElasticsearchResourceFunctionArn:
     Value: !GetAtt ElasticsearchResourceFunction.Arn
 
-  UserPoolId:
-    Value: !Ref KibanaUserPool
+  IndexingFunction:
+    Value: !Ref IndexingFunction

@@ -150,7 +150,7 @@ Globals:
       - !Ref PowertoolsLayer
 
 Resources:
-
+  # ParameterStore & SecretsManager --------------------------------------
   TwitterTopicsParameter:
     Type: AWS::SSM::Parameter
     Properties:
@@ -201,7 +201,93 @@ Resources:
       SecretString:
         !Ref AuthAccessTokenSecret
 
+  # Authentication --------------------------------------
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Required: true
+
+  PreSignUpTriggerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'PreSignUp Lambda Trigger for Cognito User Pool'
+      CodeUri: functions/pre_signup_trigger/
+      Environment:
+        Variables:
+          ALLOWED_DOMAINS: !Join [',', !Ref SignupAllowedDomains]
+      Events:
+        Stream:
+          Type: Cognito
+          Properties:
+            Trigger: PreSignUp
+            UserPool: !Ref UserPool
+
+  # Notification --------------------------------------
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Topic for Chatbot
+      Tags: 
+        - Key: cloudformation:stack-name
+          Value: !Ref AWS::StackName
+        - Key: cloudformation:stack-id
+          Value: !Ref AWS::StackId
+
+  ChatbotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: chatbot.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+
+  AlertBot:
+    Type: AWS::Chatbot::SlackChannelConfiguration
+    Condition: SlackEnabled
+    Properties: 
+      ConfigurationName: Alerting
+      LoggingLevel: INFO
+      SlackWorkspaceId: !Ref SlackWorkspaceId
+      SlackChannelId: !Ref SlackChannelId
+      IamRoleArn: !GetAtt ChatbotRole.Arn
+      SnsTopicArns: 
+        - !Ref AlarmTopic
+
   # Application Main --------------------------------------
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+
   TweetStream:
     Type: AWS::Kinesis::Stream
     Properties: 
@@ -242,7 +328,9 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
-          LIVE_METRICS: enabled
+          POWERTOOLS_SERVICE_NAME: Analytics
+          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          #LIVE_METRICS: enabled
           TWEET_DAY_THRESHOLD: 180
           TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
@@ -288,7 +376,9 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
-          LIVE_METRICS: disabled
+          POWERTOOLS_SERVICE_NAME: AnalyticsForBatch
+          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          #LIVE_METRICS: disabled
           TWEET_DAY_THRESHOLD: 730
           TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
@@ -370,6 +460,7 @@ Resources:
       TemplateURL: nested_stacks/twitter_producer/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
+        AlarmTopic: !Ref AlarmTopic
         VpcId: !GetAtt VpcStack.Outputs.VpcId
         PublicSubnetList: !GetAtt VpcStack.Outputs.PublicSubnetList
         TweetStreamName: !Ref TweetStream
@@ -389,6 +480,7 @@ Resources:
       TemplateURL: nested_stacks/container_repo/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
+        AlarmTopic: !Ref AlarmTopic
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
         DockerfileLayer: !Ref DockerfileLayer
 
@@ -398,11 +490,12 @@ Resources:
       TemplateURL: nested_stacks/elasticsearch/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
+        AlarmTopic: !Ref AlarmTopic
         IndexingStreamArn: !GetAtt IndexingStream.Arn
+        UserPool: !Ref UserPool
         PowertoolsLayer: !Ref PowertoolsLayer
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
         ElasticsearchClientLayer: !Ref ElasticsearchClientLayer
-        SignupAllowedDomains: !Join [ ',', !Ref SignupAllowedDomains ]
         ElasticsearchVersion: !Ref ElasticsearchVersion
         ElasticsearchAvailabilityZoneCount: !Ref ElasticsearchAvailabilityZoneCount
         ElasticsearchDataNodeInstanceType: !Ref ElasticsearchDataNodeInstanceType
@@ -417,6 +510,8 @@ Resources:
       TemplateURL: nested_stacks/datalake/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
+        AlarmTopic: !Ref AlarmTopic
+        Bucket: !Ref Bucket
         TweetStreamArn: !GetAtt TweetStream.Arn
 
   LabelingStack:
@@ -426,9 +521,10 @@ Resources:
       TemplateURL: nested_stacks/labeling_job/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
+        AlarmTopic: !Ref AlarmTopic
         TweetStreamArn: !GetAtt TweetStream.Arn
-        UserPoolId: !GetAtt ElasticsearchStack.Outputs.UserPoolId
-        DataLakeBucket: !GetAtt DataLakeStack.Outputs.Bucket
+        UserPoolId: !Ref UserPool
+        Bucket: !Ref Bucket
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
         PowertoolsLayer: !Ref PowertoolsLayer
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
@@ -503,7 +599,7 @@ Outputs:
 
   S3ConsoleURL:
     Description: URL to the Lambda Function console
-    Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${DataLakeStack.Outputs.Bucket}/?region=${AWS::Region}&tab=overview'
+    Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${Bucket}/?region=${AWS::Region}&tab=overview'
 
   TwitterRawLocation:
     Description: S3 Twitter Raw location.

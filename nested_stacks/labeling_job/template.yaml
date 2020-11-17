@@ -7,13 +7,16 @@ Parameters:
   ParentStackName:
     Type: String
 
+  AlarmTopic:
+    Type: String
+
   TweetStreamArn:
     Type: String
 
   UserPoolId:
     Type: String
 
-  DataLakeBucket:
+  Bucket:
     Type: String
 
   S3ObjectsFunctionArn:
@@ -71,6 +74,26 @@ Resources:
               Action: 'sns:Publish'
               Resource: !Ref GroundTruthInputTopic
 
+  GroundTruthStreamFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Errors of GroundTruth Input Function
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: 
+        - Name: FunctionName
+          Value: !Ref GroundTruthStreamFunction
+      Statistic: Sum
+      Period: 60
+      AlarmActions: 
+        - !Ref AlarmTopic
+      OKActions: 
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+
   GroundTruthInputTopic:
     Type: AWS::SNS::Topic
     Properties: 
@@ -95,25 +118,12 @@ Resources:
         - Key: cloudformation:logical-id
           Value: GroundTruthOutputTopic
 
-  GroundTruthBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        IgnorePublicAcls: true
-        BlockPublicPolicy: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: "AES256"
-
   GroundTruthAssets:
     Type: Custom::S3Objects
     Properties:
       ServiceToken: !Ref S3ObjectsFunctionArn
-      Bucket: !Ref GroundTruthBucket
-      Path: assets/
+      Bucket: !Ref Bucket
+      Path: groundtruth/assets/
       SourceLayerArn: !Ref LabelingUiTemplateLayer
 
   GroundTruthExecutionRole:
@@ -142,7 +152,7 @@ Resources:
       LabelingJobName: !Sub 'TweetClassification-v${GroundTruthAssets.LayerVersion}'
       InputTopicArn: !Ref GroundTruthInputTopic
       OutputTopicArn: !Ref GroundTruthOutputTopic
-      S3OutputPath: !Sub 's3://${DataLakeBucket}/groundtruth/'
+      S3OutputPath: !Sub 's3://${Bucket}/groundtruth/jobs/'
       WorkteamArn: !Ref Workteam
       HumanTaskTitle: !Sub 'Tweet Classification v${GroundTruthAssets.LayerVersion}'
       HumanTaskDescription: !Sub 'Tweet Classification v${GroundTruthAssets.LayerVersion}'
@@ -234,8 +244,8 @@ Resources:
 
 Outputs:
 
-  InputTopicArn:
-    Value: !Ref GroundTruthInputTopic
+  GroundTruthStreamFunction:
+    Value: !Ref GroundTruthStreamFunction
   
   #LabelingJobName:
   #  Value: !Ref StreamingLabelingJob

@@ -6,6 +6,9 @@ Parameters:
   ParentStackName:
     Type: String
 
+  AlarmTopic:
+    Type: String
+
   S3ObjectsFunctionArn:
     Type: String
 

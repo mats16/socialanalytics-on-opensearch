@@ -49,7 +49,7 @@ def create(event, context):
                 },
             )
             etag = res['ETag'].strip('"')
-            version_id = res['VersionId']
+            version_id = res.get('VersionId', 'None')
     else:
         fmp_dir = '/tmp/layer/'
         with zipfile.ZipFile('/tmp/layer.zip') as zf:
