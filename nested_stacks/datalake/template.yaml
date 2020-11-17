@@ -73,7 +73,7 @@ Resources:
                   - s3:PutObject
                 Resource:
                   - !Sub 'arn:aws:s3:::${Bucket}'
-                  - !Sub 'arn:aws:s3:::${Bucket}/data//tweet_raw/*'
+                  - !Sub 'arn:aws:s3:::${Bucket}/data/tweet_raw/*'
                   - !Sub 'arn:aws:s3:::${Bucket}/FirehoseFailures/*'
                   #- !Sub '${Bucket.Arn}'
                   #- !Sub '${Bucket.Arn}/tweet_raw/*'
