@@ -44,6 +44,11 @@ Metadata:
           - ElasticsearchMasterNodeInstanceType
           - ElasticsearchMasterNodeInstanceCount
           - ElasticsearchAdvancedSecurityEnabled
+      - Label:
+          default: Monitoring Configuration
+        Parameters:
+          - SlackWorkspaceId
+          - SlackChannelId
 
 Parameters:
 
@@ -139,8 +144,19 @@ Parameters:
       - 'true'
       - 'false'
 
+  SlackWorkspaceId:
+    Type: String
+    Default: ''
+
+  SlackChannelId:
+    Type: String
+    Default: ''
+
 Conditions:
   LabelingJobEnabled: !Equals [ !Ref LabelingJobEnabled, 'true' ]
+  SlackEnabled: !And
+    - !Not [!Equals [!Ref SlackWorkspaceId, '']]
+    - !Not [!Equals [!Ref SlackChannelId, '']]
 
 Globals:
   Function:
@@ -328,8 +344,8 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
-          POWERTOOLS_SERVICE_NAME: Analytics
           POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          POWERTOOLS_SERVICE_NAME: AnalyticsFunction
           TWEET_DAY_THRESHOLD: 180
           TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
@@ -375,8 +391,8 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
-          POWERTOOLS_SERVICE_NAME: AnalyticsForBatch
           POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          POWERTOOLS_SERVICE_NAME: AnalyticsFunctionForBatch
           TWEET_DAY_THRESHOLD: 730
           TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
@@ -408,6 +424,46 @@ Resources:
                 - 'kinesis:PutRecord'
                 - 'kinesis:PutRecords'
               Resource: !GetAtt IndexingStream.Arn
+
+  AnalyticsFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Errors of Analytics Function
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: 
+        - Name: FunctionName
+          Value: !Ref AnalyticsFunction
+      Statistic: Sum
+      Period: 60
+      AlarmActions: 
+        - !Ref AlarmTopic
+      OKActions: 
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+
+  AnalyticsFunctionForBatchErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Errors of Analytics Function for Batch
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: 
+        - Name: FunctionName
+          Value: !Ref AnalyticsFunctionForBatch
+      Statistic: Sum
+      Period: 60
+      AlarmActions: 
+        - !Ref AlarmTopic
+      OKActions: 
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
 
 #  TweetEventBus:
 #    Type: AWS::Events::EventBus
@@ -577,7 +633,178 @@ Resources:
     Metadata:
       BuildMethod: python3.8
 
+  # Monitoring --------------------------------------
+  CloudWatchDashboard:
+    Type: AWS::CloudWatch::Dashboard
     Properties:
+      DashboardName: !Sub 'Monitering-${AWS::StackName}'
+      DashboardBody: !Sub |
+        {
+          "start": "-PT6H",
+          "periodOverride": "inherit",
+          "widgets": [
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 6,
+                "properties":{
+                    "metrics":[
+                      [
+                          "AWS/Lambda", "Invocations",
+                          "FunctionName", "${AnalyticsFunction}",
+                          { "label": "AnalyticsFunction" }
+                      ],
+                      [
+                          "AWS/Kinesis", "IncomingRecords",
+                          "StreamName", "${TweetStream}",
+                          { "label": "TweetStream", "yAxis": "right" }
+                      ]
+                    ],
+                    "period": 300,
+                    "stat": "Sum",
+                    "region": "us-west-2",
+                    "title": "[Live] Tweet Analytics",
+                    "liveData": false,
+                    "legend": {
+                      "position": "bottom"
+                    }
+                }
+              },
+              {
+                "type": "metric",
+                "x": 13,
+                "y": 0,
+                "width": 12,
+                "height": 6,
+                "properties":{
+                    "metrics":[
+                      [
+                          "AWS/Lambda", "Invocations",
+                          "FunctionName", "${AnalyticsFunctionForBatch}",
+                          { "label": "AnalyticsFunction" }
+                      ],
+                      [
+                          "AWS/Kinesis", "IncomingRecords",
+                          "StreamName", "${TweetStreamForBatch}",
+                          { "label": "TweetStream", "yAxis": "right" }
+                      ]
+                    ],
+                    "period": 300,
+                    "stat": "Sum",
+                    "region": "us-west-2",
+                    "title": "[Batch] Tweet Analytics",
+                    "liveData": false,
+                    "legend": {
+                      "position": "bottom"
+                    }
+                }
+              },
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 7,
+                "width": 12,
+                "height": 6,
+                "properties":{
+                    "metrics":[
+                      [
+                          "AWS/Lambda", "Invocations",
+                          "FunctionName", "${ElasticsearchStack.Outputs.IndexingFunction}",
+                          { "label": "IndexingFunction" }
+                      ],
+                      [
+                          "AWS/Kinesis", "IncomingRecords",
+                          "StreamName", "${IndexingStream}",
+                          { "label": "IndexingStream", "yAxis": "right" }
+                      ]
+                    ],
+                    "period": 300,
+                    "stat": "Sum",
+                    "region": "us-west-2",
+                    "title": "Elasticsearch Indexing",
+                    "liveData": false,
+                    "legend": {
+                      "position": "bottom"
+                    }
+                }
+              },
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 13,
+                "width": 12,
+                "height": 6,
+                "properties":{
+                    "metrics":[
+                      [
+                          "ECS/ContainerInsights/Prometheus", "fluentbit_input_records_total",
+                          "ClusterName", "${TwitterProducerStack.Outputs.ClusterName}",
+                          "TaskGroup", "service:${TwitterProducerStack.Outputs.ServiceName}",
+                          "name", "forward.0",
+                          { "label": "FluentBit IncomingRecords" }
+                      ],
+                      [
+                          "ECS/ContainerInsights/Prometheus", "fluentbit_output_proc_records_total",
+                          "ClusterName", "${TwitterProducerStack.Outputs.ClusterName}",
+                          "TaskGroup", "service:${TwitterProducerStack.Outputs.ServiceName}",
+                          "name", "kinesis.0",
+                          { "label": "FluentBit OutgoingRecords" }
+                      ],
+                      [
+                          "AWS/Kinesis", "IncomingRecords",
+                          "StreamName", "${TweetStream}",
+                          { "label": "TweetStream IncomingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "IncomingRecords",
+                          "service", "AnalyticsFunction",
+                          { "label": "AnalyticsFunction IncomingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "DistinctIncomingRecords",
+                          "service", "AnalyticsFunction",
+                          { "label": "AnalyticsFunction DistinctIncomingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "OutgoingRecords",
+                          "service", "AnalyticsFunction",
+                          { "label": "AnalyticsFunction OutgoingRecords" }
+                      ],
+                      [
+                          "AWS/Kinesis", "IncomingRecords",
+                          "StreamName", "${IndexingStream}",
+                          { "label": "IndexingStream IncomingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "IncomingRecords",
+                          "service", "IndexingFunction",
+                          { "label": "IndexingFunction IncomingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "DistinctIncomingRecords",
+                          "service", "IndexingFunction",
+                          { "label": "IndexingFunction DistinctIncomingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "OutgoingRecords",
+                          "service", "IndexingFunction",
+                          { "label": "IndexingFunction OutgoingRecords" }
+                      ]
+                    ],
+                    "period": 300,
+                    "stat": "Sum",
+                    "region": "us-west-2",
+                    "title": "Processed Records",
+                    "liveData": false,
+                    "legend": {
+                      "position": "bottom"
+                    }
+                }
+              }
+          ]
+        }
 
 Outputs:
 

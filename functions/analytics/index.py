@@ -142,17 +142,11 @@ def transform_record(tweet, update_user_metrics=True, enable_comprehend=True):
 @metrics.log_metrics
 @tracer.capture_lambda_handler
 def lambda_handler(event, context):
-    logger.info({
-        'state': 'get_records',
-        'record_count': len(event['Records']),
-        'text': 'Get records from kinesis'
-    })
+    #metrics.add_dimension(name="FunctionName", value=context.function_name)
+    metrics.add_metric(name="IncomingRecords", unit=MetricUnit.Count, value=len(event['Records']))
     records = set(map(lambda x: x['kinesis']['data'], event['Records']))  # 重複排除
-    logger.info({
-        'state': 'deduplicate_records',
-        'record_count': len(records),
-        'text': 'Deduplicate records'
-    })
+    metrics.add_metric(name="DistinctIncomingRecords", unit=MetricUnit.Count, value=len(records))
+
     tweet_count, retweet_count, quote_count, old_count = 0, 0, 0, 0
     es_records = []
     for record in records:
@@ -214,11 +208,8 @@ def lambda_handler(event, context):
                     'PartitionKey': i['_id']
                 })
 
-    metrics.add_dimension(name="FunctionName", value=context.function_name)
-    metrics.add_metric(name="ProcessedTweetRecords", unit=MetricUnit.Count, value=tweet_count)
-    metrics.add_metric(name="ProcessedRetweetRecords", unit=MetricUnit.Count, value=retweet_count)
-    metrics.add_metric(name="ProcessedQuoteRecords", unit=MetricUnit.Count, value=quote_count)
     if len(es_records) > 0:
+        metrics.add_metric(name="OutgoingRecords", unit=MetricUnit.Count, value=len(es_records))
         res = kinesis.put_records(
             Records=es_records,
             StreamName=indexing_stream
