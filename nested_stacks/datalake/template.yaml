@@ -26,7 +26,6 @@ Resources:
         KinesisStreamARN: !Ref TweetStreamArn
         RoleARN: !GetAtt BackupStreamRole.Arn
       ExtendedS3DestinationConfiguration:
-        #BucketARN: !GetAtt Bucket.Arn
         BucketARN: !Sub 'arn:aws:s3:::${Bucket}'
         BufferingHints:
           IntervalInSeconds: 300
@@ -75,9 +74,6 @@ Resources:
                   - !Sub 'arn:aws:s3:::${Bucket}'
                   - !Sub 'arn:aws:s3:::${Bucket}/data/tweet_raw/*'
                   - !Sub 'arn:aws:s3:::${Bucket}/FirehoseFailures/*'
-                  #- !Sub '${Bucket.Arn}'
-                  #- !Sub '${Bucket.Arn}/tweet_raw/*'
-                  #- !Sub '${Bucket.Arn}/FirehoseFailures/*'
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
@@ -447,9 +443,7 @@ Resources:
                 Action: 's3:*'
                 Resource:
                   - !Sub 'arn:aws:s3:::${Bucket}'
-                  - !Sub 'arn:aws:s3:::${Bucket}/*'
-                  #- !Sub '${Bucket.Arn}'
-                  #- !Sub '${Bucket.Arn}/*'
+                  - !Sub 'arn:aws:s3:::${Bucket}/data/*'
 
   TweetArchiveJob:
     Type: AWS::Glue::Job
@@ -500,6 +494,3 @@ Resources:
         MaxConcurrentRuns: 1
 
 Outputs: {}
-
-#  Bucket:
-#    Value: !Ref Bucket

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: "AWS::Serverless-2016-10-31"
+Transform: 'AWS::Serverless-2016-10-31'
 Description: '[Social Media Dashboard] Labeling Job Stack'
 
 Parameters:
@@ -26,9 +26,6 @@ Parameters:
     Type: String
 
   CustomResourceHelperLayer:
-    Type: String
-
-  LabelingUiTemplateLayer:
     Type: String
 
 Globals:
@@ -117,6 +114,13 @@ Resources:
           Value: !Ref AWS::StackId
         - Key: cloudformation:logical-id
           Value: GroundTruthOutputTopic
+
+  LabelingUiTemplateLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'labeling-ui-template-${AWS::StackName}'
+      Description: Ground Truth Labeling UI
+      ContentUri: ui_template/
 
   GroundTruthAssets:
     Type: Custom::S3Objects

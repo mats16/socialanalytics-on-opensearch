@@ -1,4 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
 Description: '[Social Media Dashboard] Container Repository Stack'
 
 Parameters:
@@ -10,9 +11,6 @@ Parameters:
     Type: String
 
   S3ObjectsFunctionArn:
-    Type: String
-
-  DockerfileLayer:
     Type: String
 
   RetainedImageCount:
@@ -254,6 +252,13 @@ Resources:
               InputArtifacts:
                 - Name: DockerfileZip
               RunOrder: 1
+
+  DockerfileLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'dockerfile-${AWS::StackName}'
+      Description: Dockerfile
+      ContentUri: containers/
 
   DockerfileZip:
     Type: Custom::S3Objects

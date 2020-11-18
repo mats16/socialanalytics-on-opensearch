@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: "AWS::Serverless-2016-10-31"
+Transform: 'AWS::Serverless-2016-10-31'
 Description: 'Social Media Dashboard Main Stack'
 Metadata:
   AWS::ServerlessRepo::Application:
@@ -482,7 +482,6 @@ Resources:
         ParentStackName: !Ref AWS::StackName
         AlarmTopic: !Ref AlarmTopic
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
-        DockerfileLayer: !Ref DockerfileLayer
 
   ElasticsearchStack:
     Type: AWS::CloudFormation::Stack
@@ -528,7 +527,6 @@ Resources:
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
         PowertoolsLayer: !Ref PowertoolsLayer
         CustomResourceHelperLayer: !Ref CustomResourceHelperLayer
-        LabelingUiTemplateLayer: !Ref LabelingUiTemplateLayer
 
   # Custom Resource --------------------------------------
   S3ObjectsFunction:
@@ -581,19 +579,7 @@ Resources:
     Metadata:
       BuildMethod: python3.8
 
-  DockerfileLayer:
-    Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'dockerfile-${AWS::StackName}'
-      Description: Dockerfile
-      ContentUri: nested_stacks/container_repo/containers/
-
-  LabelingUiTemplateLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: !Sub 'labeling-ui-template-${AWS::StackName}'
-      Description: Ground Truth Labeling UI
-      ContentUri: nested_stacks/labeling_job/ui_template
 
 Outputs:
 
