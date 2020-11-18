@@ -99,6 +99,16 @@ Resources:
 
   Cluster:
     Type: AWS::ECS::Cluster
+    Properties:
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
 
   # Twitter Producer
   TwitterProducerLogGroup: 
@@ -196,7 +206,12 @@ Resources:
     Properties:
       Cluster: !Ref Cluster
       DesiredCount: 2
-      LaunchType: FARGATE
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 1
+      #LaunchType: FARGATE
       PlatformVersion: !Ref PlatformVersion
       NetworkConfiguration: 
         AwsvpcConfiguration:
