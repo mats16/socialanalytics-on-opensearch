@@ -330,7 +330,6 @@ Resources:
           LOG_LEVEL: INFO
           POWERTOOLS_SERVICE_NAME: Analytics
           POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
-          #LIVE_METRICS: enabled
           TWEET_DAY_THRESHOLD: 180
           TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
@@ -378,7 +377,6 @@ Resources:
           LOG_LEVEL: INFO
           POWERTOOLS_SERVICE_NAME: AnalyticsForBatch
           POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
-          #LIVE_METRICS: disabled
           TWEET_DAY_THRESHOLD: 730
           TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
