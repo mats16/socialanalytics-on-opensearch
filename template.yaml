@@ -336,8 +336,8 @@ Resources:
     Properties:
       Description: '[Social Media Dashboard] Analytics Function'
       CodeUri: functions/analytics/
-      MemorySize: 192
-      Timeout: 900
+      MemorySize: 256
+      Timeout: 300
       Tracing: Active
       Layers:
         - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:10"
@@ -358,7 +358,8 @@ Resources:
             StartingPosition: LATEST
             ParallelizationFactor: 1
             BatchSize: 200
-            MaximumRecordAgeInSeconds: 300
+            MaximumBatchingWindowInSeconds: 15
+            MaximumRecordAgeInSeconds: 900  # 15m
       Policies:
         - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"
@@ -383,8 +384,8 @@ Resources:
     Properties:
       Description: '[Social Media Dashboard] Analytics Function for Batch'
       CodeUri: functions/analytics/
-      MemorySize: 192
-      Timeout: 900
+      MemorySize: 256
+      Timeout: 300
       Tracing: Active
       Layers:
         - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:10"
@@ -405,7 +406,8 @@ Resources:
             StartingPosition: LATEST
             ParallelizationFactor: 10
             BatchSize: 200
-            MaximumRecordAgeInSeconds: 604800
+            MaximumBatchingWindowInSeconds: 15
+            MaximumRecordAgeInSeconds: 259200  # 3day
       Policies:
         - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"

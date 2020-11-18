@@ -51,7 +51,8 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
-          SERVICE_NAME: 'put_labeling_topic'
+          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          POWERTOOLS_SERVICE_NAME: GroundTruthStreamFunction
           INPUT_TOPIC_ARN: !Ref GroundTruthInputTopic
           TWEET_DAY_THRESHOLD: 90
       Events:
@@ -61,8 +62,9 @@ Resources:
             Stream: !Ref TweetStreamArn
             StartingPosition: LATEST
             ParallelizationFactor: 1
-            BatchSize: 100
-            MaximumRecordAgeInSeconds: 300
+            BatchSize: 500
+            MaximumBatchingWindowInSeconds: 15
+            MaximumRecordAgeInSeconds: 900
       Policies:
         - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"

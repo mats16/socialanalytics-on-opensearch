@@ -99,8 +99,11 @@ Resources:
           Type: Kinesis
           Properties:
             Stream: !Ref IndexingStreamArn
-            BatchSize: 1000
             StartingPosition: LATEST
+            ParallelizationFactor: 1
+            BatchSize: 500
+            MaximumBatchingWindowInSeconds: 15
+            MaximumRecordAgeInSeconds: 900
       Policies:
         - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"

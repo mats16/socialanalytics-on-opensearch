@@ -9,36 +9,34 @@ import os
 import boto3
 from datetime import datetime, timedelta, timezone
 
-service_name = os.getenv('SERVICE_NAME')
 input_topic_arn = os.getenv('INPUT_TOPIC_ARN')
 tweet_day_threshold = int(os.getenv('TWEET_DAY_THRESHOLD'))
 
-logger = Logger(service=service_name)
-tracer = Tracer(service=service_name)
-#metrics = Metrics(namespace="SocialMediaDashboard")
+logger = Logger()
+tracer = Tracer()
+metrics = Metrics()
 
 sns = boto3.client('sns')
 
+def json_loader(record):
+    b64_data = record['kinesis']['data']
+    str_data = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
+    json_data = json.loads(str_data)
+    return json_data
+
+@metrics.log_metrics
 @tracer.capture_lambda_handler
 def lambda_handler(event, context):
-    logger.info({
-        'state': 'get_records',
-        'record_count': len(event['Records']),
-        'text': 'Get records from kinesis'
-    })
-    records = set(map(lambda x: x['kinesis']['data'], event['Records']))  # 重複排除
-    logger.info({
-        'state': 'deduplicate_records',
-        'record_count': len(records),
-        'text': 'Deduplicate records'
-    })
-    es_records = []
-    for record in records:
-        tweet_string = base64.b64decode(record).decode('utf-8').rstrip('\n')
-        tweet = json.loads(tweet_string)
+    records = event['Records']
+    metrics.add_metric(name="IncomingRecords", unit=MetricUnit.Count, value=len(records))
+    json_records = list( map(json_loader, records) )
+    distinct_json_records = list( { rec['id_str']:rec for rec in json_records }.values() )  # 重複排除
+    metrics.add_metric(name="DistinctIncomingRecords", unit=MetricUnit.Count, value=len(distinct_json_records))
 
+    time_threshold = int((datetime.now(timezone.utc) - timedelta(days=tweet_day_threshold)).timestamp())
+    record_count = 0
+    for tweet in distinct_json_records:
         created_at = int(datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y').timestamp())
-        time_threshold = int((datetime.now(timezone.utc) - timedelta(days=tweet_day_threshold)).timestamp())
         if created_at < time_threshold:
             continue  # 365日以上前の場合はスキップ
         elif 'retweeted_status' in tweet:
@@ -50,17 +48,7 @@ def lambda_handler(event, context):
         res = sns.publish(
             TopicArn=input_topic_arn,
             Message=json.dumps(tweet),
-            #Subject='string',
-            #MessageStructure='json',
-            #MessageAttributes={
-            #    'string': {
-            #        'DataType': 'string',
-            #        'StringValue': 'string',
-            #        'BinaryValue': b'bytes'
-            #    }
-            #},
-            #MessageDeduplicationId='string',
-            #MessageGroupId='string'
         )
-
+        record_count += 1
+    metrics.add_metric(name="OutgoingRecords", unit=MetricUnit.Count, value=record_count)
     return 'true'

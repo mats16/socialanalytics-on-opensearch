@@ -34,31 +34,35 @@ def es_bulk_load(data):
     r = es.bulk(data)
     return r
 
+def json_loader(record):
+    b64_data = record['kinesis']['data']
+    str_data = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
+    json_data = json.loads(str_data)
+    return json_data
+
 @metrics.log_metrics
 @tracer.capture_lambda_handler
 def lambda_handler(event, context):
-    #metrics.add_dimension(name="FunctionName", value=context.function_name)
-    metrics.add_metric(name="IncomingRecords", unit=MetricUnit.Count, value=len(event['Records']))
-    records = set(map(lambda x: x['kinesis']['data'], event['Records']))  # 重複排除
-    metrics.add_metric(name="DistinctIncomingRecords", unit=MetricUnit.Count, value=len(records))
+    records = event['Records']
+    metrics.add_metric(name="IncomingRecords", unit=MetricUnit.Count, value=len(records))
+    json_records = list( map(json_loader, records) )
+    distinct_json_records = list( { rec['id_str']:rec for rec in json_records }.values() )  # 重複排除
+    metrics.add_metric(name="DistinctIncomingRecords", unit=MetricUnit.Count, value=len(distinct_json_records))
 
     time_threshold = int((datetime.now(timezone.utc) - timedelta(minutes=15)).timestamp())
     record_count = 0
     bulk_data = ''
-    for record in records:
-        record_string = base64.b64decode(record).decode('utf-8').rstrip('\n')
-        record_dict = json.loads(record_string)
-
-        if '_index' in record_dict and '_id' in record_dict:
+    for json_record in distinct_json_records:
+        if '_index' in json_record and '_id' in json_record:
             record_count += 1
             bulk_header = {
                 'update': {
-                    '_index': record_dict.pop('_index'),
-                    '_id': record_dict.pop('_id'),
+                    '_index': json_record.pop('_index'),
+                    '_id': json_record.pop('_id'),
                 }
             }
             bulk_data += json.dumps(bulk_header) + '\n'
-            bulk_data += json.dumps({'doc': record_dict, 'doc_as_upsert': True}) + '\n'
+            bulk_data += json.dumps({'doc': json_record, 'doc_as_upsert': True}) + '\n'
 
     metrics.add_metric(name="OutgoingRecords", unit=MetricUnit.Count, value=record_count)
     if len(bulk_data) > 0:
