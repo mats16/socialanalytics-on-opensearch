@@ -36,11 +36,10 @@ datasource0 = glueContext.create_data_frame.from_catalog(
 ## @return: datasink1
 ## @inputs: [frame = datasource0]
 def add_partition_column(rec):
-    created_at = int(rec['created_at'])
-    dtime = datetime.utcfromtimestamp(created_at)
-    rec['year'] = '{:0>2}'.format(dtime.year)
-    rec['month'] = '{:0>2}'.format(dtime.month)
-    rec['day'] = '{:0>2}'.format(dtime.day)
+    created_at = datetime.strptime(rec['created_at'], '%a %b %d %H:%M:%S %z %Y')
+    rec['year'] = f'{created_at:%Y}'
+    rec['month'] = f'{created_at:%m}'
+    rec['day'] = f'{created_at:%d}'
     return rec
 
 def processBatch(data_frame, batchId):
@@ -67,7 +66,7 @@ def processBatch(data_frame, batchId):
         #    },
         #    format = "json",
         #    transformation_ctx = "datasink1")
-        drop_duplicates_df = apply_mapping.toDF().dropDuplicates(['id_str'])
+        drop_duplicates_df = apply_mapping.toDF().dropDuplicates(subset = ["id_str"])
         drop_duplicates_df.repartition("year", "month", "day").write.partitionBy(["year", "month", "day"]).mode('append').json(dest_s3_path, compression='gzip')
 
 glueContext.forEachBatch(

@@ -26,7 +26,7 @@ Parameters:
 
   CloudWatchAgentImage:
     Type: String
-    Default: amazon/cloudwatch-agent:1.247346.0b249609
+    Default: amazon/cloudwatch-agent:latest
 
   PlatformVersion:
     Type: String
