@@ -47,7 +47,7 @@ Resources:
       Timeout: 10
       Tracing: Active
       Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:10"
       Environment:
         Variables:
           LOG_LEVEL: INFO
@@ -118,7 +118,7 @@ Resources:
   LabelingUiTemplateLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'labeling-ui-template-${AWS::StackName}'
+      LayerName: !Sub 'labeling-ui-template-${ParentStackName}'
       Description: Ground Truth Labeling UI
       ContentUri: ui_template/
 

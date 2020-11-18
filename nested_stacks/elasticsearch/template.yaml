@@ -83,7 +83,7 @@ Resources:
       Description: '[Social Media Dashboard] Indexing Function'
       CodeUri: functions/indexing/
       Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:10"
         - !Ref ElasticsearchClientLayer
       MemorySize: 192
       Timeout: 300

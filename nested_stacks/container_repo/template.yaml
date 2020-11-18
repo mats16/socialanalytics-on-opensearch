@@ -256,7 +256,7 @@ Resources:
   DockerfileLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'dockerfile-${AWS::StackName}'
+      LayerName: !Sub 'dockerfile-${ParentStackName}'
       Description: Dockerfile
       ContentUri: containers/
 

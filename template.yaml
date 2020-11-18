@@ -324,7 +324,7 @@ Resources:
       Timeout: 900
       Tracing: Active
       Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:10"
       Environment:
         Variables:
           LOG_LEVEL: INFO
@@ -372,7 +372,7 @@ Resources:
       Timeout: 900
       Tracing: Active
       Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:2"
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:10"
       Environment:
         Variables:
           LOG_LEVEL: INFO
@@ -587,10 +587,6 @@ Outputs:
     Description: URL to the Lambda Function console
     Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${Bucket}/?region=${AWS::Region}&tab=overview'
 
-  TwitterRawLocation:
-    Description: S3 Twitter Raw location.
-    Value: !Sub 's3://${DataLakeStack.Outputs.Bucket}/raw/'
-
   KibanaURL:
     Description: Kibana URL
-    Value: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_plugin/kibana/'
+    Value: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_plugin/kibana/app/kibana'
