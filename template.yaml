@@ -239,20 +239,42 @@ Resources:
           Mutable: true
           Required: true
 
-  PreSignUpTriggerFunction:
+  PreSignupTriggerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: 'PreSignUp Lambda Trigger for Cognito User Pool'
+      Description: 'PreSignup Lambda Trigger for Cognito User Pool'
       CodeUri: functions/pre_signup_trigger/
       Environment:
         Variables:
           ALLOWED_DOMAINS: !Join [',', !Ref SignupAllowedDomains]
       Events:
-        Stream:
+        CognitoUserPoolPreSignup:
           Type: Cognito
           Properties:
             Trigger: PreSignUp
             UserPool: !Ref UserPool
+
+  PostConfirmationTriggerFunction:
+    Type: AWS::Serverless::Function
+    Condition: LabelingJobEnabled
+    Properties:
+      Description: 'PostConfirmation Lambda Trigger for Cognito User Pool'
+      CodeUri: functions/post_confirmation_trigger/
+      Environment:
+        Variables:
+          GROUP_NAME: GroundTruthWorkforce
+      Events:
+        CognitoUserPoolPostConfirmation:
+          Type: Cognito
+          Properties:
+            Trigger: PostConfirmation
+            UserPool: !Ref UserPool
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: cognito-idp:AdminAddUserToGroup
+              Resource: '*'
 
   # Notification --------------------------------------
   AlarmTopic:
@@ -810,10 +832,18 @@ Resources:
 
 Outputs:
 
-  S3ConsoleURL:
-    Description: URL to the Lambda Function console
+  S3ConsoleUrl:
+    Description: S3 Console URL
     Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${Bucket}/?region=${AWS::Region}&tab=overview'
 
-  KibanaURL:
+  CognitoConsoleUrl:
+    Description: Cognito Console URL
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cognito/users?region=${AWS::Region}#/pool/${UserPool}/details'
+
+  KibanaUrl:
     Description: Kibana URL
     Value: !Sub 'https://${ElasticsearchStack.Outputs.ElasticsearchDomainEndpoint}/_plugin/kibana/app/kibana'
+
+  LabelingPortalUrl:
+    Description: Labeling Portal URL
+    Value: !GetAtt LabelingStack.Outputs.LabelingPortalUrl

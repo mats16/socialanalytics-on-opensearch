@@ -220,6 +220,15 @@ Resources:
         - Key: cloudformation:logical-id
           Value: GroundTruthOutputTopic
 
+  LabelingPortalUrl:
+    Type: Custom::URL
+    DependsOn: Workteam
+    Properties:
+      ServiceToken: !GetAtt FetchLabelingPortalUrlFunction.Arn
+      UserPoolId: !Ref UserPoolId
+      ClientId: !Ref UserPoolClient
+
+  # Custom Resources ------------------------------------
   StreamingLabelingJobFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -248,10 +257,23 @@ Resources:
               Resource:
                 - !GetAtt GroundTruthExecutionRole.Arn
 
+  FetchLabelingPortalUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Custom Resource] Fetch Labeling Portal URL from Cognito User Pool'
+      CodeUri: custom_resources/fetch_labeling_portal_url/
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'cognito-idp:DescribeUserPoolClient'
+              Resource: '*'
+
 Outputs:
 
   GroundTruthStreamFunction:
     Value: !Ref GroundTruthStreamFunction
   
-  #LabelingJobName:
-  #  Value: !Ref StreamingLabelingJob
+  LabelingPortalUrl:
+    Value: !Ref LabelingPortalUrl
