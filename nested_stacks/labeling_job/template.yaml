@@ -38,7 +38,7 @@ Globals:
 
 Resources:
 
-  GroundTruthStreamFunction:
+  GroundTruthInputFunction:
     Type: AWS::Serverless::Function
     Properties:
       Description: '[Social Media Dashboard] Put tweets to topic for Ground Truth'
@@ -52,8 +52,8 @@ Resources:
         Variables:
           LOG_LEVEL: INFO
           POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
-          POWERTOOLS_SERVICE_NAME: GroundTruthStreamFunction
-          INPUT_TOPIC_ARN: !Ref GroundTruthInputTopic
+          POWERTOOLS_SERVICE_NAME: GroundTruthInputFunction
+          INPUT_TOPIC_ARN: !Ref GroundTruthTweetTechOrNotInput
           TWEET_DAY_THRESHOLD: 90
       Events:
         Stream:
@@ -71,9 +71,10 @@ Resources:
           Statement:
             - Effect: Allow
               Action: 'sns:Publish'
-              Resource: !Ref GroundTruthInputTopic
+              Resource:
+                - 'arn:aws:sns:*:*:*GroundTruth*'
 
-  GroundTruthStreamFunctionErrorsAlarm:
+  GroundTruthInputFunctionErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmDescription: Errors of GroundTruth Input Function
@@ -81,7 +82,7 @@ Resources:
       MetricName: Errors
       Dimensions: 
         - Name: FunctionName
-          Value: !Ref GroundTruthStreamFunction
+          Value: !Ref GroundTruthInputFunction
       Statistic: Sum
       Period: 60
       AlarmActions: 
@@ -93,78 +94,126 @@ Resources:
       EvaluationPeriods: 1
       DatapointsToAlarm: 1
 
-  GroundTruthInputTopic:
+  GtRecipePreAnnotationJsonLoad:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Pre-annotation] Load string to json'
+      CodeUri: functions/pre_annotation_json_load/
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          POWERTOOLS_SERVICE_NAME: pre-annotation-json-load
+
+  GtRecipePostAnnotationModeLabel:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Post-annotation] Statistics mode label'
+      CodeUri: functions/post_annotation_mode_label/
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          POWERTOOLS_SERVICE_NAME: post-annotation-mode-label
+      Policies:
+        - AmazonS3ReadOnlyAccess
+
+  GtRecipePreAnnotationJsonLoadWithFilter:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Pre-annotation] Load string to json only technical context'
+      CodeUri: functions/pre_annotation_json_load/
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          POWERTOOLS_SERVICE_NAME: pre-annotation-json-load-with-filter
+          LabelAttributeName: TweetTechOrNotClassification
+          AllowedLabelValue: TECH
+
+  # Tweet tech or not classification
+  GroundTruthTweetTechOrNotInput:
     Type: AWS::SNS::Topic
     Properties: 
-      DisplayName: GroundTruthInputTopic
-      Tags: 
-        - Key: cloudformation:stack-name
-          Value: !Ref AWS::StackName
-        - Key: cloudformation:stack-id
-          Value: !Ref AWS::StackId
-        - Key: cloudformation:logical-id
-          Value: GroundTruthInputTopic
+      DisplayName: GroundTruthTweetTechOrNotInput
 
-  GroundTruthOutputTopic:
+  GroundTruthTweetTechOrNotOutput:
     Type: AWS::SNS::Topic
     Properties: 
-      DisplayName: GroundTruthOutputTopic
-      Tags: 
-        - Key: cloudformation:stack-name
-          Value: !Ref AWS::StackName
-        - Key: cloudformation:stack-id
-          Value: !Ref AWS::StackId
-        - Key: cloudformation:logical-id
-          Value: GroundTruthOutputTopic
+      DisplayName: GroundTruthTweetTechOrNotOutput
 
-  LabelingUiTemplateLayer:
+  TweetTechOrNotAssetsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'labeling-ui-template-${ParentStackName}'
-      Description: Ground Truth Labeling UI
-      ContentUri: ui_template/
+      LayerName: 'tweet-tech-or-not-classification-assets'
+      Description: Ground Truth UI Assets for TweetTechOrNotClassification
+      ContentUri: assets/tweet_tech_or_not/
 
-  GroundTruthAssets:
+  TweetTechOrNotAssets:
     Type: Custom::S3Objects
     Properties:
       ServiceToken: !Ref S3ObjectsFunctionArn
       Bucket: !Ref Bucket
-      Path: groundtruth/assets/
-      SourceLayerArn: !Ref LabelingUiTemplateLayer
+      Path: groundtruth/assets/tweet_tech_or_not/
+      SourceLayerArn: !Ref TweetTechOrNotAssetsLayer
 
-  GroundTruthExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action: "sts:AssumeRole"
-            Principal:
-              Service: sagemaker.amazonaws.com
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSageMakerGroundTruthExecution
-
-  GtRecipePreHumanTaskFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Description: '[Ground Truth] PreProcess'
-      CodeUri: functions/pre_human_task/
-
-  TweetClassification:
+  TweetTechOrNotClassification:
     Type: Custom::LabelingJob
     Properties:
       ServiceToken: !GetAtt StreamingLabelingJobFunction.Arn
-      LabelingJobName: !Sub 'TweetClassification-v${GroundTruthAssets.LayerVersion}'
-      InputTopicArn: !Ref GroundTruthInputTopic
-      OutputTopicArn: !Ref GroundTruthOutputTopic
+      LabelAttributeName: TweetTechOrNotClassification
+      InputTopicArn: !Ref GroundTruthTweetTechOrNotInput
+      OutputTopicArn: !Ref GroundTruthTweetTechOrNotOutput
       S3OutputPath: !Sub 's3://${Bucket}/groundtruth/jobs/'
       WorkteamArn: !Ref Workteam
-      HumanTaskTitle: !Sub 'Tweet Classification v${GroundTruthAssets.LayerVersion}'
-      HumanTaskDescription: !Sub 'Tweet Classification v${GroundTruthAssets.LayerVersion}'
-      UiTemplateS3Uri: !Sub 's3://${GroundTruthAssets.Bucket}/${GroundTruthAssets.Path}tweet-classification.html'
-      PreHumanTaskLambdaArn: !GetAtt GtRecipePreHumanTaskFunction.Arn
+      HumanTaskTitle: !Sub 'Tweet tech or not classification v${TweetTechOrNotAssets.LayerVersion}'
+      UiTemplateS3Uri: !Sub 's3://${TweetTechOrNotAssets.Bucket}/${TweetTechOrNotAssets.Path}template.html'
+      PreHumanTaskLambdaArn: !GetAtt GtRecipePreAnnotationJsonLoad.Arn
+      AnnotationConsolidationLambdaArn: !GetAtt GtRecipePostAnnotationModeLabel.Arn
+      NumberOfHumanWorkersPerDataObject: 1
 
+  # Tweet Tech Category Classification
+  #GroundTruthTweetTechCategoryInput:
+  #  Type: AWS::SNS::Topic
+  #  Properties: 
+  #    DisplayName: GroundTruthTweetTechCategoryInput
+
+  GroundTruthTweetTechCategoryOutput:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: GroundTruthTweetTechCategoryOutput
+
+  TweetTechCategoryAssetsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: 'tweet-tech-category-classification-assets'
+      Description: Ground Truth UI Assets for TweetTechOrNotClassification
+      ContentUri: assets/tweet_tech_category/
+
+  TweetTechCategoryAssets:
+    Type: Custom::S3Objects
+    Properties:
+      ServiceToken: !Ref S3ObjectsFunctionArn
+      Bucket: !Ref Bucket
+      Path: groundtruth/assets/tweet_tech_category/
+      SourceLayerArn: !Ref TweetTechCategoryAssetsLayer
+
+  TweetTechCategoryClassification:
+    Type: Custom::LabelingJob
+    Properties:
+      ServiceToken: !GetAtt StreamingLabelingJobFunction.Arn
+      LabelAttributeName: TweetTechCategoryClassification
+      InputTopicArn: !Ref GroundTruthTweetTechOrNotOutput
+      OutputTopicArn: !Ref GroundTruthTweetTechCategoryOutput
+      S3OutputPath: !Sub 's3://${Bucket}/groundtruth/jobs/'
+      WorkteamArn: !Ref Workteam
+      HumanTaskTitle: !Sub 'Tweet tech category classification v${TweetTechCategoryAssets.LayerVersion}'
+      UiTemplateS3Uri: !Sub 's3://${TweetTechCategoryAssets.Bucket}/${TweetTechCategoryAssets.Path}template.html'
+      PreHumanTaskLambdaArn: !GetAtt GtRecipePreAnnotationJsonLoadWithFilter.Arn
+      AnnotationConsolidationLambdaArn: !GetAtt GtRecipePostAnnotationModeLabel.Arn
+      NumberOfHumanWorkersPerDataObject: 3
+
+  # Workforce ------------------------------------
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
@@ -220,8 +269,9 @@ Resources:
         - Key: cloudformation:logical-id
           Value: GroundTruthOutputTopic
 
+  # CloudFormation Output ------------------------------------
   LabelingPortalUrl:
-    Type: Custom::URL
+    Type: Custom::LabelingPortalUrl
     DependsOn: Workteam
     Properties:
       ServiceToken: !GetAtt FetchLabelingPortalUrlFunction.Arn
@@ -229,6 +279,19 @@ Resources:
       ClientId: !Ref UserPoolClient
 
   # Custom Resources ------------------------------------
+  GroundTruthExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: sagemaker.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSageMakerGroundTruthExecution
+
   StreamingLabelingJobFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -272,8 +335,8 @@ Resources:
 
 Outputs:
 
-  GroundTruthStreamFunction:
-    Value: !Ref GroundTruthStreamFunction
+  GroundTruthInputFunction:
+    Value: !Ref GroundTruthInputFunction
   
   LabelingPortalUrl:
     Value: !Ref LabelingPortalUrl

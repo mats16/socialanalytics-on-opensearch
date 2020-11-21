@@ -18,12 +18,6 @@ Parameters:
   TweetStreamName:
     Type: String
 
-  TwitterProducerImage:
-    Type: String
-
-  FluentBitImage:
-    Type: String
-
   CloudWatchAgentImage:
     Type: String
     Default: amazon/cloudwatch-agent:latest
@@ -38,13 +32,7 @@ Parameters:
     Type: String
   TwitterFilterLevelParameter:
     Type: String
-  TwitterConsumerKey:
-    Type: String
-  TwitterConsumerSecretKey:
-    Type: String
-  TwitterAccessToken:
-    Type: String
-  TwitterAccessTokenSecret:
+  TwitterCredentials:
     Type: String
 
 Resources:
@@ -95,7 +83,7 @@ Resources:
                 Action:
                   - 'secretsmanager:GetSecretValue'
                 Resource:
-                  - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ParentStackName}/*'
+                  - !Ref TwitterCredentials
 
   Cluster:
     Type: AWS::ECS::Cluster
@@ -114,7 +102,7 @@ Resources:
   TwitterProducerLogGroup: 
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub '/${ParentStackName}/ecs/twitter-stream-producer'
+      LogGroupName: !Sub '/${ParentStackName}/ecs/twitter-producer'
       RetentionInDays: 30
 
   TwitterProducerTaskRole:
@@ -146,7 +134,7 @@ Resources:
   TwitterProducerTaskDef: 
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: twitter-stream-producer
+      Family: twitter-producer
       RequiresCompatibilities: 
         - "FARGATE"
       NetworkMode: awsvpc
@@ -156,7 +144,7 @@ Resources:
       ExecutionRoleArn: !Ref TaskExecutionRole
       ContainerDefinitions: 
         - Name: twitter-producer
-          Image: !Ref TwitterProducerImage
+          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ParentStackName}/twitter-producer:latest'
           Essential: "true"
           DependsOn:
             - ContainerName: fluent-bit
@@ -168,14 +156,8 @@ Resources:
               ValueFrom: !Ref TwitterLanguagesParameter
             - Name: TWITTER_FILTER_LEVEL
               ValueFrom: !Ref TwitterFilterLevelParameter
-            - Name: CONSUMER_KEY
-              ValueFrom: !Ref TwitterConsumerKey
-            - Name: CONSUMER_SECRET
-              ValueFrom: !Ref TwitterConsumerSecretKey
-            - Name: ACCESS_TOKEN
-              ValueFrom: !Ref TwitterAccessToken
-            - Name: ACCESS_TOKEN_SECRET
-              ValueFrom: !Ref TwitterAccessTokenSecret
+            - Name: TWITTER_CREDENTIALS
+              ValueFrom: !Ref TwitterCredentials
           ReadonlyRootFilesystem: true
           LogConfiguration:
             LogDriver: awslogs
@@ -184,7 +166,7 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: stdout
         - Name: fluent-bit
-          Image: !Ref FluentBitImage
+          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ParentStackName}/fluent-bit:latest'
           Essential: "true"
           PortMappings:
             - ContainerPort: 2020
@@ -349,7 +331,7 @@ Resources:
                     {
                       "sd_job_name": "ecs-fluent-bit",
                       "sd_metrics_ports": "2020",
-                      "sd_task_definition_arn_pattern": ".*:task-definition/twitter-stream-producer:[0-9]+",
+                      "sd_task_definition_arn_pattern": ".*:task-definition/twitter-producer:[0-9]+",
                       "sd_metrics_path": "/api/v1/metrics/prometheus"
                     }
                   ]

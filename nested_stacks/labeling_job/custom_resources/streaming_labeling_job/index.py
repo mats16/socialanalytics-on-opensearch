@@ -21,26 +21,32 @@ def lambda_handler(event, context):
     helper(event, context)
 
 @helper.create
+@helper.update
 def create(event, context):
     stack_id = event['StackId']
     stack_name = event['StackId'].split('/')[1]
     logical_resource_id = event['LogicalResourceId']
-    request_id = event['RequestId']
+    short_request_id = event['RequestId'].split('-')[-1]
 
-    labeling_job_name = event['ResourceProperties'].get('LabelingJobName', logical_resource_id) + '-' + request_id.split('-')[-1]
-    human_task_title = event['ResourceProperties'].get('HumanTaskTitle', labeling_job_name)
+    labeling_job_name = f'{logical_resource_id}-{short_request_id}'  # 自動生成
+    label_attribute_name = event['ResourceProperties'].get('LabelAttributeName', logical_resource_id)
+    human_task_title = f"{event['ResourceProperties']['HumanTaskTitle']} ({labeling_job_name})" if 'HumanTaskTitle' in event['ResourceProperties'] else labeling_job_name
     human_task_description = event['ResourceProperties'].get('HumanTaskDescription', human_task_title)
-    pre_human_task_lambda_arn = event['ResourceProperties']['PreHumanTaskLambdaArn']
     input_topic_arn = event['ResourceProperties']['InputTopicArn']
     output_topic_arn = event['ResourceProperties']['OutputTopicArn']
     s3_output_path = event['ResourceProperties']['S3OutputPath']
-    #label_category_config_s3_uri = event['ResourceProperties']['LabelCategoryConfigS3Uri']
     workteam_arn = event['ResourceProperties']['WorkteamArn']
     ui_template_s3_uri = event['ResourceProperties']['UiTemplateS3Uri']
+    pre_human_task_lambda_arn = event['ResourceProperties']['PreHumanTaskLambdaArn']
+    annotation_consolidation_lambda_arn = event['ResourceProperties']['AnnotationConsolidationLambdaArn']
+    number_of_fuman_workers_per_data_object = int(event['ResourceProperties'].get('NumberOfHumanWorkersPerDataObject', 1))
+    task_time_limit_in_seconds = int(event['ResourceProperties'].get('TaskTimeLimitInSeconds', 600))
+    task_availability_lifetime_in_seconds = int(event['ResourceProperties'].get('TaskAvailabilityLifetimeInSeconds', 864000))  # default:10days
+    max_concurrent_task_count = int(event['ResourceProperties'].get('MaxConcurrentTaskCount', 1000))
 
     res = sagemaker.create_labeling_job(
         LabelingJobName=labeling_job_name,
-        LabelAttributeName=labeling_job_name,
+        LabelAttributeName=label_attribute_name,
         InputConfig={
             'DataSource': {
                 'SnsDataSource': {
@@ -66,12 +72,12 @@ def create(event, context):
                 'UiTemplateS3Uri': ui_template_s3_uri,
             },
             'PreHumanTaskLambdaArn': pre_human_task_lambda_arn,
-            'NumberOfHumanWorkersPerDataObject': 1,
-            'TaskTimeLimitInSeconds': 600,
-            'TaskAvailabilityLifetimeInSeconds': 864000, # default:10days
-            'MaxConcurrentTaskCount': 1000,  # default
+            'NumberOfHumanWorkersPerDataObject': number_of_fuman_workers_per_data_object,
+            'TaskTimeLimitInSeconds': task_time_limit_in_seconds,
+            'TaskAvailabilityLifetimeInSeconds': task_availability_lifetime_in_seconds,
+            'MaxConcurrentTaskCount': max_concurrent_task_count,
             'AnnotationConsolidationConfig': {
-                'AnnotationConsolidationLambdaArn': 'arn:aws:lambda:us-west-2:081040173940:function:ACS-TextMultiClass'
+                'AnnotationConsolidationLambdaArn': annotation_consolidation_lambda_arn
             },
         },
         Tags=[
@@ -91,11 +97,6 @@ def create(event, context):
     )
     helper.Data.update({ 'Arn': res['LabelingJobArn'] })
     physical_resource_id = labeling_job_name
-    return physical_resource_id
-
-@helper.update
-def update(event, context):
-    physical_resource_id = create(event, context)
     return physical_resource_id
                   
 @helper.delete

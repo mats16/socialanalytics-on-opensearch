@@ -43,11 +43,14 @@ def lambda_handler(event, context):
             continue  # retweetの場合はスキップ
 
         # https://docs.aws.amazon.com/sagemaker/latest/dg/sms-streaming-labeling-job.html#sms-streaming-impotency
-        tweet['dataset-objectid-attribute-name'] = 'id_str'
-
+        data = {
+            'source': json.dumps(tweet),
+            'dataset-objectid-attribute-name': 'tweet_id',
+            'tweet_id': tweet['id_str'],
+        }
         res = sns.publish(
             TopicArn=input_topic_arn,
-            Message=json.dumps(tweet),
+            Message=json.dumps(data),
         )
         record_count += 1
     metrics.add_metric(name="OutgoingRecords", unit=MetricUnit.Count, value=record_count)

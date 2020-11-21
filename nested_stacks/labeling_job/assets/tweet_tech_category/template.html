@@ -2,9 +2,9 @@
 
 <crowd-form>
   <crowd-classifier 
-    name="TweetClassification"
-    categories="['INCIDENT', 'FEATURE_REQUEST', 'TECHNICAL_ISSUE', 'OTHER_TECH', 'NON_TECH']"
-    header="ツイートの分類を行って下さい。最も重要なことは非技術系の内容を NON_TECH に分類することです。" 
+    name="TweetTechCategoryClassification"
+    categories="['INCIDENT', 'FEATURE_REQUEST', 'TECHNICAL_ISSUE', 'OTHER']"
+    header="Please classify tweets into these category." 
   >
 
     <classification-target style="white-space: pre-wrap">
@@ -14,12 +14,10 @@
 
     <full-instructions header="Text Categorization Instructions">
       Try to determine the sentiment the author 
-      of the tweet is trying to express. 
-      If none seem to match, choose "cannot determine."
     </full-instructions>
 
     <short-instructions>
-      <p>複数に合致する場合はより上に記載のある選択肢を選んで下さい。</p>
+      <p>最も適切であると思われる分類子を選んで下さい。</p>
       <br>
       <h2>INCIDENT</h2>
       <p>障害です。クラウド事業者に限らず、個別のサービスの障害を含みます。</p>
@@ -30,18 +28,11 @@
       <h2>TECHNICAL_ISSUE</h2>
       <p>OSS 等に対する<u>技術的な課題</u>が書かれている場合に選択して下さい。<br>※ 個人のライフスタイル等に対する課題は含みません。</p>
       <br>
-      <h2>OTHER_TECH</h2>
+      <h2>OTHER</h2>
       <p>上記に含まれない<u>技術の関係する内容</u>の場合に選択して下さい。<br>
         <u>example</u><br>
         Tech系イベントの告知<br>
         エンジニア学習の日記
-      </p>
-      <br>
-      <h2>NON_TECH</h2>
-      <p>技術的な内容を含まない場合に選択して下さい。<br>
-        <u>example</u><br>
-        地震速報<br>
-        〇〇さんの動画みて△△を買おうと思いました
       </p>
     </short-instructions>
 

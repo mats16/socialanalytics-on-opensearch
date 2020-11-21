@@ -25,10 +25,10 @@ Metadata:
       - Label:
           default: Twitter API Credentials
         Parameters:
-          - AuthConsumerKey
-          - AuthConsumerSecret
-          - AuthAccessToken
-          - AuthAccessTokenSecret
+          - TwitterConsumerKey
+          - TwitterConsumerSecret
+          - TwitterAccessToken
+          - TwitterAccessTokenSecret
       - Label:
           default: Application Parameters
         Parameters:
@@ -71,18 +71,26 @@ Parameters:
       - low
       - medium
 
-  AuthAccessToken:
+  TwitterConsumerKey:
+    Description: Consumer key for access twitter
+    Type: String
+  TwitterConsumerSecret:
+    Description: Consumer Secret for access twitter
+    Type: String
+    NoEcho: True
+  TwitterAccessToken:
     Description: Access Token for calling twitter
     Type: String
-  AuthAccessTokenSecret:
+  TwitterAccessTokenSecret:
     Description: Access Token Secret for calling twitter
     Type: String
     NoEcho: True
-  AuthConsumerKey:
-    Description: Consumer key for access twitter
+
+  DockerHubUsername:
+    Description: DockerHub username used in CodeBuild
     Type: String
-  AuthConsumerSecret:
-    Description: Consumer Secret for access twitter
+  DockerHubAccessToken:
+    Description: DockerHub access token used in CodeBuild
     Type: String
     NoEcho: True
 
@@ -189,33 +197,27 @@ Resources:
       Type: String
       Value: !Ref TwitterFilterLevel
 
-  TwitterConsumerKey:
+  TwitterCredentials:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: !Sub '${AWS::StackName}/Twitter/ConsumerKey'
-      SecretString:
-        !Ref AuthConsumerKey
+      Name: !Sub '${AWS::StackName}/TwitterCredentials'
+      SecretString: !Sub |
+        {
+          "consumer_key": "${TwitterConsumerKey}",
+          "consumer_secret": "${TwitterConsumerSecret}",
+          "access_token": "${TwitterAccessToken}",
+          "access_token_secret": "${TwitterAccessTokenSecret}"
+        }
 
-  TwitterConsumerSecretKey:
+  DockerHubCredentials:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: !Sub '${AWS::StackName}/Twitter/ConsumerSecretKey'
-      SecretString:
-        !Ref AuthConsumerSecret
-
-  TwitterAccessToken:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: !Sub '${AWS::StackName}/Twitter/AccessToken'
-      SecretString:
-        !Ref AuthAccessToken
-
-  TwitterAccessTokenSecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: !Sub '${AWS::StackName}/Twitter/AccessTokenSecret'
-      SecretString:
-        !Ref AuthAccessTokenSecret
+      Name: !Sub '${AWS::StackName}/DockerHubCredentials'
+      SecretString: !Sub |
+        {
+          "username": "${DockerHubUsername}",
+          "password": "${DockerHubAccessToken}"
+        }
 
   # Authentication --------------------------------------
   UserPool:
@@ -542,15 +544,10 @@ Resources:
         VpcId: !GetAtt VpcStack.Outputs.VpcId
         PublicSubnetList: !GetAtt VpcStack.Outputs.PublicSubnetList
         TweetStreamName: !Ref TweetStream
-        TwitterProducerImage: !GetAtt ContainerRepoStack.Outputs.TwitterProducerImage
-        FluentBitImage: !GetAtt ContainerRepoStack.Outputs.FluentBitImage
         TwitterTopicsParameter: !Ref TwitterTopicsParameter
         TwitterLanguagesParameter: !Ref TwitterLanguagesParameter
         TwitterFilterLevelParameter: !Ref TwitterFilterLevelParameter
-        TwitterConsumerKey: !Ref TwitterConsumerKey
-        TwitterConsumerSecretKey: !Ref TwitterConsumerSecretKey
-        TwitterAccessToken: !Ref TwitterAccessToken
-        TwitterAccessTokenSecret: !Ref TwitterAccessTokenSecret
+        TwitterCredentials: !Ref TwitterCredentials
 
   ContainerRepoStack:
     Type: AWS::CloudFormation::Stack
@@ -560,6 +557,9 @@ Resources:
         ParentStackName: !Ref AWS::StackName
         AlarmTopic: !Ref AlarmTopic
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
+        DockerHubCredentials: !Ref DockerHubCredentials
+        EcsClusterName: !GetAtt TwitterProducerStack.Outputs.ClusterName
+        EcsServiceName: !GetAtt TwitterProducerStack.Outputs.ServiceName
 
   ElasticsearchStack:
     Type: AWS::CloudFormation::Stack

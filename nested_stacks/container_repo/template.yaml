@@ -17,13 +17,21 @@ Parameters:
     Type: Number
     Default: 5
 
+  DockerHubCredentials:
+    Type: String
+
+  EcsClusterName:
+    Type: String
+  EcsServiceName:
+    Type: String
+
 Resources:
 
   TwitterProducerRepo:
     Type: AWS::ECR::Repository
     DeletionPolicy: Delete
     Properties:
-      RepositoryName: !Sub '${ParentStackName}/twitter-stream-producer'
+      RepositoryName: !Sub '${ParentStackName}/twitter-producer'
       ImageScanningConfiguration: 
         scanOnPush: "true"
       LifecyclePolicy:
@@ -124,6 +132,13 @@ Resources:
                   - ecr:GetAuthorizationToken
                 Resource:
                   - '*'
+        - PolicyName: GetSecretValue-DockerHubCredentials
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref DockerHubCredentials
 
   CodePipelineRole:
     Type: AWS::IAM::Role
@@ -136,7 +151,7 @@ Resources:
               Service: codepipeline.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: CodePipeline
+        - PolicyName: Source-S3
           PolicyDocument:
             Statement:
               - Effect: Allow
@@ -148,12 +163,29 @@ Resources:
                 Resource:
                   - !Sub '${ArtifactBucket.Arn}'
                   - !Sub '${ArtifactBucket.Arn}/*'
+        - PolicyName: Build-CodeBuild
+          PolicyDocument:
+            Statement:
               - Effect: Allow
                 Action:
                   - codebuild:BatchGetBuilds
                   - codebuild:StartBuild
-                Resource:
-                  - !GetAtt DockerBuildProject.Arn
+                Resource: !GetAtt DockerBuildProject.Arn
+        - PolicyName: Deploy-ECS
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                Resource: '*'
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ParentStackName}-*'
 
   DockerBuildProject:
     Type: AWS::CodeBuild::Project
@@ -163,22 +195,34 @@ Resources:
         Type: CODEPIPELINE
       Source:
         Type: CODEPIPELINE
-        BuildSpec: |
+        BuildSpec: !Sub |
           version: 0.2
+          env:
+            secrets-manager:
+              DOCKERHUB_USERNAME: ${DockerHubCredentials}:username
+              DOCKERHUB_PASSWORD: ${DockerHubCredentials}:password
           phases:
             pre_build:
               commands:
+                - echo Logging in to Docker Hub...
+                - echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
+                - echo Logging in to Amazon ECR...
                 - $(aws ecr get-login --no-include-email)           
             build:
               commands:
                 - echo Build started on `date`
                 - echo Building the Docker image...
-                - docker build --tag ${ECR_DOMAIN}/${REPO_NAME}:${ETAG} ${BUILD_DIR}
+                - docker build --tag $ECR_DOMAIN/$REPO_NAME:$ETAG $BUILD_DIR
+                - docker tag $ECR_DOMAIN/$REPO_NAME:$ETAG $ECR_DOMAIN/$REPO_NAME:latest
             post_build:
               commands:
                 - echo Build completed on `date`
                 - echo Pushing the Docker image...
-                - docker push ${ECR_DOMAIN}/${REPO_NAME}:${ETAG}
+                - docker push $ECR_DOMAIN/$REPO_NAME:$ETAG
+                - docker push $ECR_DOMAIN/$REPO_NAME:latest
+                - printf "[{\"name\":\"twitter-producer\",\"imageUri\":\"$ECR_DOMAIN/${TwitterProducerRepo}:$ETAG\"},{\"name\":\"fluent-bit\",\"imageUri\":\"$ECR_DOMAIN/${FluentBitRepo}:$ETAG\"}]" > imagedefinitions.json
+          artifacts:
+            files: imagedefinitions.json
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/docker:18.09.0
@@ -208,21 +252,21 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
+                Version: 1
                 Provider: S3
               Configuration:
                 S3Bucket: !GetAtt DockerfileZip.Bucket
                 S3ObjectKey: !GetAtt DockerfileZip.Path
+              RunOrder: 1
               OutputArtifacts:
                 - Name: DockerfileZip
-              RunOrder: 1
-        - Name: Build-Containers
+        - Name: Build
           Actions:
-            - Name: twitter-stream-producer
+            - Name: twitter-producer
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: 1
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref DockerBuildProject
@@ -230,16 +274,18 @@ Resources:
                   [
                     {"name": "ETAG", "value": "#{SourceVariables.ETag}","type": "PLAINTEXT"},
                     {"name": "REPO_NAME", "value": "${TwitterProducerRepo}","type": "PLAINTEXT"},
-                    {"name": "BUILD_DIR", "value": "./twitter-stream-producer", "type": "PLAINTEXT"}
+                    {"name": "BUILD_DIR", "value": "./twitter-producer", "type": "PLAINTEXT"}
                   ]
+              RunOrder: 1
               InputArtifacts:
                 - Name: DockerfileZip
-              RunOrder: 1
+              OutputArtifacts:
+                - Name: BuildOutput1
             - Name: fluent-bit
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: 1
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref DockerBuildProject
@@ -249,9 +295,26 @@ Resources:
                     {"name": "REPO_NAME", "value": "${FluentBitRepo}","type": "PLAINTEXT"},
                     {"name": "BUILD_DIR", "value": "./fluent-bit", "type": "PLAINTEXT"}
                   ]
+              RunOrder: 1
               InputArtifacts:
                 - Name: DockerfileZip
+              OutputArtifacts:
+                - Name: BuildOutput2
+        - Name: Deploy
+          Actions:
+            - Name: ECS-Fargate
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: ECS
+              Configuration:
+                ClusterName: !Ref EcsClusterName
+                ServiceName: !Ref EcsServiceName
+                FileName: imagedefinitions.json
               RunOrder: 1
+              InputArtifacts:
+                - Name: BuildOutput2
 
   DockerfileLayer:
     Type: AWS::Serverless::LayerVersion

@@ -17,7 +17,7 @@ fluentLogger.configure('twitter', {
 function twitterStreamProducer() {
   const log = logger().getLogger('producer');
   const waitBetweenPutRecordsCallsInMilliseconds = config.waitBetweenPutRecordsCallsInMilliseconds;
-  const T = new Twit(twitter_config.twitter)
+  const T = new Twit(twitter_config.credentials)
 
   function _sendToFluent() {
 
