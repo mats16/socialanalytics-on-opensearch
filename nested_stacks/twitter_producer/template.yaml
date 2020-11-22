@@ -1,4 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
 Description: '[Social Media Dashboard] Twitter Producer Stack'
 
 Parameters:
@@ -204,6 +205,56 @@ Resources:
             - !Ref SecurityGroup
           Subnets: !Ref PublicSubnetList
       TaskDefinition: !Ref TwitterProducerTaskDef
+
+  ForceUpdateServiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Social Media Dashboard] Force updating ECS service on Parameters/Secrets changes.'
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      CodeUri: functions/force_update_function/
+      Environment:
+        Variables:
+          CLUSTER_NAME: !Ref Cluster
+          SERVICE_NAME: !GetAtt TwitterProducerSvc.Name
+      Events:
+        ParametersChange:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source: 
+                - 'aws.ssm'
+              detail-type: 
+                - 'Parameter Store Change'
+              detail: 
+                name:
+                  - !Sub '/${ParentStackName}/Twitter/Topics'
+                  - !Sub '/${ParentStackName}/Twitter/Languages'
+                  - !Sub '/${ParentStackName}/Twitter/FilterLevel'
+                operation:
+                  - Update
+        SecretsChange:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source: 
+                - 'aws.secretsmanager'
+              detail-type: 
+                - 'AWS API Call via CloudTrail'
+              detail:
+                eventSource:
+                  - secretsmanager.amazonaws.com
+                eventName:
+                  - PutSecretValue
+                requestParameters:
+                  secretId:
+                    - !Sub '${ParentStackName}/TwitterCredentials'
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: ecs:UpdateService
+              Resource: !Ref TwitterProducerSvc
 
   # CloudWatch Prometheus
   CloudWatchAgentLogGroup: 
