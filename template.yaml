@@ -45,7 +45,7 @@ Metadata:
           - ElasticsearchMasterNodeInstanceCount
           - ElasticsearchAdvancedSecurityEnabled
       - Label:
-          default: Monitoring Configuration
+          default: Notification Configuration
         Parameters:
           - SlackWorkspaceId
           - SlackChannelId
@@ -154,17 +154,17 @@ Parameters:
 
   SlackWorkspaceId:
     Type: String
-    Default: ''
+    Default: 'disabled'
 
   SlackChannelId:
     Type: String
-    Default: ''
+    Default: 'disabled'
 
 Conditions:
   LabelingJobEnabled: !Equals [ !Ref LabelingJobEnabled, 'true' ]
   SlackEnabled: !And
-    - !Not [!Equals [!Ref SlackWorkspaceId, '']]
-    - !Not [!Equals [!Ref SlackChannelId, '']]
+    - !Not [!Equals [!Ref SlackWorkspaceId, 'disabled']]
+    - !Not [!Equals [!Ref SlackChannelId, 'disabled']]
 
 Globals:
   Function:
@@ -558,8 +558,6 @@ Resources:
         AlarmTopic: !Ref AlarmTopic
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
         DockerHubCredentials: !Ref DockerHubCredentials
-        EcsClusterName: !GetAtt TwitterProducerStack.Outputs.ClusterName
-        EcsServiceName: !GetAtt TwitterProducerStack.Outputs.ServiceName
 
   ElasticsearchStack:
     Type: AWS::CloudFormation::Stack

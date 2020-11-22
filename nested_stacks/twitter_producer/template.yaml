@@ -88,6 +88,7 @@ Resources:
   Cluster:
     Type: AWS::ECS::Cluster
     Properties:
+      ClusterName: !Ref ParentStackName
       ClusterSettings:
         - Name: containerInsights
           Value: enabled
@@ -186,6 +187,7 @@ Resources:
   TwitterProducerSvc:
     Type: AWS::ECS::Service
     Properties:
+      ServiceName: twitter-producer
       Cluster: !Ref Cluster
       DesiredCount: 2
       CapacityProviderStrategy:
@@ -279,6 +281,7 @@ Resources:
   CloudWatchAgentSvc:
     Type: AWS::ECS::Service
     Properties:
+      ServiceName: cloudwatch-agent-prometheus
       Cluster: !Ref Cluster
       DesiredCount: 1
       LaunchType: FARGATE

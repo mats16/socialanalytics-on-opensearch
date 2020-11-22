@@ -45,34 +45,33 @@ def create(event, context):
                 Body=f,
                 ACL=acl,
                 Metadata={
+                    'LayerArn': source_layer_arn,
                     'LayerVersion': layer_version
                 },
             )
             etag = res['ETag'].strip('"')
             version_id = res.get('VersionId', 'None')
     else:
-        fmp_dir = '/tmp/layer/'
+        etag = version_id = 'None'
+        tmp_dir = '/tmp/layer/'
         with zipfile.ZipFile('/tmp/layer.zip') as zf:
             list_f = zf.namelist()
-            zf.extractall(fmp_dir)
+            zf.extractall(tmp_dir)
         for fn in list_f:
-            with open(f'{fmp_dir}{fn}', 'rb') as f:
+            with open(f'{tmp_dir}{fn}', 'rb') as f:
                 res = _s3.put_object(
                     Bucket=bucket,
                     Key=f'{path}{fn}',
                     Body=f,
                     ACL=acl,
                     Metadata={
+                        'LayerArn': source_layer_arn,
                         'LayerVersion': layer_version
                     },
                 )
     print(res)
-    if key:
-        physical_resource_id = f's3://{bucket}/{path}{key}'
-        helper.Data.update({ 'Bucket': bucket, 'Path': f'{path}{key}', 'LayerVersion': layer_version, 'ETag': etag, 'VersionId': version_id })
-    else:
-        physical_resource_id = f's3://{bucket}/{path}'
-        helper.Data.update({ 'Bucket': bucket, 'Path': path, 'LayerVersion': layer_version, 'ETag': 'None', 'VersionId': 'None' })
+    helper.Data.update({ 'Bucket': bucket, 'Path': f'{path}', 'LayerVersion': layer_version, 'ETag': etag, 'VersionId': version_id })
+    physical_resource_id = f's3://{bucket}/{path}{key}' if key else f's3://{bucket}/{path}'
     return physical_resource_id
 
 @helper.delete

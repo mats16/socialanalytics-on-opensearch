@@ -20,11 +20,6 @@ Parameters:
   DockerHubCredentials:
     Type: String
 
-  EcsClusterName:
-    Type: String
-  EcsServiceName:
-    Type: String
-
 Resources:
 
   TwitterProducerRepo:
@@ -255,11 +250,11 @@ Resources:
                 Version: 1
                 Provider: S3
               Configuration:
-                S3Bucket: !GetAtt DockerfileZip.Bucket
-                S3ObjectKey: !GetAtt DockerfileZip.Path
+                S3Bucket: !Ref ArtifactBucket
+                S3ObjectKey: src/dockerfile.zip
               RunOrder: 1
               OutputArtifacts:
-                - Name: DockerfileZip
+                - Name: SourceOutput
         - Name: Build
           Actions:
             - Name: twitter-producer
@@ -278,7 +273,7 @@ Resources:
                   ]
               RunOrder: 1
               InputArtifacts:
-                - Name: DockerfileZip
+                - Name: SourceOutput
               OutputArtifacts:
                 - Name: BuildOutput1
             - Name: fluent-bit
@@ -297,7 +292,7 @@ Resources:
                   ]
               RunOrder: 1
               InputArtifacts:
-                - Name: DockerfileZip
+                - Name: SourceOutput
               OutputArtifacts:
                 - Name: BuildOutput2
         - Name: Deploy
@@ -309,8 +304,8 @@ Resources:
                 Version: 1
                 Provider: ECS
               Configuration:
-                ClusterName: !Ref EcsClusterName
-                ServiceName: !Ref EcsServiceName
+                ClusterName: !Ref ParentStackName
+                ServiceName: twitter-producer
                 FileName: imagedefinitions.json
               RunOrder: 1
               InputArtifacts:
@@ -325,6 +320,7 @@ Resources:
 
   DockerfileZip:
     Type: Custom::S3Objects
+    DependsOn: CodePipeline
     Properties:
       ServiceToken: !Ref S3ObjectsFunctionArn
       Bucket: !Ref ArtifactBucket
