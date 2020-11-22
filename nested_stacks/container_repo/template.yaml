@@ -7,9 +7,6 @@ Parameters:
   ParentStackName:
     Type: String
 
-  AlarmTopic:
-    Type: String
-
   S3ObjectsFunctionArn:
     Type: String
 
@@ -328,10 +325,39 @@ Resources:
       Key: dockerfile.zip
       SourceLayerArn: !Ref DockerfileLayer
 
+  CodePipelineNotificationRule:
+    Type: AWS::CodeStarNotifications::NotificationRule
+    Properties: 
+      DetailType: FULL
+      EventTypeIds:
+        - codepipeline-pipeline-action-execution-succeeded
+        - codepipeline-pipeline-action-execution-failed
+      Name: !Sub 'Notification Rule for CodePipeline'
+      Resource: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${CodePipeline}'
+      Targets: 
+        - TargetType: SNS
+          TargetAddress: !Ref Topic
+
+  Topic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Topic for CodeStar Notifications
+
+  TopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref Topic
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codestar-notifications.amazonaws.com
+            Action: SNS:Publish
+            Resource: !Ref Topic
+
 Outputs:
   
-  TwitterProducerImage:
-    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${TwitterProducerRepo}:${DockerfileZip.ETag}'
-
-  FluentBitImage:
-    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FluentBitRepo}:${DockerfileZip.ETag}'
+  Topic:
+    Value: !Ref Topic

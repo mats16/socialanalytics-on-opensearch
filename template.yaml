@@ -282,12 +282,7 @@ Resources:
   AlarmTopic:
     Type: AWS::SNS::Topic
     Properties: 
-      DisplayName: Topic for Chatbot
-      Tags: 
-        - Key: cloudformation:stack-name
-          Value: !Ref AWS::StackName
-        - Key: cloudformation:stack-id
-          Value: !Ref AWS::StackId
+      DisplayName: Topic for Alarm
 
   ChatbotRole:
     Type: AWS::IAM::Role
@@ -302,17 +297,18 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/ReadOnlyAccess
 
-  AlertBot:
+  ChatBot:
     Type: AWS::Chatbot::SlackChannelConfiguration
     Condition: SlackEnabled
     Properties: 
-      ConfigurationName: Alerting
+      ConfigurationName: default-notification
       LoggingLevel: INFO
       SlackWorkspaceId: !Ref SlackWorkspaceId
       SlackChannelId: !Ref SlackChannelId
       IamRoleArn: !GetAtt ChatbotRole.Arn
       SnsTopicArns: 
         - !Ref AlarmTopic
+        - !GetAtt ContainerRepoStack.Outputs.Topic
 
   # Application Main --------------------------------------
   Bucket:
@@ -555,7 +551,6 @@ Resources:
       TemplateURL: nested_stacks/container_repo/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
-        AlarmTopic: !Ref AlarmTopic
         S3ObjectsFunctionArn: !GetAtt S3ObjectsFunction.Arn
         DockerHubCredentials: !Ref DockerHubCredentials
 
