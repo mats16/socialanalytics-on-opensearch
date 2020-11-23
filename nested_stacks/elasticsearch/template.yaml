@@ -568,6 +568,13 @@ Resources:
                     }
                   },
                   "entities": {
+                    "properties": {
+                      "text": { "type": "keyword" },
+                      "type":  { "type": "keyword" },
+                      "score":  { "type": "double" }
+                    }
+                  },
+                  "entities_text": {
                     "type": "keyword"
                   },
                   "key_phrases": {

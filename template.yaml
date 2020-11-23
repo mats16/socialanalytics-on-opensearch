@@ -367,7 +367,8 @@ Resources:
           POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
           POWERTOOLS_SERVICE_NAME: AnalyticsFunction
           TWEET_DAY_THRESHOLD: 180
-          TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
+          TWITTER_TOPICS: !GetAtt TwitterTopicsParameter.Value
+          TWITTER_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
           INDEXING_STREAM: !Ref IndexingStream
       Events:
@@ -415,7 +416,8 @@ Resources:
           POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
           POWERTOOLS_SERVICE_NAME: AnalyticsFunctionForBatch
           TWEET_DAY_THRESHOLD: 730
-          TWEET_LANGS: !GetAtt TwitterLanguagesParameter.Value
+          TWITTER_TOPICS: !GetAtt TwitterTopicsParameter.Value
+          TWITTER_LANGS: !GetAtt TwitterLanguagesParameter.Value
           COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
           INDEXING_STREAM: !Ref IndexingStream
       Events:

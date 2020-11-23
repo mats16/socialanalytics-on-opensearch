@@ -20,15 +20,16 @@ tracer = Tracer()
 metrics = Metrics()
 
 tweet_day_threshold = int(os.getenv('TWEET_DAY_THRESHOLD'))
-tweet_langs = os.getenv('TWEET_LANGS').split(',')
+twitter_topics = set(map(lambda x: x.lower(), os.getenv('TWITTER_TOPICS').split(',')))
+twitter_langs = os.getenv('TWITTER_LANGS').split(',')
 comprehend_entity_score_threshold = float(os.getenv('COMPREHEND_ENTITY_SCORE_THRESHOLD'))
 indexing_stream = os.getenv('INDEXING_STREAM')
 
-config = Config(
+boto_config = Config(
     retries=dict(max_attempts=20)
 )
-comprehend = boto3.client('comprehend', config=config)
-translate = boto3.client('translate', config=config)
+comprehend = boto3.client('comprehend', config=boto_config)
+translate = boto3.client('translate', config=boto_config)
 kinesis = boto3.client('kinesis')
 
 def normalize(text):
@@ -47,6 +48,46 @@ def gen_es_record(transformed_record):
     es_record['_index'] = 'tweets-' + datetime.fromtimestamp(unixtime).strftime('%Y-%m')
     es_record['_id'] = transformed_record['id_str']
     return es_record
+
+def call_comprehend(text, lang):
+    if lang not in ['en', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'ja', 'ko', 'zh']:
+        res_t = translate.translate_text(Text=text, SourceLanguageCode=lang, TargetLanguageCode='en')
+        text = res_t['TranslatedText']
+        lang = 'en'
+    # Sentiment
+    res_s = comprehend.detect_sentiment(Text=text, LanguageCode=lang)
+    sentiment = res_s['Sentiment']
+    sentiment_score = {
+        'positive': res_s['SentimentScore']['Positive'],
+        'negative': res_s['SentimentScore']['Negative'],
+        'neutral': res_s['SentimentScore']['Neutral'],
+        'mixed': res_s['SentimentScore']['Mixed'],
+    }
+    # Entities
+    res_e = comprehend.detect_entities(Text=text, LanguageCode=lang)
+    entities = [{'text': e['Text'], 'type': e['Type'], 'score': e['Score']} for e in res_e['Entities']]
+    #entities = []
+    entities_text = []
+    for entity in entities:
+        if entity['type'] in ['QUANTITY', 'DATE']:
+            continue
+        elif len(entity['text']) < 2:  # 1文字のとき
+            continue
+        elif entity['score'] >= comprehend_entity_score_threshold:
+            entities_text.append(entity['text'].lower())
+    all_entities_text = set(map(lambda e: e['text'].lstrip('#').lower(), entities))
+    entities_in_topics = True if len(all_entities_text & twitter_topics) > 0 else False
+    data = { 
+        'text': text,
+        'lang': lang,
+        'sentiment': sentiment,
+        'sentiment_score': sentiment_score,
+        'entities': entities,
+        'entities_in_topics': entities_in_topics
+    }
+    if len(entities_text) > 0:
+        data['entities_text'] = list(set(entities_text))
+    return data
 
 @tracer.capture_method
 def transform_record(tweet, update_user_metrics=True, enable_comprehend=True):
@@ -81,7 +122,7 @@ def transform_record(tweet, update_user_metrics=True, enable_comprehend=True):
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/user-object
         if 'id_str' in tweet['user']:
             es_record['user']['id_str'] = tweet['user']['id_str']
-            es_record['url'] = f'https://twitter.com/{tweet["user"]["id_str"]}/status/{tweet["id_str"]}'
+            es_record['url'] = f'https://twitter.com/{tweet["user"]["screen_name"]}/status/{tweet["id_str"]}'
         for att in ['name', 'screen_name', 'lang']:
             if att in tweet['user']:
                 es_record['user'][att] = tweet['user'][att]
@@ -93,50 +134,7 @@ def transform_record(tweet, update_user_metrics=True, enable_comprehend=True):
         es_record['username'] = tweet['username']
         es_record['url'] = f'https://twitter.com/{tweet["username"]}/status/{tweet["id_str"]}'
     if enable_comprehend:
-        # Translate before Comprehend
-        if tweet['lang'] in ['en', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'ja', 'ko', 'zh']:
-            comprehend_text = normalized_text
-            comprehend_lang = tweet['lang']
-        else:
-            response = translate.translate_text(
-                Text=text,
-                SourceLanguageCode=tweet['lang'],
-                TargetLanguageCode='en')
-            comprehend_text = response['TranslatedText']
-            comprehend_lang = 'en'
-        # Sentiment
-        res_sentiment = comprehend.detect_sentiment(
-            Text=comprehend_text,
-            LanguageCode=comprehend_lang
-        )
-        #comprehend_logger.info(res_sentiment)
-        es_record['comprehend'] = { 
-            'text': comprehend_text,    
-            'lang': comprehend_lang,    
-            'sentiment': res_sentiment['Sentiment'],
-            'sentiment_score': {
-                'positive': res_sentiment['SentimentScore']['Positive'],
-                'negative': res_sentiment['SentimentScore']['Negative'],
-                'neutral': res_sentiment['SentimentScore']['Neutral'],
-                'mixed': res_sentiment['SentimentScore']['Mixed'],
-            }
-        }
-        # Entities
-        res_entities = comprehend.detect_entities(
-            Text=comprehend_text,
-            LanguageCode=comprehend_lang
-        )
-        #comprehend_logger.info(res_entities)
-        entities = []
-        for entity in res_entities['Entities']:
-            if entity['Type'] in ['QUANTITY', 'DATE']:
-                continue
-            elif len(entity['Text']) < 2:  # 1文字のとき
-                continue
-            elif entity['Score'] >= comprehend_entity_score_threshold:
-                entities.append(entity['Text'].lower())
-        if len(entities) > 0:
-            es_record['comprehend']['entities'] = list(set(entities))
+        es_record['comprehend'] = call_comprehend(normalized_text, tweet['lang'])
     return es_record
 
 def json_loader(record):
@@ -170,7 +168,7 @@ def lambda_handler(event, context):
                 retweet_count += 1
                 transfored_record_org = transform_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
                 transfored_record['retweeted_status'] = transfored_record_org
-                if transfored_record_org['lang'] not in tweet_langs:
+                if transfored_record_org['lang'] not in twitter_langs:
                     transfored_record_org = None  # 元tweetが他言語の場合、取り込まない
                 elif transfored_record_org['created_at'] < time_threshold:
                     logger.info({
@@ -185,10 +183,10 @@ def lambda_handler(event, context):
                 quote_count += 1
                 transfored_record_org = transform_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
                 transfored_record['quoted_status'] = transfored_record_org
-                if transfored_record_org['lang'] not in tweet_langs:
+                if transfored_record_org['lang'] not in twitter_langs:
                     logger.info({
                         'state': 'skip_record',
-                        'reason': f'The tweet is not in {str(tweet_langs)}.',
+                        'reason': f'The tweet is not in {str(twitter_langs)}.',
                         'tweet_type': 'quote',
                         'tweet': transfored_record_org
                     })
