@@ -468,6 +468,7 @@ Resources:
       Threshold: 0
       EvaluationPeriods: 1
       DatapointsToAlarm: 1
+      TreatMissingData: notBreaching
 
   AnalyticsFunctionForBatchErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -488,6 +489,7 @@ Resources:
       Threshold: 0
       EvaluationPeriods: 1
       DatapointsToAlarm: 1
+      TreatMissingData: notBreaching
 
 #  TweetEventBus:
 #    Type: AWS::Events::EventBus

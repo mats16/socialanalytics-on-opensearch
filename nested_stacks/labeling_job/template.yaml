@@ -93,6 +93,7 @@ Resources:
       Threshold: 0
       EvaluationPeriods: 1
       DatapointsToAlarm: 1
+      TreatMissingData: notBreaching
 
   GtRecipePreAnnotationJsonLoad:
     Type: AWS::Serverless::Function

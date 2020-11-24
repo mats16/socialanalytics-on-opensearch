@@ -135,6 +135,7 @@ Resources:
       Threshold: 0
       EvaluationPeriods: 1
       DatapointsToAlarm: 1
+      TreatMissingData: notBreaching
 
   IndexerRole:
     Type: Custom::Role
@@ -799,6 +800,9 @@ Resources:
         - !Ref ElasticsearchClientLayer
 
 Outputs:
+
+  Elasticsearch:
+    Value: !Ref Elasticsearch
 
   ElasticsearchArn:
     Value: !GetAtt Elasticsearch.Arn
