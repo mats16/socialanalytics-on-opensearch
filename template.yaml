@@ -53,7 +53,7 @@ Metadata:
 Parameters:
 
   TwitterTermList:
-    Description: List of terms for twitter to listen to
+    Description: List of terms at calling twitter API and filtering on analytics lambda
     Type: CommaDelimitedList
     Default: "AWS,EC2,RDS,S3"
 

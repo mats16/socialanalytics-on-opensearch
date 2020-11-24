@@ -14,7 +14,6 @@ import emoji
 import re
 from datetime import datetime, timedelta, timezone
 
-comprehend_logger = Logger(service="comprehend")
 logger = Logger()
 tracer = Tracer()
 metrics = Metrics()
@@ -35,7 +34,8 @@ kinesis = boto3.client('kinesis')
 def normalize(text):
     #text_without_account = re.sub(r'@[a-zA-Z0-9_]+', '', text)  # remove twitter_account
     text_without_url = re.sub(r'https?://[\w/;:%#\$&\?\(\)~\.=\+\-]+', '', text)  # remove URL
-    text_normalized = neologdn.normalize(text_without_url).replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+    #text_normalized = neologdn.normalize(text_without_url).replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+    text_normalized = text_without_url.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
     text_without_emoji = ''.join(['' if c in emoji.UNICODE_EMOJI else c for c in text_normalized])
     #tmp = re.sub(r'(\d)([,.])(\d+)', r'\1\3', text_without_emoji)
     #text_replaced_number = re.sub(r'\d+', '0', tmp)
@@ -49,7 +49,17 @@ def gen_es_record(transformed_record):
     es_record['_id'] = transformed_record['id_str']
     return es_record
 
-def call_comprehend(text, lang):
+def filter_entity(entity):
+    if entity['type'] in ['QUANTITY', 'DATE']:
+        return False
+    elif len(entity['text']) < 2:  # 1文字のとき
+        return False
+    elif entity['score'] < comprehend_entity_score_threshold:
+        return False
+    else:
+        return True
+
+def gen_comprehend_object(text, lang):
     if lang not in ['en', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'ja', 'ko', 'zh']:
         res_t = translate.translate_text(Text=text, SourceLanguageCode=lang, TargetLanguageCode='en')
         text = res_t['TranslatedText']
@@ -65,44 +75,39 @@ def call_comprehend(text, lang):
     }
     # Entities
     res_e = comprehend.detect_entities(Text=text, LanguageCode=lang)
-    entities = [{'text': e['Text'], 'type': e['Type'], 'score': e['Score']} for e in res_e['Entities']]
-    #entities = []
-    entities_text = []
-    for entity in entities:
-        if entity['type'] in ['QUANTITY', 'DATE']:
-            continue
-        elif len(entity['text']) < 2:  # 1文字のとき
-            continue
-        elif entity['score'] >= comprehend_entity_score_threshold:
-            entities_text.append(entity['text'].lower())
-    all_entities_text = set(map(lambda e: e['text'].lstrip('#').lower(), entities))
+    raw_entities = [{'text': e['Text'], 'type': e['Type'], 'score': e['Score']} for e in res_e['Entities']]
+    entities = list(set([entity['text'].lower() for entity in raw_entities if filter_entity(entity)]))
+    all_entities_text = set(map(lambda e: e['text'].lstrip('#').lower(), raw_entities))
     entities_in_topics = True if len(all_entities_text & twitter_topics) > 0 else False
     data = { 
         'text': text,
         'lang': lang,
         'sentiment': sentiment,
         'sentiment_score': sentiment_score,
-        'entities': entities,
         'entities_in_topics': entities_in_topics
     }
-    if len(entities_text) > 0:
-        data['entities_text'] = list(set(entities_text))
+    if len(entities) > 0:
+        data['entities'] = entities
+    if len(raw_entities) > 0:
+        data['raw_entities'] = raw_entities
     return data
 
 @tracer.capture_method
 def transform_record(tweet, update_user_metrics=True, enable_comprehend=True):
-    is_retweet_status = True if 'retweeted_status' in tweet else False
     is_quote_status = tweet.get('is_quote_status', False)
-
-    tweet_text = tweet['extended_tweet']['full_text'] if tweet.get('truncated', False) else tweet['text']
+    is_retweet_status = True if 'retweeted_status' in tweet else False
+    if is_retweet_status:
+        tweet_text =  'RT ' + tweet['retweeted_status']['extended_tweet']['full_text'] if tweet['retweeted_status'].get('truncated', False) else tweet['text']
+    else:
+        tweet_text = tweet['extended_tweet']['full_text'] if tweet.get('truncated', False) else tweet['text']
     normalized_text = normalize(tweet_text)
-    created_at = datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y')
+    created_at = int(datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y').timestamp())
     es_record = {
         'id_str': tweet['id_str'],
         'text': tweet_text,
         'normalized_text': normalized_text,
         'lang': tweet['lang'],
-        'created_at': int(created_at.timestamp()),
+        'created_at': created_at,
         'is_retweet_status': is_retweet_status,
         'is_quote_status': is_quote_status,
     }
@@ -117,27 +122,25 @@ def transform_record(tweet, update_user_metrics=True, enable_comprehend=True):
     if len(hashtags) > 0:
         es_record['hashtags'] = hashtags
     if 'user' in tweet:
-        es_record['username'] = tweet['user']['screen_name']
-        es_record['user'] = {}
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/user-object
-        if 'id_str' in tweet['user']:
-            es_record['user']['id_str'] = tweet['user']['id_str']
-            es_record['url'] = f'https://twitter.com/{tweet["user"]["screen_name"]}/status/{tweet["id_str"]}'
-        for att in ['name', 'screen_name', 'lang']:
+        es_record['user'] = {}
+        for att in ['id_str', 'name', 'screen_name', 'lang']:
             if att in tweet['user']:
                 es_record['user'][att] = tweet['user'][att]
         if update_user_metrics: # retweet の場合など、過去のフォロワー数等を上書きしたくない場合はスキップする
             for att in ['followers_count', 'friends_count', 'listed_count', 'favourites_count', 'statuses_count']:
                 if att in tweet['user']:
                     es_record['user'][att] = tweet['user'][att]
+        es_record['url'] = f'https://twitter.com/{es_record["user"]["screen_name"]}/status/{es_record["id_str"]}'
+        es_record['username'] = es_record['user']['screen_name']
     elif 'username' in tweet:  # クロールしたデータ用
         es_record['username'] = tweet['username']
         es_record['url'] = f'https://twitter.com/{tweet["username"]}/status/{tweet["id_str"]}'
     if enable_comprehend:
-        es_record['comprehend'] = call_comprehend(normalized_text, tweet['lang'])
+        es_record['comprehend'] = gen_comprehend_object(normalized_text, tweet['lang'])
     return es_record
 
-def json_loader(record):
+def kinesis_record_to_json(record):
     b64_data = record['kinesis']['data']
     str_data = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
     json_data = json.loads(str_data)
@@ -148,7 +151,7 @@ def json_loader(record):
 def lambda_handler(event, context):
     records = event['Records']
     metrics.add_metric(name="IncomingRecords", unit=MetricUnit.Count, value=len(records))
-    json_records = list( map(json_loader, records) )
+    json_records = list( map(kinesis_record_to_json, records) )
     distinct_json_records = list( { rec['id_str']:rec for rec in json_records }.values() )  # 重複排除
     metrics.add_metric(name="DistinctIncomingRecords", unit=MetricUnit.Count, value=len(distinct_json_records))
 
@@ -158,58 +161,38 @@ def lambda_handler(event, context):
     for tweet in distinct_json_records:
         created_at = int(datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S %z %Y').timestamp())
         if created_at < time_threshold:
-            continue  # 365日以上前の場合はスキップ
-
+            continue  # 一定以上前の場合はスキップ
+        else:
+            tweet_count += 1
         transfored_record = transform_record(tweet)
-        tweet_count += 1
-
         if transfored_record['is_retweet_status']:
             if 'retweeted_status' in tweet:
                 retweet_count += 1
-                transfored_record_org = transform_record(tweet['retweeted_status'], update_user_metrics=False, enable_comprehend=False)
-                transfored_record['retweeted_status'] = transfored_record_org
-                if transfored_record_org['lang'] not in twitter_langs:
-                    transfored_record_org = None  # 元tweetが他言語の場合、取り込まない
-                elif transfored_record_org['created_at'] < time_threshold:
-                    logger.info({
-                        'state': 'skip_record',
-                        'reason': 'The tweet is too old.',
-                        'tweet_type': 'retweet',
-                        'tweet': transfored_record_org
-                    })
-                    continue  # 元tweetが一定以上古い場合は全てスキップ
+                old_tweet = tweet['retweeted_status']
+                old_created_at = int(datetime.strptime(old_tweet['created_at'], '%a %b %d %H:%M:%S %z %Y').timestamp())
+                if old_tweet['lang'] in twitter_langs and old_created_at >= time_threshold:
+                    transfored_old_record = transform_record(old_tweet, update_user_metrics=False, enable_comprehend=False)
+                else:
+                    continue
         elif transfored_record['is_quote_status']:
             if 'quoted_status' in tweet:
                 quote_count += 1
-                transfored_record_org = transform_record(tweet['quoted_status'], update_user_metrics=False, enable_comprehend=False)
-                transfored_record['quoted_status'] = transfored_record_org
-                if transfored_record_org['lang'] not in twitter_langs:
-                    logger.info({
-                        'state': 'skip_record',
-                        'reason': f'The tweet is not in {str(twitter_langs)}.',
-                        'tweet_type': 'quote',
-                        'tweet': transfored_record_org
-                    })
-                    transfored_record_org = None
-                elif transfored_record_org['created_at'] < time_threshold:
-                    logger.info({
-                        'state': 'skip_record',
-                        'reason': 'The tweet is too old.',
-                        'tweet_type': 'quote',
-                        'tweet': transfored_record_org
-                    })
-                    transfored_record_org = None  # 元tweetが一定以上古い場合は引用tweetのみ（過去indexが無限にできるので）
+                old_tweet = tweet['quoted_status']
+                old_created_at = int(datetime.strptime(old_tweet['created_at'], '%a %b %d %H:%M:%S %z %Y').timestamp())
+                if old_tweet['lang'] in twitter_langs and old_created_at >= time_threshold:
+                    transfored_old_record = transform_record(old_tweet, update_user_metrics=False, enable_comprehend=False)
+                else:
+                    transfored_old_record = None
         else:
-            transfored_record_org = None
+            transfored_old_record = None
 
-        for i in [transfored_record, transfored_record_org]:
-            if i:
-                es_record = gen_es_record(i)
+        for rec in [transfored_record, transfored_old_record]:
+            if rec:
+                es_record = gen_es_record(rec)
                 es_records.append({
                     'Data': json.dumps(es_record) + '\n',
-                    'PartitionKey': i['_id']
+                    'PartitionKey': rec['_id']
                 })
-
     if len(es_records) > 0:
         metrics.add_metric(name="OutgoingRecords", unit=MetricUnit.Count, value=len(es_records))
         res = kinesis.put_records(

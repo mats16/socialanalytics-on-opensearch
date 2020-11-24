@@ -18,7 +18,7 @@ metrics = Metrics()
 
 sns = boto3.client('sns')
 
-def json_loader(record):
+def kinesis_record_to_json(record):
     b64_data = record['kinesis']['data']
     str_data = base64.b64decode(b64_data).decode('utf-8').rstrip('\n')
     json_data = json.loads(str_data)
@@ -29,7 +29,7 @@ def json_loader(record):
 def lambda_handler(event, context):
     records = event['Records']
     metrics.add_metric(name="IncomingRecords", unit=MetricUnit.Count, value=len(records))
-    json_records = list( map(json_loader, records) )
+    json_records = list( map(kinesis_record_to_json, records) )
     distinct_json_records = list( { rec['id_str']:rec for rec in json_records }.values() )  # 重複排除
     metrics.add_metric(name="DistinctIncomingRecords", unit=MetricUnit.Count, value=len(distinct_json_records))
 
