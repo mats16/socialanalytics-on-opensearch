@@ -212,7 +212,7 @@ Resources:
       Description: '[Social Media Dashboard] Force updating ECS service on Parameters/Secrets changes.'
       Runtime: python3.8
       Handler: index.lambda_handler
-      CodeUri: functions/force_update_function/
+      CodeUri: functions/force_update_service/
       Environment:
         Variables:
           CLUSTER_NAME: !Ref Cluster
