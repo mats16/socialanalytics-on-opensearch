@@ -668,8 +668,114 @@ Resources:
                 "type": "metric",
                 "x": 0,
                 "y": 0,
-                "width": 12,
-                "height": 6,
+                "width": 8,
+                "height": 8,
+                "properties":{
+                    "metrics":[
+                      [
+                          "ECS/ContainerInsights/Prometheus", "fluentbit_output_proc_records_total",
+                          "ClusterName", "${TwitterProducerStack.Outputs.ClusterName}",
+                          "TaskGroup", "service:${TwitterProducerStack.Outputs.ServiceName}",
+                          "name", "kinesis.0",
+                          { "label": "FluentBit OutgoingRecords" }
+                      ]
+                    ],
+                    "period": 300,
+                    "stat": "Sum",
+                    "region": "us-west-2",
+                    "title": "Tweet producer containers",
+                    "liveData": false,
+                    "legend": {
+                      "position": "bottom"
+                    }
+                }
+              },
+              {
+                "type": "metric",
+                "x": 8,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "properties":{
+                    "metrics":[
+                      [
+                          "AWS/Kinesis", "IncomingRecords",
+                          "StreamName", "${TweetStream}",
+                          { "label": "TweetStream IncomingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "ProcessingRecords",
+                          "service", "AnalyticsFunction",
+                          { "label": "AnalyticsFunction ProcessingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "OutgoingRecords",
+                          "service", "AnalyticsFunction",
+                          { "label": "AnalyticsFunction OutgoingRecords" }
+                      ]
+                    ],
+                    "period": 300,
+                    "stat": "Sum",
+                    "region": "us-west-2",
+                    "title": "Analytics process",
+                    "liveData": false,
+                    "legend": {
+                      "position": "bottom"
+                    }
+                }
+              },
+              {
+                "type": "metric",
+                "x": 16,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "properties":{
+                    "metrics":[
+                      [
+                          "AWS/Kinesis", "IncomingRecords",
+                          "StreamName", "${IndexingStream}",
+                          { "label": "IndexingStream IncomingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "ProcessingRecords",
+                          "service", "IndexingFunction",
+                          { "label": "IndexingFunction ProcessingRecords" }
+                      ],
+                      [
+                          "Lambda/Custom", "ErrorRecords",
+                          "service", "IndexingFunction",
+                          { "label": "IndexingFunction ErrorRecords" }
+                      ],
+                      [
+                          "AWS/ES", "IndexingRate",
+                          "DomainName", "${ElasticsearchStack.Outputs.Elasticsearch}",
+                          "ClientId", "${AWS::AccountId}",
+                          { "label": "Elasticsearch IndexingRate" }
+                      ],
+                      [
+                          "AWS/ES", "IndexingLatency",
+                          "DomainName", "${ElasticsearchStack.Outputs.Elasticsearch}",
+                          "ClientId", "${AWS::AccountId}",
+                          { "label": "Elasticsearch IndexingLatency", "stat": "Average", "yAxis": "right" }
+                      ]
+                    ],
+                    "period": 300,
+                    "stat": "Sum",
+                    "region": "us-west-2",
+                    "title": "Elasticsearch indexing",
+                    "liveData": false,
+                    "legend": {
+                      "position": "bottom"
+                    }
+                }
+              },
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 8,
+                "width": 8,
+                "height": 8,
                 "properties":{
                     "metrics":[
                       [
@@ -680,7 +786,7 @@ Resources:
                       [
                           "AWS/Kinesis", "IncomingRecords",
                           "StreamName", "${TweetStream}",
-                          { "label": "TweetStream", "yAxis": "right" }
+                          { "label": "TweetStream", "stat": "Average", "yAxis": "right" }
                       ]
                     ],
                     "period": 300,
@@ -695,39 +801,10 @@ Resources:
               },
               {
                 "type": "metric",
-                "x": 13,
-                "y": 0,
-                "width": 12,
-                "height": 6,
-                "properties":{
-                    "metrics":[
-                      [
-                          "AWS/Lambda", "Invocations",
-                          "FunctionName", "${AnalyticsFunctionForBatch}",
-                          { "label": "AnalyticsFunction" }
-                      ],
-                      [
-                          "AWS/Kinesis", "IncomingRecords",
-                          "StreamName", "${TweetStreamForBatch}",
-                          { "label": "TweetStream", "yAxis": "right" }
-                      ]
-                    ],
-                    "period": 300,
-                    "stat": "Sum",
-                    "region": "us-west-2",
-                    "title": "[Batch] Tweet Analytics",
-                    "liveData": false,
-                    "legend": {
-                      "position": "bottom"
-                    }
-                }
-              },
-              {
-                "type": "metric",
-                "x": 0,
-                "y": 7,
-                "width": 12,
-                "height": 6,
+                "x": 8,
+                "y": 8,
+                "width": 8,
+                "height": 8,
                 "properties":{
                     "metrics":[
                       [
@@ -754,70 +831,26 @@ Resources:
               {
                 "type": "metric",
                 "x": 0,
-                "y": 13,
-                "width": 12,
-                "height": 6,
+                "y": 16,
+                "width": 8,
+                "height": 8,
                 "properties":{
                     "metrics":[
                       [
-                          "ECS/ContainerInsights/Prometheus", "fluentbit_input_records_total",
-                          "ClusterName", "${TwitterProducerStack.Outputs.ClusterName}",
-                          "TaskGroup", "service:${TwitterProducerStack.Outputs.ServiceName}",
-                          "name", "forward.0",
-                          { "label": "FluentBit IncomingRecords" }
-                      ],
-                      [
-                          "ECS/ContainerInsights/Prometheus", "fluentbit_output_proc_records_total",
-                          "ClusterName", "${TwitterProducerStack.Outputs.ClusterName}",
-                          "TaskGroup", "service:${TwitterProducerStack.Outputs.ServiceName}",
-                          "name", "kinesis.0",
-                          { "label": "FluentBit OutgoingRecords" }
+                          "AWS/Lambda", "Invocations",
+                          "FunctionName", "${AnalyticsFunctionForBatch}",
+                          { "label": "AnalyticsFunction" }
                       ],
                       [
                           "AWS/Kinesis", "IncomingRecords",
-                          "StreamName", "${TweetStream}",
-                          { "label": "TweetStream IncomingRecords" }
-                      ],
-                      [
-                          "Lambda/Custom", "IncomingRecords",
-                          "service", "AnalyticsFunction",
-                          { "label": "AnalyticsFunction IncomingRecords" }
-                      ],
-                      [
-                          "Lambda/Custom", "DistinctIncomingRecords",
-                          "service", "AnalyticsFunction",
-                          { "label": "AnalyticsFunction DistinctIncomingRecords" }
-                      ],
-                      [
-                          "Lambda/Custom", "OutgoingRecords",
-                          "service", "AnalyticsFunction",
-                          { "label": "AnalyticsFunction OutgoingRecords" }
-                      ],
-                      [
-                          "AWS/Kinesis", "IncomingRecords",
-                          "StreamName", "${IndexingStream}",
-                          { "label": "IndexingStream IncomingRecords" }
-                      ],
-                      [
-                          "Lambda/Custom", "IncomingRecords",
-                          "service", "IndexingFunction",
-                          { "label": "IndexingFunction IncomingRecords" }
-                      ],
-                      [
-                          "Lambda/Custom", "DistinctIncomingRecords",
-                          "service", "IndexingFunction",
-                          { "label": "IndexingFunction DistinctIncomingRecords" }
-                      ],
-                      [
-                          "Lambda/Custom", "OutgoingRecords",
-                          "service", "IndexingFunction",
-                          { "label": "IndexingFunction OutgoingRecords" }
+                          "StreamName", "${TweetStreamForBatch}",
+                          { "label": "TweetStream", "yAxis": "right" }
                       ]
                     ],
                     "period": 300,
                     "stat": "Sum",
                     "region": "us-west-2",
-                    "title": "Processed Records",
+                    "title": "[Batch] Tweet Analytics",
                     "liveData": false,
                     "legend": {
                       "position": "bottom"

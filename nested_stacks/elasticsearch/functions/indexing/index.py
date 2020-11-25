@@ -63,16 +63,19 @@ def lambda_handler(event, context):
             }
             bulk_data += json.dumps(bulk_header) + '\n'
             bulk_data += json.dumps({'doc': json_record, 'doc_as_upsert': True}) + '\n'
-
-    metrics.add_metric(name="OutgoingRecords", unit=MetricUnit.Count, value=record_count)
+    metrics.add_metric(name="ProcessingRecords", unit=MetricUnit.Count, value=record_count)
+    errors = 0
     if len(bulk_data) > 0:
         res = es_bulk_load(bulk_data)
-        logger.info(res)
-
-        with single_metric(name="TookTime", unit=MetricUnit.Count, value=res['took'], namespace="Elasticsearch/Custom") as metric:
+        took = res['took']
+        with single_metric(name="TookTime", unit=MetricUnit.Microseconds, value=took, namespace="Elasticsearch/Custom") as metric:
             metric.add_dimension(name="API", value="Bulk")
 
         if res['errors']:
-            logger.error(res['errors'])
-            return 'false' 
+            for i in res['items']:
+                if i['update']['status'] != 200:
+                    errors += 1
+            logger.error(res)
+    metrics.add_metric(name="ErrorRecords", unit=MetricUnit.Count, value=errors)
+    metrics.add_metric(name="OutgoingRecords", unit=MetricUnit.Count, value=record_count - errors)
     return 'true'

@@ -153,7 +153,7 @@ def lambda_handler(event, context):
     metrics.add_metric(name="IncomingRecords", unit=MetricUnit.Count, value=len(records))
     json_records = list( map(kinesis_record_to_json, records) )
     distinct_json_records = list( { rec['id_str']:rec for rec in json_records }.values() )  # 重複排除
-    metrics.add_metric(name="DistinctIncomingRecords", unit=MetricUnit.Count, value=len(distinct_json_records))
+    #metrics.add_metric(name="DistinctIncomingRecords", unit=MetricUnit.Count, value=len(distinct_json_records))
 
     time_threshold = int((datetime.now(timezone.utc) - timedelta(days=tweet_day_threshold)).timestamp())
     tweet_count, retweet_count, quote_count, old_count = 0, 0, 0, 0
@@ -193,6 +193,7 @@ def lambda_handler(event, context):
                     'Data': json.dumps(es_record) + '\n',
                     'PartitionKey': rec['_id']
                 })
+    metrics.add_metric(name="ProcessingRecords", unit=MetricUnit.Count, value=tweet_count)
     if len(es_records) > 0:
         metrics.add_metric(name="OutgoingRecords", unit=MetricUnit.Count, value=len(es_records))
         res = kinesis.put_records(
