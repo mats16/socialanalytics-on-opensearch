@@ -165,6 +165,7 @@ def lambda_handler(event, context):
         else:
             tweet_count += 1
         transfored_record = transform_record(tweet)
+        transfored_record['raw'] = tweet
         if transfored_record['is_retweet_status']:
             if 'retweeted_status' in tweet:
                 retweet_count += 1

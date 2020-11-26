@@ -34,6 +34,7 @@ Metadata:
         Parameters:
           - ComprehendEntityScoreThreshold
           - SignupAllowedDomains
+          - LabelingJobEnabled
       - Label:
           default: Elasticsearch Configuration
         Parameters:
@@ -44,6 +45,11 @@ Metadata:
           - ElasticsearchMasterNodeInstanceType
           - ElasticsearchMasterNodeInstanceCount
           - ElasticsearchAdvancedSecurityEnabled
+      - Label:
+          default: Build Configuration
+        Parameters:
+          - DockerHubUsername
+          - DockerHubAccessToken
       - Label:
           default: Notification Configuration
         Parameters:
@@ -89,9 +95,11 @@ Parameters:
   DockerHubUsername:
     Description: DockerHub username used in CodeBuild
     Type: String
+    Default: ''
   DockerHubAccessToken:
     Description: DockerHub access token used in CodeBuild
     Type: String
+    Default: ''
     NoEcho: True
 
   ComprehendEntityScoreThreshold:
@@ -309,6 +317,9 @@ Resources:
       SnsTopicArns: 
         - !Ref AlarmTopic
         - !GetAtt ContainerRepoStack.Outputs.Topic
+        - !GetAtt ElasticsearchStack.Outputs.Topic
+        - !GetAtt DataLakeStack.Outputs.Topic
+        - !If [ LabelingJobEnabled, !GetAtt LabelingStack.Outputs.Topic, !Ref AWS::NoValue ]
 
   # Application Main --------------------------------------
   Bucket:
@@ -540,7 +551,6 @@ Resources:
       TemplateURL: nested_stacks/twitter_producer/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
-        AlarmTopic: !Ref AlarmTopic
         VpcId: !GetAtt VpcStack.Outputs.VpcId
         PublicSubnetList: !GetAtt VpcStack.Outputs.PublicSubnetList
         TweetStreamName: !Ref TweetStream
@@ -564,7 +574,6 @@ Resources:
       TemplateURL: nested_stacks/elasticsearch/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
-        AlarmTopic: !Ref AlarmTopic
         IndexingStreamArn: !GetAtt IndexingStream.Arn
         UserPool: !Ref UserPool
         PowertoolsLayer: !Ref PowertoolsLayer
@@ -584,7 +593,6 @@ Resources:
       TemplateURL: nested_stacks/datalake/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
-        AlarmTopic: !Ref AlarmTopic
         Bucket: !Ref Bucket
         TweetStreamArn: !GetAtt TweetStream.Arn
 
@@ -595,7 +603,6 @@ Resources:
       TemplateURL: nested_stacks/labeling_job/template.yaml
       Parameters:
         ParentStackName: !Ref AWS::StackName
-        AlarmTopic: !Ref AlarmTopic
         TweetStreamArn: !GetAtt TweetStream.Arn
         UserPoolId: !Ref UserPool
         Bucket: !Ref Bucket

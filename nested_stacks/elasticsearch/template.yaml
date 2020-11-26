@@ -7,9 +7,6 @@ Parameters:
   ParentStackName:
     Type: String
 
-  AlarmTopic:
-    Type: String
-
   IndexingStreamArn:
     Type: String
 
@@ -128,9 +125,9 @@ Resources:
       Statistic: Sum
       Period: 60
       AlarmActions: 
-        - !Ref AlarmTopic
+        - !Ref Topic
       OKActions: 
-        - !Ref AlarmTopic
+        - !Ref Topic
       ComparisonOperator: GreaterThanThreshold
       Threshold: 0
       EvaluationPeriods: 1
@@ -477,7 +474,8 @@ Resources:
                 "type": "text"
               },
               "normalized_text": {
-                "type": "text"
+                "type": "text",
+                "index": false
               },
               "source": {
                 "type": "keyword"
@@ -552,7 +550,8 @@ Resources:
               "comprehend": {
                 "properties": {
                   "text": {
-                    "type": "text"
+                    "type": "text",
+                    "index": false
                   },
                   "lang": {
                     "type": "keyword"
@@ -572,11 +571,8 @@ Resources:
                     "type": "keyword"
                   },
                   "raw_entities": {
-                    "properties": {
-                      "text": { "type": "keyword" },
-                      "type":  { "type": "keyword" },
-                      "score":  { "type": "double" }
-                    }
+                    "type": "object",
+                    "enabled": false
                   },
                   "key_phrases": {
                     "type": "keyword"
@@ -593,10 +589,12 @@ Resources:
                     "type": "keyword"
                   },
                   "text": {
-                    "type": "text"
+                    "type": "text",
+                    "index": false
                   },
                   "normalized_text": {
-                    "type": "text"
+                    "type": "text",
+                    "index": false
                   },
                   "source": {
                     "type": "keyword"
@@ -680,10 +678,12 @@ Resources:
                     "type": "keyword"
                   },
                   "text": {
-                    "type": "text"
+                    "type": "text",
+                    "index": false
                   },
                   "normalized_text": {
-                    "type": "text"
+                    "type": "text",
+                    "index": false
                   },
                   "source": {
                     "type": "keyword"
@@ -756,6 +756,10 @@ Resources:
                     }
                   }
                 }
+              },
+              "raw": {
+                "type": "object",
+                "enabled": false
               }
             }
           }
@@ -799,6 +803,11 @@ Resources:
       Layers:
         - !Ref ElasticsearchClientLayer
 
+  Topic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Topic for Elasticsearch Stack
+
 Outputs:
 
   Elasticsearch:
@@ -815,3 +824,6 @@ Outputs:
 
   IndexingFunction:
     Value: !Ref IndexingFunction
+
+  Topic:
+    Value: !Ref Topic

@@ -7,9 +7,6 @@ Parameters:
   ParentStackName:
     Type: String
 
-  AlarmTopic:
-    Type: String
-
   TweetStreamArn:
     Type: String
 
@@ -86,9 +83,9 @@ Resources:
       Statistic: Sum
       Period: 60
       AlarmActions: 
-        - !Ref AlarmTopic
+        - !Ref Topic
       OKActions: 
-        - !Ref AlarmTopic
+        - !Ref Topic
       ComparisonOperator: GreaterThanThreshold
       Threshold: 0
       EvaluationPeriods: 1
@@ -165,7 +162,7 @@ Resources:
       LabelAttributeName: TweetTechOrNotClassification
       InputTopicArn: !Ref GroundTruthTweetTechOrNotInput
       OutputTopicArn: !Ref GroundTruthTweetTechOrNotOutput
-      S3OutputPath: !Sub 's3://${Bucket}/groundtruth/jobs/'
+      S3OutputPath: !Sub 's3://${Bucket}/groundtruth/jobs'
       WorkteamArn: !Ref Workteam
       HumanTaskTitle: !Sub 'Tweet tech or not classification v${TweetTechOrNotAssets.LayerVersion}'
       UiTemplateS3Uri: !Sub 's3://${TweetTechOrNotAssets.Bucket}/${TweetTechOrNotAssets.Path}template.html'
@@ -206,7 +203,7 @@ Resources:
       LabelAttributeName: TweetTechCategoryClassification
       InputTopicArn: !Ref GroundTruthTweetTechOrNotOutput
       OutputTopicArn: !Ref GroundTruthTweetTechCategoryOutput
-      S3OutputPath: !Sub 's3://${Bucket}/groundtruth/jobs/'
+      S3OutputPath: !Sub 's3://${Bucket}/groundtruth/jobs'
       WorkteamArn: !Ref Workteam
       HumanTaskTitle: !Sub 'Tweet tech category classification v${TweetTechCategoryAssets.LayerVersion}'
       UiTemplateS3Uri: !Sub 's3://${TweetTechCategoryAssets.Bucket}/${TweetTechCategoryAssets.Path}template.html'
@@ -334,7 +331,15 @@ Resources:
                 - 'cognito-idp:DescribeUserPoolClient'
               Resource: '*'
 
+  Topic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Topic for labeling job stack
+
 Outputs:
+
+  Topic:
+    Value: !Ref Topic
 
   GroundTruthInputFunction:
     Value: !Ref GroundTruthInputFunction

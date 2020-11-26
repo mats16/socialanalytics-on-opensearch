@@ -7,9 +7,6 @@ Parameters:
   ParentStackName:
     Type: String
 
-  AlarmTopic:
-    Type: String
-
   VpcId:
     Type: String
   

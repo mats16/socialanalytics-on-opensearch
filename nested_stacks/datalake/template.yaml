@@ -1,12 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
 Description: '[Social Media Dashboard] DataLake Stack'
 
 Parameters:
 
   ParentStackName:
-    Type: String
-
-  AlarmTopic:
     Type: String
 
   Bucket:
@@ -118,7 +116,7 @@ Resources:
           classification: json
 
   TweetArchivedTable:
-    Type: "AWS::Glue::Table"
+    Type: AWS::Glue::Table
     Properties:
       CatalogId: !Ref AWS::AccountId
       DatabaseName: !Ref DataLakeDB
@@ -239,7 +237,7 @@ Resources:
           compressionType: gzip
 
   TweetRawTable:
-    Type: "AWS::Glue::Table"
+    Type: AWS::Glue::Table
     Properties:
       CatalogId: !Ref AWS::AccountId
       DatabaseName: !Ref DataLakeDB
@@ -361,7 +359,7 @@ Resources:
           classification: json
 
   TweetCrawledTable:
-    Type: "AWS::Glue::Table"
+    Type: AWS::Glue::Table
     Properties:
       CatalogId: !Ref AWS::AccountId
       DatabaseName: !Ref DataLakeDB
@@ -443,7 +441,8 @@ Resources:
                 Action: 's3:*'
                 Resource:
                   - !Sub 'arn:aws:s3:::${Bucket}'
-                  - !Sub 'arn:aws:s3:::${Bucket}/data/*'
+                  - !Sub 'arn:aws:s3:::${Bucket}/data/tweet_archived/*'
+                  - !Sub 'arn:aws:s3:::${Bucket}/groundtruth/input/*'
 
   TweetArchiveJob:
     Type: AWS::Glue::Job
@@ -487,10 +486,77 @@ Resources:
         "--job-language": "python"
         "--SRC_DB_NAME": !Ref DataLakeDB
         "--SRC_TABLE_NAME": !Ref TweetArchivedTable
-        "--DEST_S3_PATH": !Sub 's3://${Bucket}/groundtruth/input/tweet_text'
+        "--DEST_S3_PATH": !Sub 's3://${Bucket}/groundtruth/input/raw_tweet'
       MaxCapacity: 10
       MaxRetries: 2
       ExecutionProperty:
         MaxConcurrentRuns: 1
 
-Outputs: {}
+  AthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Ref ParentStackName
+      Description: WorkGroup for Social Media Dashboard
+      WorkGroupConfiguration: 
+        PublishCloudWatchMetricsEnabled: true
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${Bucket}/athena/query-results/'
+          EncryptionConfiguration: 
+            EncryptionOption: SSE_S3
+
+  LoadPartitionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[SocialMediaDashboard|DataLake] Partitions loading to Glue catalog'
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      CodeUri: functions/load_partitions/
+      Environment:
+        Variables:
+          DATABASE: !Ref DataLakeDB
+          TABLES: !Sub '${TweetArchivedTable},${TweetRawTable}'
+          WORKGROUP: !Ref AthenaWorkGroup
+      Events:
+        Cron:
+          Type: Schedule
+          Properties:
+            Name: hourly-partitions-loading-to-glue-catalog
+            Schedule: rate(1 hour)
+      Policies:
+        - AmazonAthenaFullAccess
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub 'arn:aws:s3:::${Bucket}/athena/query-results/*'
+
+  LoadPartitionsFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Errors of Analytics Function
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: 
+        - Name: FunctionName
+          Value: !Ref LoadPartitionsFunction
+      Statistic: Sum
+      Period: 60
+      AlarmActions: 
+        - !Ref Topic
+      OKActions: 
+        - !Ref Topic
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      TreatMissingData: notBreaching
+
+  Topic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Topic for Datalake
+
+Outputs:
+
+  Topic:
+    Value: !Ref Topic
