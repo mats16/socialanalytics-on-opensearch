@@ -570,7 +570,7 @@ Resources:
                   "entities": {
                     "type": "keyword"
                   },
-                  "raw_entities": {
+                  "entities_raw": {
                     "type": "object",
                     "enabled": false
                   },
@@ -589,8 +589,7 @@ Resources:
                     "type": "keyword"
                   },
                   "text": {
-                    "type": "text",
-                    "index": false
+                    "type": "text"
                   },
                   "normalized_text": {
                     "type": "text",
@@ -678,8 +677,7 @@ Resources:
                     "type": "keyword"
                   },
                   "text": {
-                    "type": "text",
-                    "index": false
+                    "type": "text"
                   },
                   "normalized_text": {
                     "type": "text",
@@ -757,7 +755,7 @@ Resources:
                   }
                 }
               },
-              "raw": {
+              "z-raw": {
                 "type": "object",
                 "enabled": false
               }
