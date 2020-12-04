@@ -1,2 +1,0 @@
-elasticsearch==7.9.1
-requests-aws4auth==1.0.1

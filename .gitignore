@@ -1,6 +1,3 @@
 .aws-sam/*
 samconfig.toml
-source/ec2_twitter_reader/node_modules/*
-elasticsearch/custom_resources/*/*
-!elasticsearch/custom_resources/*/requirements.txt
-!elasticsearch/custom_resources/*/index.py
+node_modules/
