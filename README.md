@@ -66,3 +66,9 @@ Configuring SAM deploy
 	Learn more about samconfig.toml syntax at
 	https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
 ```
+
+If you have multiple env, you can use `--config-env` option.
+
+```
+sam deploy --config-env prod
+```

@@ -9,7 +9,7 @@ import os
 import boto3
 from botocore.config import Config
 from bs4 import BeautifulSoup
-import neologdn
+#import neologdn
 import emoji
 import re
 from datetime import datetime, timedelta, timezone

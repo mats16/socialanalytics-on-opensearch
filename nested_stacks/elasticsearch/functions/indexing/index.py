@@ -46,8 +46,6 @@ def lambda_handler(event, context):
     records = event['Records']
     metrics.add_metric(name="IncomingRecords", unit=MetricUnit.Count, value=len(records))
     json_records = list( map(kinesis_record_to_json, records) )
-    #distinct_json_records = list( { rec['id_str']:rec for rec in json_records }.values() )  # 重複排除
-    #metrics.add_metric(name="DistinctIncomingRecords", unit=MetricUnit.Count, value=len(distinct_json_records))
 
     time_threshold = int((datetime.now(timezone.utc) - timedelta(minutes=15)).timestamp())
     record_count = 0
