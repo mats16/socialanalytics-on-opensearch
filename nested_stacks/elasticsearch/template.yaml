@@ -474,6 +474,7 @@ Resources:
           "cluster_permissions": [
             "cluster:monitor/main",
             "cluster:monitor/health",
+            "cluster:monitor/state",
             "indices:data/read/scroll",
             "indices:data/read/scroll/clear"
           ]
