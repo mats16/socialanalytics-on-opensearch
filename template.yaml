@@ -353,7 +353,7 @@ Resources:
         EncryptionType: KMS
         KeyId: alias/aws/kinesis
 
-  IndexingStream:
+  AnalyzedTweetStream:
     Type: AWS::Kinesis::Stream
     Properties: 
       RetentionPeriodHours: 24
@@ -362,54 +362,14 @@ Resources:
         EncryptionType: KMS
         KeyId: alias/aws/kinesis
 
-  AnalyticsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Description: '[Social Media Dashboard] Analytics Function'
-      CodeUri: functions/analytics/
-      MemorySize: 256
-      Timeout: 300
-      Tracing: Active
-      Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:10"
-      Environment:
-        Variables:
-          LOG_LEVEL: INFO
-          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
-          POWERTOOLS_SERVICE_NAME: AnalyticsFunction
-          TWEET_DAY_THRESHOLD: 180
-          TWITTER_TOPICS: !GetAtt TwitterTopicsParameter.Value
-          TWITTER_LANGS: !GetAtt TwitterLanguagesParameter.Value
-          COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
-          INDEXING_STREAM: !Ref IndexingStream
-      Events:
-        Stream:
-          Type: Kinesis
-          Properties:
-            Stream: !GetAtt TweetStream.Arn
-            StartingPosition: LATEST
-            ParallelizationFactor: 1
-            BatchSize: 200
-            MaximumBatchingWindowInSeconds: 15
-            MaximumRecordAgeInSeconds: 900  # 15m
-      Policies:
-        - CloudWatchLambdaInsightsExecutionRolePolicy
-        - Version: "2012-10-17"
-          Statement:
-            - Sid: ComprehendAccess
-              Effect: Allow
-              Action: ['comprehend:DetectEntities', 'comprehend:DetectSentiment', 'comprehend:DetectKeyPhrases']
-              Resource: '*'
-            - Sid: TranslateAccess
-              Effect: Allow
-              Action: ['translate:TranslateText']
-              Resource: '*'
-            - Sid: KinesisAccess
-              Effect: Allow
-              Action:
-                - 'kinesis:PutRecord'
-                - 'kinesis:PutRecords'
-              Resource: !GetAtt IndexingStream.Arn
+  IndexingStream:
+    Type: AWS::Kinesis::Stream
+    Properties: 
+      RetentionPeriodHours: 24
+      ShardCount: 1
+      StreamEncryption: 
+        EncryptionType: KMS
+        KeyId: alias/aws/kinesis
 
   AnalyticsFunctionForBatch:
     Type: AWS::Serverless::Function
@@ -460,27 +420,6 @@ Resources:
                 - 'kinesis:PutRecords'
               Resource: !GetAtt IndexingStream.Arn
 
-  AnalyticsFunctionErrorsAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: Errors of Analytics Function
-      Namespace: AWS/Lambda
-      MetricName: Errors
-      Dimensions: 
-        - Name: FunctionName
-          Value: !Ref AnalyticsFunction
-      Statistic: Sum
-      Period: 60
-      AlarmActions: 
-        - !Ref AlarmTopic
-      OKActions: 
-        - !Ref AlarmTopic
-      ComparisonOperator: GreaterThanThreshold
-      Threshold: 0
-      EvaluationPeriods: 1
-      DatapointsToAlarm: 1
-      TreatMissingData: notBreaching
-
   AnalyticsFunctionForBatchErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -498,8 +437,135 @@ Resources:
         - !Ref AlarmTopic
       ComparisonOperator: GreaterThanThreshold
       Threshold: 0
-      EvaluationPeriods: 1
-      DatapointsToAlarm: 1
+      DatapointsToAlarm: 3
+      EvaluationPeriods: 5
+      TreatMissingData: notBreaching
+
+  AnalyzingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Social Media Dashboard] Analyzing Function'
+      CodeUri: functions/analyzing/
+      MemorySize: 256
+      Timeout: 300
+      Tracing: Active
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:10"
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          POWERTOOLS_SERVICE_NAME: AnalyzingFunction
+          TWEET_DAY_THRESHOLD: 180
+          DST_STREAM: !Ref AnalyzedTweetStream
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt TweetStream.Arn
+            StartingPosition: LATEST
+            ParallelizationFactor: 1
+            BatchSize: 200
+            MaximumBatchingWindowInSeconds: 15
+            MaximumRecordAgeInSeconds: 86400  # 1day
+      Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: ComprehendAndTranslate
+              Effect: Allow
+              Action:
+                - 'comprehend:DetectEntities'
+                - 'comprehend:DetectSentiment'
+                - 'comprehend:DetectKeyPhrases'
+                - 'translate:TranslateText'
+              Resource: '*'
+            - Sid: KinesisAccess
+              Effect: Allow
+              Action:
+                - 'kinesis:PutRecord'
+                - 'kinesis:PutRecords'
+              Resource: !GetAtt AnalyzedTweetStream.Arn
+  AnalyzingFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Errors of Analyzing Function
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: 
+        - Name: FunctionName
+          Value: !Ref AnalyzingFunction
+      Statistic: Sum
+      Period: 60
+      AlarmActions: 
+        - !Ref AlarmTopic
+      OKActions: 
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      DatapointsToAlarm: 3
+      EvaluationPeriods: 5
+      TreatMissingData: notBreaching
+
+  TransformingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: '[Social Media Dashboard] Transforming Function'
+      CodeUri: functions/transforming/
+      MemorySize: 256
+      Timeout: 30
+      Tracing: Active
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:10"
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          POWERTOOLS_METRICS_NAMESPACE: Lambda/Custom
+          POWERTOOLS_SERVICE_NAME: TransformingFunction
+          TWEET_DAY_THRESHOLD: 180
+          #TWITTER_TOPICS: !GetAtt TwitterTopicsParameter.Value
+          TWITTER_LANGS: !GetAtt TwitterLanguagesParameter.Value
+          COMPREHEND_ENTITY_SCORE_THRESHOLD: !Ref ComprehendEntityScoreThreshold
+          DST_STREAM: !Ref IndexingStream
+      Events:
+        Stream:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt AnalyzedTweetStream.Arn
+            StartingPosition: LATEST
+            ParallelizationFactor: 1
+            BatchSize: 200
+            MaximumBatchingWindowInSeconds: 5
+            MaximumRecordAgeInSeconds: 86400  # 1day
+      Policies:
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: KinesisAccess
+              Effect: Allow
+              Action:
+                - 'kinesis:PutRecord'
+                - 'kinesis:PutRecords'
+              Resource: !GetAtt IndexingStream.Arn
+  TransformingFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Errors of Transforming Function
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: 
+        - Name: FunctionName
+          Value: !Ref TransformingFunction
+      Statistic: Sum
+      Period: 60
+      AlarmActions: 
+        - !Ref AlarmTopic
+      OKActions: 
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      DatapointsToAlarm: 3
+      EvaluationPeriods: 5
       TreatMissingData: notBreaching
 
 #  TweetEventBus:
@@ -785,11 +851,6 @@ Resources:
                 "height": 8,
                 "properties":{
                     "metrics":[
-                      [
-                          "AWS/Lambda", "Invocations",
-                          "FunctionName", "${AnalyticsFunction}",
-                          { "label": "AnalyticsFunction" }
-                      ],
                       [
                           "AWS/Kinesis", "IncomingRecords",
                           "StreamName", "${TweetStream}",

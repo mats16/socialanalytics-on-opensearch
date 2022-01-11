@@ -100,7 +100,7 @@ Resources:
             ParallelizationFactor: 1
             BatchSize: 500
             MaximumBatchingWindowInSeconds: 15
-            MaximumRecordAgeInSeconds: 900
+            MaximumRecordAgeInSeconds: 86400  # 1day
       Policies:
         - CloudWatchLambdaInsightsExecutionRolePolicy
         - Version: "2012-10-17"
@@ -130,8 +130,8 @@ Resources:
         - !Ref Topic
       ComparisonOperator: GreaterThanThreshold
       Threshold: 0
-      EvaluationPeriods: 1
-      DatapointsToAlarm: 1
+      DatapointsToAlarm: 3
+      EvaluationPeriods: 5
       TreatMissingData: notBreaching
 
   IndexerRole:
@@ -440,6 +440,60 @@ Resources:
         {
           "backend_roles" : [
             "${KibanaBasicRole.Arn}"
+          ]
+        }
+
+  QuickSightRole:
+    Type: Custom::Role
+    DependsOn:
+      - KibanaPolicy
+    Condition: ElasticsearchAdvancedSecurityEnabled
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Path: _opendistro/_security/api/roles/quicksight_role
+      Body: !Sub |
+        {
+          "description": "Amazon QuickSight",
+          "index_permissions": [
+            {
+              "index_patterns": [
+                "*"
+              ],
+              "dls": "",
+              "fls": [],
+              "masked_fields": [],
+              "allowed_actions": [
+                "indices:admin/get",
+                "indices:admin/mappings/fields/get*",
+                "indices:data/read/search*"
+              ]
+            }
+          ],
+          "tenant_permissions": [],
+          "cluster_permissions": [
+            "cluster:monitor/main",
+            "cluster:monitor/health",
+            "cluster:monitor/state",
+            "indices:data/read/scroll",
+            "indices:data/read/scroll/clear"
+          ]
+        }
+
+  QuickSightRoleMapping:
+    Type: Custom::RoleMapping
+    DependsOn:
+      - KibanaPolicy
+      - QuickSightRole
+    Condition: ElasticsearchAdvancedSecurityEnabled
+    Properties:
+      ServiceToken: !GetAtt ElasticsearchResourceFunction.Arn
+      Host: !GetAtt Elasticsearch.DomainEndpoint
+      Path: _opendistro/_security/api/rolesmapping/quicksight_role
+      Body: !Sub |
+        {
+          "backend_roles" : [
+            "arn:aws:iam::*:role/service-role/aws-quicksight-service-role-*"
           ]
         }
 

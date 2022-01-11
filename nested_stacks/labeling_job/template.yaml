@@ -88,8 +88,8 @@ Resources:
         - !Ref Topic
       ComparisonOperator: GreaterThanThreshold
       Threshold: 0
-      EvaluationPeriods: 1
-      DatapointsToAlarm: 1
+      DatapointsToAlarm: 3
+      EvaluationPeriods: 5
       TreatMissingData: notBreaching
 
   GtRecipePreAnnotationJsonLoad:
