@@ -1,6 +1,6 @@
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
-  cdkVersion: '1.129.0',
+  cdkVersion: '2.5.0',
   defaultReleaseBranch: 'main',
   name: 'serverless-social-media-dashboard',
 
