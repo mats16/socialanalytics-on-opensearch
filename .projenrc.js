@@ -1,6 +1,6 @@
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
-  cdkVersion: '2.5.0',
+  cdkVersion: '2.8.0',
   defaultReleaseBranch: 'main',
   name: 'serverless-social-media-dashboard',
 
@@ -10,5 +10,15 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   // devDeps: [],                 /* Build dependencies for this module. */
   // packageName: undefined,      /* The "name" in package.json. */
   // release: undefined,          /* Add release management to this project. */
+  deps: [
+    '@aws-cdk/aws-kinesisfirehose-alpha',
+    '@aws-cdk/aws-kinesisfirehose-destinations-alpha',
+  ],
+  tsconfig: {
+    compilerOptions: {
+      noUnusedLocals: false,
+      //strictPropertyInitialization: false,
+    },
+  },
 });
 project.synth();
