@@ -7,6 +7,8 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
 import { configs } from './configs';
+import { ContainerInsights } from './resources/container-insights';
+import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
 
 export class SocialMediaDashboardStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
@@ -69,5 +71,10 @@ export class SocialMediaDashboardStack extends Stack {
       twitterCredentials,
       ingestionStream,
     });
+
+    const containerInsights = new ContainerInsights(this, 'ContainerInsights', {
+      targetService: twitterStreamingReader.service,
+    });
+
   }
 }

@@ -17,6 +17,8 @@ interface TwitterStreamingReaderProps {
 };
 
 export class TwitterStreamingReader extends Construct {
+  service: ecs.FargateService;
+
   constructor(scope: Construct, id: string, props: TwitterStreamingReaderProps) {
     super(scope, id);
 
