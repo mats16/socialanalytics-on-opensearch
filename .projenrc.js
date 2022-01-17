@@ -13,6 +13,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   deps: [
     '@aws-cdk/aws-kinesisfirehose-alpha',
     '@aws-cdk/aws-kinesisfirehose-destinations-alpha',
+    'yaml',
   ],
   tsconfig: {
     compilerOptions: {

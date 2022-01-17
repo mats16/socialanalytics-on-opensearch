@@ -16,4 +16,4 @@ export const configs = {
   //  access_token: 'REPLACE',
   //  access_token_secret: 'REPLACE',
   //}
-}
+};

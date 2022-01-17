@@ -1,10 +1,9 @@
-import * as firehose from '@aws-cdk/aws-kinesisfirehose-alpha';
-//import { NestedStack, NestedStackProps } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
@@ -13,7 +12,7 @@ interface TwitterStreamingReaderProps {
   twitterLanguages: ssm.IStringListParameter;
   twitterFilterLevel: ssm.IStringParameter;
   twitterCredentials: secretsmanager.ISecret;
-  ingestionStream: firehose.IDeliveryStream;
+  ingestionStream: kinesis.IStream;
 };
 
 export class TwitterStreamingReader extends Construct {
@@ -50,7 +49,7 @@ export class TwitterStreamingReader extends Construct {
       },
     });
 
-    const cluster = new ecs.Cluster(this, 'Cluster', { vpc });
+    const cluster = new ecs.Cluster(this, 'Cluster', { vpc, containerInsights: true });
 
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDefinition', {
       runtimePlatform: {
@@ -59,7 +58,7 @@ export class TwitterStreamingReader extends Construct {
       },
     });
     logGroup.grantWrite(taskDefinition.taskRole);
-    ingestionStream.grantPutRecords(taskDefinition.taskRole);
+    ingestionStream.grantWrite(taskDefinition.taskRole);
 
     const appContainer = taskDefinition.addContainer('App', {
       containerName: 'app',
@@ -96,13 +95,12 @@ export class TwitterStreamingReader extends Construct {
       },
       environment: {
         LOG_GROUP_NAME: logGroup.logGroupName,
-        DELIVERY_STREAM_NAME: ingestionStream.deliveryStreamName,
+        STREAM_NAME: ingestionStream.streamName,
       },
       logging: new ecs.AwsLogDriver({
         logGroup: logGroup,
         streamPrefix: 'firelens',
       }),
-      
     });
 
     appContainer.addContainerDependencies({
@@ -110,11 +108,11 @@ export class TwitterStreamingReader extends Construct {
       condition: ecs.ContainerDependencyCondition.START,
     });
 
-    const service = new ecs.FargateService(this, 'Service', {
+    this.service = new ecs.FargateService(this, 'Service', {
       cluster,
       taskDefinition,
       assignPublicIp: true,
-    })
+    });
 
   }
 }

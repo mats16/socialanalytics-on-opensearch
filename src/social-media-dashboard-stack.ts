@@ -1,11 +1,11 @@
 import * as firehose from '@aws-cdk/aws-kinesisfirehose-alpha';
 import * as destinations from '@aws-cdk/aws-kinesisfirehose-destinations-alpha';
 import { Stack, StackProps, Duration, Size, CfnParameter } from 'aws-cdk-lib';
+import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Secret, SecretStringValueBeta1 } from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
 import { configs } from './configs';
 import { ContainerInsights } from './resources/container-insights';
 import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
@@ -51,8 +51,19 @@ export class SocialMediaDashboardStack extends Stack {
     const bucket = new s3.Bucket(this, 'Bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
     });
-    const ingestionStream = new firehose.DeliveryStream(this, 'IngestionStream', {
-      encryption: firehose.StreamEncryption.AWS_OWNED,
+
+    const ingestionStream = new kinesis.Stream(this, 'IngestionStream', {
+      streamMode: kinesis.StreamMode.ON_DEMAND,
+      encryption: kinesis.StreamEncryption.MANAGED,
+    });
+
+    const analysisStream = new kinesis.Stream(this, 'AnalysisStream', {
+      streamMode: kinesis.StreamMode.ON_DEMAND,
+      encryption: kinesis.StreamEncryption.MANAGED,
+    });
+
+    const ingestionArchiveStream = new firehose.DeliveryStream(this, 'IngestionArchiveStream', {
+      sourceStream: ingestionStream,
       destinations: [
         new destinations.S3Bucket(bucket, {
           dataOutputPrefix: 'raw/',
