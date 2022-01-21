@@ -1,3 +1,4 @@
+import * as firehose from '@aws-cdk/aws-kinesisfirehose-alpha';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
@@ -80,7 +81,6 @@ export class TwitterStreamingReader extends Construct {
         options: {
           configFileType: ecs.FirelensConfigFileType.FILE,
           configFileValue: '/fluent-bit/etc/extra.conf',
-          enableECSLogMetadata: false,
         },
       },
       containerName: 'log-router',

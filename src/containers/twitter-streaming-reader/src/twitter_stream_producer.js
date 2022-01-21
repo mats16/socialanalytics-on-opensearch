@@ -27,7 +27,7 @@ function twitterStreamProducer() {
 
     log.info('start streaming...')
     stream.on('tweet', function (tweet) {
-      fluentLogger.emit('stream', tweet);
+      fluentLogger.emit('stream', { tweet });
     }
     );
   }

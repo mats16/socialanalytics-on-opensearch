@@ -13,6 +13,13 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   deps: [
     '@aws-cdk/aws-kinesisfirehose-alpha',
     '@aws-cdk/aws-kinesisfirehose-destinations-alpha',
+    '@aws-sdk/client-comprehend',
+    '@aws-sdk/client-kinesis',
+    '@aws-sdk/client-translate',
+    '@aws-lambda-powertools/logger',
+    '@types/aws-lambda',
+    '@types/bluebird',
+    'bluebird',
     'yaml',
   ],
   tsconfig: {
