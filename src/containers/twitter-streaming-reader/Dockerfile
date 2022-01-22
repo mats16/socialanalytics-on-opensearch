@@ -1,23 +1,27 @@
-FROM public.ecr.aws/docker/library/node:14.18.3-alpine as builder
+FROM public.ecr.aws/docker/library/node:16-alpine as builder
 
 WORKDIR /home/node
 
-COPY ["src/package.json", "./"]
+COPY ["package.json", "./"]
 
 RUN npm install
 
-FROM public.ecr.aws/docker/library/node:14.18.3-alpine
+COPY ["tsconfig.json", "./"]
+
+COPY src src
+
+RUN npm run build
+
+FROM public.ecr.aws/docker/library/node:16-alpine
+
+RUN apk add --no-cache tini
+ENTRYPOINT ["/sbin/tini", "--"]
 
 USER node
 
 WORKDIR /home/node
 
 COPY --from=builder /home/node/node_modules/ ./node_modules
+COPY --from=builder /home/node/lib/ ./lib
 
-COPY src/ ./
-
-ENV TWITTER_TOPICS='AWS' \
-    TWITTER_LANGUAGES=en,ja \
-    TWITTER_FILTER_LEVEL=none
-
-CMD [ "node", "./twitter_stream_producer_app.js" ]
+CMD [ "node", "./lib/app.js" ]

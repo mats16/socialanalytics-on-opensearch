@@ -5,6 +5,10 @@
       "type": "build"
     },
     {
+      "name": "@types/log4js",
+      "type": "build"
+    },
+    {
       "name": "@types/node",
       "version": "^12",
       "type": "build"

@@ -22,6 +22,9 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     'bluebird',
     'yaml',
   ],
+  devDeps: [
+    '@types/log4js',
+  ],
   tsconfig: {
     compilerOptions: {
       noUnusedLocals: false,
