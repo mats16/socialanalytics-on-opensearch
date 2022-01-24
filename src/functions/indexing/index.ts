@@ -1,16 +1,17 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
+import { TweetV2SingleStreamResult } from 'twitter-api-v2';
 
-const logger = new Logger({ logLevel: 'INFO', serviceName: 'analysis' });
+const logger = new Logger({ logLevel: 'INFO', serviceName: 'indexing' });
 
-interface Entity {
+interface ComprehendEntity {
   score: number;
   type: string;
   text: string;
 }
 
-interface Insights {
+interface ComprehendInsights {
   sentiment: string;
   sentiment_score: {
     positive: number;
@@ -18,25 +19,20 @@ interface Insights {
     neutral: number;
     mixed: number;
   };
-  entities: Entity[];
+  entities: ComprehendEntity[];
 }
 
-interface Payload {
-  tweet: any;
-  ecs_cluster?: string;
-  ecs_task_arn?: string;
-  ecs_task_definition?: string;
-  tag?: string;
+interface StreamData extends Partial<TweetV2SingleStreamResult> {
   analysis?: {
     normalized_text: string;
-    comprehend: Insights;
+    comprehend: ComprehendInsights;
   };
 };
 
 const processRecord = async (record: KinesisStreamRecord) => {
-  const payload: Payload = JSON.parse(Buffer.from(record.kinesis.data, 'base64').toString('utf8'));
+  const payload: StreamData = JSON.parse(Buffer.from(record.kinesis.data, 'base64').toString('utf8'));
   //const tweet = payload.tweet;
-  console.log(payload);
+  console.log(JSON.stringify(payload));
 };
 
 export const handler: KinesisStreamHandler = async (event) => {

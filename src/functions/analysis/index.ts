@@ -4,6 +4,7 @@ import { KinesisClient, PutRecordsCommand } from '@aws-sdk/client-kinesis';
 import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
+import { TweetV2SingleStreamResult } from 'twitter-api-v2';
 
 const indexingStreamName = process.env.INDEXING_STREAM_NAME!;
 
@@ -33,13 +34,13 @@ const getFullText = (tweet: any): string => {
   return fullText;
 };
 
-interface Entity {
+interface ComprehendEntity {
   score: number;
   type: string;
   text: string;
 }
 
-interface Insights {
+interface ComprehendInsights {
   sentiment: string;
   sentiment_score: {
     positive: number;
@@ -47,18 +48,13 @@ interface Insights {
     neutral: number;
     mixed: number;
   };
-  entities: Entity[];
+  entities: ComprehendEntity[];
 }
 
-interface Payload {
-  tweet: any;
-  ecs_cluster?: string;
-  ecs_task_arn?: string;
-  ecs_task_definition?: string;
-  tag?: string;
+interface StreamData extends Partial<TweetV2SingleStreamResult> {
   analysis?: {
     normalized_text: string;
-    comprehend: Insights;
+    comprehend: ComprehendInsights;
   };
 };
 
@@ -75,11 +71,11 @@ const analyze = async (text: string, lang: string) => {
   // Entities
   const detectEntitiesCommand = new DetectEntitiesCommand({ Text: text, LanguageCode: lang });
   const detectEntitiesResponse = await comprehend.send(detectEntitiesCommand);
-  const entities: Entity[] = detectEntitiesResponse.Entities?.map(entity => {
+  const entities: ComprehendEntity[] = detectEntitiesResponse.Entities?.map(entity => {
     return { score: entity.Score!, type: entity.Type!, text: entity.Text! };
   }) || [];
 
-  const insights: Insights = {
+  const insights: ComprehendInsights = {
     sentiment: detectSentimentResponse.Sentiment!,
     sentiment_score: {
       positive: detectSentimentResponse.SentimentScore?.Positive!,
@@ -93,9 +89,9 @@ const analyze = async (text: string, lang: string) => {
 };
 
 const processRecord = async (record: KinesisStreamRecord) => {
-  const payload: Payload = JSON.parse(Buffer.from(record.kinesis.data, 'base64').toString('utf8'));
-  const tweet = payload.tweet;
-  const lang: string = tweet.lang;
+  const payload: StreamData = JSON.parse(Buffer.from(record.kinesis.data, 'base64').toString('utf8'));
+  const tweet = payload.data!;
+  const lang = tweet.lang || 'ja';
   const fullText = getFullText(tweet);
   const normalizedText = normalize(fullText);
   const insights = await analyze(normalizedText, lang);

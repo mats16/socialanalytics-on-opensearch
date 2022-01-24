@@ -20,6 +20,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@types/aws-lambda',
     '@types/bluebird',
     'bluebird',
+    'twitter-api-v2',
     'yaml',
   ],
   devDeps: [

@@ -1,27 +1,41 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { FirehoseTransformationHandler, FirehoseTransformationEventRecord, FirehoseTransformationResultRecord, FirehoseRecordTransformationStatus } from 'aws-lambda';
+import { TweetV2SingleStreamResult } from 'twitter-api-v2';
 
-const tagName = process.env.TAG_NAME!;
+const logger = new Logger({ logLevel: 'INFO', serviceName: 'filter' });
 
-const logger = new Logger({ logLevel: 'INFO', serviceName: 'analysis' });
-
-interface Payload {
-  tweet: any;
-  tag?: string;
-  ecs_cluster?: string;
-  ecs_task_arn?: string;
-  ecs_task_definition?: string;
+interface ComprehendEntity {
+  score: number;
+  type: string;
+  text: string;
 }
 
-const filterByTag = (record: FirehoseTransformationEventRecord) => {
+interface ComprehendInsights {
+  sentiment: string;
+  sentiment_score: {
+    positive: number;
+    negative: number;
+    neutral: number;
+    mixed: number;
+  };
+  entities: ComprehendEntity[];
+}
+
+interface StreamData extends Partial<TweetV2SingleStreamResult> {
+  analysis?: {
+    normalized_text: string;
+    comprehend: ComprehendInsights;
+  };
+};
+
+const liveStreamFilter = (record: FirehoseTransformationEventRecord) => {
   const recordId = record.recordId;
   let data = record.data;
   let result: FirehoseRecordTransformationStatus = 'Dropped';
   try {
-    const payload: Payload = JSON.parse(Buffer.from(data, 'base64').toString('utf8'));
-    const { tweet, tag } = payload;
-    if (tag == tagName) {
-      data = Buffer.from(JSON.stringify(tweet)).toString('base64');
+    const payload: StreamData = JSON.parse(Buffer.from(data, 'base64').toString('utf8'));
+    if (payload.matching_rules) {
+      data = Buffer.from(JSON.stringify(payload.data)).toString('base64');
       result = 'Ok';
     };
   } catch (error) {
@@ -33,7 +47,7 @@ const filterByTag = (record: FirehoseTransformationEventRecord) => {
 };
 
 export const handler: FirehoseTransformationHandler = async (event) => {
-  const filteredRecords = event.records.map(record => filterByTag(record));
+  const filteredRecords = event.records.map(record => liveStreamFilter(record));
   const count = {
     ok: filteredRecords.filter(record => record.result == 'Ok').length,
     dropped: filteredRecords.filter(record => record.result == 'Dropped').length,

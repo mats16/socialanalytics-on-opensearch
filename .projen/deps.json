@@ -131,6 +131,10 @@
       "type": "runtime"
     },
     {
+      "name": "twitter-api-v2",
+      "type": "runtime"
+    },
+    {
       "name": "yaml",
       "type": "runtime"
     }

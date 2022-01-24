@@ -1,18 +1,13 @@
-import * as firehose from '@aws-cdk/aws-kinesisfirehose-alpha';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
 interface TwitterStreamingReaderProps {
-  twitterTopics: ssm.IStringListParameter;
-  twitterLanguages: ssm.IStringListParameter;
-  twitterFilterLevel: ssm.IStringParameter;
-  twitterCredentials: secretsmanager.ISecret;
+  twitterBearerToken: secretsmanager.ISecret;
   ingestionStream: kinesis.IStream;
 };
 
@@ -66,10 +61,7 @@ export class TwitterStreamingReader extends Construct {
       image: ecs.ContainerImage.fromDockerImageAsset(twitterStreamingReaderImage),
       essential: true,
       secrets: {
-        TWITTER_TOPICS: ecs.Secret.fromSsmParameter(props.twitterTopics),
-        TWITTER_LANGUAGES: ecs.Secret.fromSsmParameter(props.twitterLanguages),
-        TWITTER_FILTER_LEVEL: ecs.Secret.fromSsmParameter(props.twitterFilterLevel),
-        TWITTER_CREDENTIALS: ecs.Secret.fromSecretsManager(props.twitterCredentials),
+        TWITTER_BEARER_TOKEN: ecs.Secret.fromSecretsManager(props.twitterBearerToken),
       },
       logging: new ecs.FireLensLogDriver({}),
       readonlyRootFilesystem: true,
@@ -81,6 +73,7 @@ export class TwitterStreamingReader extends Construct {
         options: {
           configFileType: ecs.FirelensConfigFileType.FILE,
           configFileValue: '/fluent-bit/etc/extra.conf',
+          enableECSLogMetadata: false,
         },
       },
       containerName: 'log-router',
@@ -112,6 +105,8 @@ export class TwitterStreamingReader extends Construct {
       cluster,
       taskDefinition,
       assignPublicIp: true,
+      minHealthyPercent: 0,
+      maxHealthyPercent: 100,
     });
 
   }

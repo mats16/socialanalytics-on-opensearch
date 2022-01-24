@@ -18,38 +18,9 @@ export class SocialMediaDashboardStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
     super(scope, id, props);
 
-    const twitterConsumerKey = new CfnParameter(this, 'TwitterConsumerKey', { type: 'String', default: 'REPLACE', noEcho: true });
-    const twitterConsumerSecret = new CfnParameter(this, 'TwitterConsumerSecret', { type: 'String', default: 'REPLACE', noEcho: true });
-    const twitterAccessToken = new CfnParameter(this, 'TwitterAccessToken', { type: 'String', default: 'REPLACE', noEcho: true });
-    const twitterAccessTokenSecret = new CfnParameter(this, 'TwitterAccessTokenSecret', { type: 'String', default: 'REPLACE', noEcho: true });
-
-    this.templateOptions.metadata = {
-      'AWS::CloudFormation::Interface': {
-        ParameterGroups: [
-          {
-            Label: { default: 'Twitter API Credentials' },
-            Parameters: [
-              twitterConsumerKey.logicalId,
-              twitterConsumerSecret.logicalId,
-              twitterAccessToken.logicalId,
-              twitterAccessTokenSecret.logicalId,
-            ],
-          },
-        ],
-      },
-    };
-
-    const twitterTopics = new ssm.StringListParameter(this, 'TwitterTopics', { stringListValue: configs.twitterTopics });
-    const twitterLanguages = new ssm.StringListParameter(this, 'TwitterLanguages', { stringListValue: configs.twitterLanguages });
-    const twitterFilterLevel = new ssm.StringParameter(this, 'TwitterFilterLevel', { stringValue: configs.twitterFilterLevel });
-
-    const twitterCredentials = new Secret(this, 'TwitterCredentials', {
-      secretStringBeta1: SecretStringValueBeta1.fromUnsafePlaintext(JSON.stringify({
-        consumer_key: twitterConsumerKey.valueAsString,
-        consumer_secret: twitterConsumerSecret.valueAsString,
-        access_token: twitterAccessToken.valueAsString,
-        access_token_secret: twitterAccessTokenSecret.valueAsString,
-      })),
+    const twitterBearerTokenParameter = new CfnParameter(this, 'TwitterBearerTokenParameter', { type: 'String', default: 'REPLAC', noEcho: true });
+    const twitterBearerToken = new Secret(this, 'TwitterBearerToken', {
+      secretStringBeta1: SecretStringValueBeta1.fromUnsafePlaintext(twitterBearerTokenParameter.valueAsString),
     });
 
     const bucket = new s3.Bucket(this, 'Bucket', {
@@ -142,10 +113,7 @@ export class SocialMediaDashboardStack extends Stack {
     });
 
     const twitterStreamingReader = new TwitterStreamingReader(this, 'TwitterStreamingReader', {
-      twitterTopics,
-      twitterLanguages,
-      twitterFilterLevel,
-      twitterCredentials,
+      twitterBearerToken,
       ingestionStream,
     });
 
