@@ -12,6 +12,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { configs } from './configs';
 import { ContainerInsights } from './resources/container-insights';
+import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
 
 export class SocialMediaDashboardStack extends Stack {
@@ -98,18 +99,24 @@ export class SocialMediaDashboardStack extends Stack {
       },
     });
 
-    const ingestionArchiveStream = new firehose.DeliveryStream(this, 'IngestionArchiveStream', {
+    //const ingestionArchiveStream = new firehose.DeliveryStream(this, 'IngestionArchiveStream', {
+    //  sourceStream: ingestionStream,
+    //  destinations: [
+    //    new destinations.S3Bucket(bucket, {
+    //      dataOutputPrefix: 'raw/',
+    //      errorOutputPrefix: 'raw-error/!{firehose:error-output-type}/',
+    //      bufferingInterval: Duration.seconds(300),
+    //      bufferingSize: Size.mebibytes(128),
+    //      compression: destinations.Compression.GZIP,
+    //      processor: new firehose.LambdaFunctionProcessor(archiveFilterFunction),
+    //    }),
+    //  ],
+    //});
+
+    const ingestionArchiveStream = new DeliveryStream(this, 'IngestionArchiveStream', {
       sourceStream: ingestionStream,
-      destinations: [
-        new destinations.S3Bucket(bucket, {
-          dataOutputPrefix: 'raw/',
-          errorOutputPrefix: 'raw-error/!{firehose:error-output-type}/',
-          bufferingInterval: Duration.seconds(300),
-          bufferingSize: Size.mebibytes(128),
-          compression: destinations.Compression.GZIP,
-          processor: new firehose.LambdaFunctionProcessor(archiveFilterFunction),
-        }),
-      ],
+      destinationBucket: bucket,
+      processorFunction: archiveFilterFunction,
     });
 
     const twitterStreamingReader = new TwitterStreamingReader(this, 'TwitterStreamingReader', {

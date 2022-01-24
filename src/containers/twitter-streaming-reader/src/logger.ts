@@ -12,23 +12,24 @@ log4js.addLayout('json', function(config) {
     };
     const message = logEvent.data[0];
     if (typeof(message) == 'string') {
-      return JSON.stringify({ data: message, ...log })
+      return JSON.stringify({ data: message, ...log });
     } else {
-      return JSON.stringify({ ...logEvent.data[0], ...log })
+      return JSON.stringify({ ...logEvent.data[0], ...log });
     };
-  }
+  };
 });
 
 log4js.configure({
   appenders: {
     stgout: {
-      type: 'stdout', layout: {
-        type: 'json'
-      }
-    }
+      type: 'stdout',
+      layout: {
+        type: 'json',
+      },
+    },
   },
   categories: {
-    default: { appenders: ['stgout'], level: 'info' }
+    default: { appenders: ['stgout'], level: 'info' },
   },
 });
 

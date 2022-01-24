@@ -35,7 +35,8 @@ const liveStreamFilter = (record: FirehoseTransformationEventRecord) => {
   try {
     const payload: StreamData = JSON.parse(Buffer.from(data, 'base64').toString('utf8'));
     if (payload.matching_rules) {
-      data = Buffer.from(JSON.stringify(payload.data)).toString('base64');
+      const tweet = payload.data;
+      data = Buffer.from(JSON.stringify(tweet)).toString('base64');
       result = 'Ok';
     };
   } catch (error) {
