@@ -105,7 +105,7 @@ export class DeliveryStream extends Construct {
         prefix: 'raw/dt=!{partitionKeyFromQuery:dt}/',
         errorOutputPrefix: 'error/!{firehose:error-output-type}/',
         bufferingHints: {
-          intervalInSeconds: 300,
+          intervalInSeconds: 900,
           sizeInMBs: 128,
         },
         compressionFormat: 'GZIP',

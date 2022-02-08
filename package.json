@@ -1,5 +1,5 @@
 {
-  "name": "serverless-social-media-dashboard",
+  "name": "social-analytics",
   "scripts": {
     "build": "npx projen build",
     "bundle": "npx projen bundle",
@@ -24,12 +24,14 @@
     "projen": "npx projen"
   },
   "devDependencies": {
+    "@types/bluebird": "^3.5.36",
+    "@types/cfn-response": "^1.0.5",
     "@types/jest": "^27.4.0",
     "@types/log4js": "^2.3.5",
     "@types/node": "^12",
     "@typescript-eslint/eslint-plugin": "^5",
     "@typescript-eslint/parser": "^5",
-    "aws-cdk": "^2.8.0",
+    "aws-cdk": "^2.10.0",
     "esbuild": "^0.14.11",
     "eslint": "^8",
     "eslint-import-resolver-node": "^0.3.6",
@@ -45,16 +47,24 @@
     "typescript": "^4.5.4"
   },
   "dependencies": {
-    "@aws-cdk/aws-kinesisfirehose-alpha": "^2.8.0-alpha.0",
-    "@aws-cdk/aws-kinesisfirehose-destinations-alpha": "^2.8.0-alpha.0",
+    "@aws-cdk/aws-kinesisfirehose-alpha": "^2.10.0-alpha.0",
+    "@aws-cdk/aws-kinesisfirehose-destinations-alpha": "^2.10.0-alpha.0",
+    "@aws-crypto/sha256-js": "^2.0.1",
     "@aws-lambda-powertools/logger": "^0.3.1",
+    "@aws-sdk/client-cognito-identity": "^3.49.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.49.0",
     "@aws-sdk/client-comprehend": "^3.47.0",
     "@aws-sdk/client-kinesis": "^3.47.1",
+    "@aws-sdk/client-sts": "^3.49.0",
     "@aws-sdk/client-translate": "^3.47.0",
-    "@types/aws-lambda": "^8.10.89",
-    "@types/bluebird": "^3.5.36",
-    "aws-cdk-lib": "^2.8.0",
+    "@aws-sdk/credential-provider-node": "^3.48.0",
+    "@aws-sdk/node-http-handler": "^3.47.2",
+    "@aws-sdk/protocol-http": "^3.47.2",
+    "@aws-sdk/signature-v4": "^3.47.2",
+    "@types/aws-lambda": "^8.10.92",
+    "aws-cdk-lib": "^2.10.0",
     "bluebird": "^3.7.2",
+    "cfn-response": "^1.0.1",
     "constructs": "^10.0.5",
     "twitter-api-v2": "^1.9.1",
     "yaml": "^1.10.2"

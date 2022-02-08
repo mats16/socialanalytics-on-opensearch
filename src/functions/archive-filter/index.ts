@@ -1,40 +1,16 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { FirehoseTransformationHandler, FirehoseTransformationEventRecord, FirehoseTransformationResultRecord, FirehoseRecordTransformationStatus } from 'aws-lambda';
-import { TweetV2SingleStreamResult } from 'twitter-api-v2';
+import { TweetStreamParse } from '../utils';
 
 const logger = new Logger({ logLevel: 'INFO', serviceName: 'filter' });
-
-interface ComprehendEntity {
-  score: number;
-  type: string;
-  text: string;
-}
-
-interface ComprehendInsights {
-  sentiment: string;
-  sentiment_score: {
-    positive: number;
-    negative: number;
-    neutral: number;
-    mixed: number;
-  };
-  entities: ComprehendEntity[];
-}
-
-interface StreamData extends Partial<TweetV2SingleStreamResult> {
-  analysis?: {
-    normalized_text: string;
-    comprehend: ComprehendInsights;
-  };
-};
 
 const liveStreamFilter = (record: FirehoseTransformationEventRecord) => {
   const recordId = record.recordId;
   let data = record.data;
   let result: FirehoseRecordTransformationStatus = 'Dropped';
   try {
-    const payload: StreamData = JSON.parse(Buffer.from(data, 'base64').toString('utf8'));
-    if (payload.matching_rules) {
+    const payload = TweetStreamParse(data);
+    if (payload.backup) {
       const tweet = payload.data;
       data = Buffer.from(JSON.stringify(tweet)).toString('base64');
       result = 'Ok';

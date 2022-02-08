@@ -59,12 +59,14 @@ export class TwitterStreamingReader extends Construct {
     const appContainer = taskDefinition.addContainer('App', {
       containerName: 'app',
       image: ecs.ContainerImage.fromDockerImageAsset(twitterStreamingReaderImage),
+      cpu: 128,
+      memoryReservationMiB: 256,
       essential: true,
       secrets: {
         TWITTER_BEARER_TOKEN: ecs.Secret.fromSecretsManager(props.twitterBearerToken),
       },
-      logging: new ecs.FireLensLogDriver({}),
       readonlyRootFilesystem: true,
+      logging: new ecs.FireLensLogDriver({}),
     });
 
     const logRouterContainer = taskDefinition.addFirelensLogRouter('LogRouter', {
@@ -78,7 +80,8 @@ export class TwitterStreamingReader extends Construct {
       },
       containerName: 'log-router',
       image: ecs.ContainerImage.fromDockerImageAsset(logRouterImage),
-      memoryReservationMiB: 50,
+      cpu: 64,
+      memoryReservationMiB: 128,
       portMappings: [{
         containerPort: 2020,
         protocol: ecs.Protocol.TCP,
@@ -90,6 +93,7 @@ export class TwitterStreamingReader extends Construct {
         LOG_GROUP_NAME: logGroup.logGroupName,
         STREAM_NAME: ingestionStream.streamName,
       },
+      readonlyRootFilesystem: true,
       logging: new ecs.AwsLogDriver({
         logGroup: logGroup,
         streamPrefix: 'firelens',

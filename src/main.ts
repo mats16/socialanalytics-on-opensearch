@@ -1,13 +1,15 @@
 import { App } from 'aws-cdk-lib';
-import { SocialMediaDashboardStack } from './social-media-dashboard-stack';
+import { SocialAnalyticsStack } from './social-media-dashboard-stack';
 
 const devEnv = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION,
 };
 
+const defaultTwitterBearerToken = process.env.TWITTER_BEARER_TOKEN;
+
 const app = new App();
 
-new SocialMediaDashboardStack(app, 'SocialMediaDashboardStack', { env: devEnv });
+new SocialAnalyticsStack(app, 'SocialAnalytics', { env: devEnv, defaultTwitterBearerToken });
 
 app.synth();

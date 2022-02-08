@@ -1,4 +1,4 @@
-# Serverless Social Media Dashboard
+# Social Analytics on OpenSearch
 
 ![full-arch-diagram.png](docs/architecture-diagrams/full-arch-diagram.png)
 

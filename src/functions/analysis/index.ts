@@ -4,58 +4,24 @@ import { KinesisClient, PutRecordsCommand } from '@aws-sdk/client-kinesis';
 import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
-import { TweetV2SingleStreamResult } from 'twitter-api-v2';
+import { TweetStreamParse, TweetStreamData, Deduplicate, Normalize } from '../utils';
 
+const entityScoreThreshold = 0.8;
+const region = process.env.AWS_REGION || 'us-west-2';
 const indexingStreamName = process.env.INDEXING_STREAM_NAME!;
 
 const logger = new Logger({ logLevel: 'INFO', serviceName: 'analysis' });
-const translate = new TranslateClient({});
-const comprehend = new ComprehendClient({});
-const kinesis = new KinesisClient({});
+const translate = new TranslateClient({region});
+const comprehend = new ComprehendClient({region});
+const kinesis = new KinesisClient({region});
 
-const normalize = (text: string): string => {
-  const textWithoutRT = text.replace(/^RT /, '');
-  const tectWithoutEmoji = textWithoutRT.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
-  const textWithoutUrl = tectWithoutEmoji.replace(/https?:\/\/[\w/;:%#\$&\?\(\)~\.=\+\-]+/g, '');
-  const textWithoutHtml = textWithoutUrl.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-  const textWithoutSpace = textWithoutHtml.replace(/\n/g, ' ').replace(/[\s]+/g, ' ').trimEnd();
-  return textWithoutSpace;
-};
-
-const getFullText = (tweet: any): string => {
+const getFullText = (streamData: TweetStreamData): string => {
+  const tweet = streamData.data;
   let fullText: string = tweet.text;
-  if (tweet.retweeted_status?.extended_tweet?.full_text) {
-    fullText = tweet.retweeted_status.extended_tweet.full_text;
-  } else if (tweet.retweeted_status?.text) {
-    fullText = tweet.retweeted_status?.text;
-  } else if (tweet.extended_tweet?.full_text) {
-    fullText = tweet.extended_tweet.full_text;
+  if (tweet.referenced_tweets?.[0].type == 'retweeted' && streamData.includes?.tweets?.[0].text) {
+    fullText = streamData.includes?.tweets?.[0].text;
   };
   return fullText;
-};
-
-interface ComprehendEntity {
-  score: number;
-  type: string;
-  text: string;
-}
-
-interface ComprehendInsights {
-  sentiment: string;
-  sentiment_score: {
-    positive: number;
-    negative: number;
-    neutral: number;
-    mixed: number;
-  };
-  entities: ComprehendEntity[];
-}
-
-interface StreamData extends Partial<TweetV2SingleStreamResult> {
-  analysis?: {
-    normalized_text: string;
-    comprehend: ComprehendInsights;
-  };
 };
 
 const analyze = async (text: string, lang: string) => {
@@ -71,11 +37,20 @@ const analyze = async (text: string, lang: string) => {
   // Entities
   const detectEntitiesCommand = new DetectEntitiesCommand({ Text: text, LanguageCode: lang });
   const detectEntitiesResponse = await comprehend.send(detectEntitiesCommand);
-  const entities: ComprehendEntity[] = detectEntitiesResponse.Entities?.map(entity => {
-    return { score: entity.Score!, type: entity.Type!, text: entity.Text! };
-  }) || [];
+  const filteredEntities = detectEntitiesResponse.Entities?.filter(entity => {
+    let flag = true;
+    if (entity.Type == 'QUANTITY' || entity.Type == 'DATE') {
+      flag = false;
+    } else if (entity.Text!.length < 2 || entity.Text!.startsWith('@') ) {
+      flag = false;
+    } else if (entity.Score! < entityScoreThreshold ) {
+      flag = false;
+    }
+    return flag;
+  });
+  const entities = Deduplicate(filteredEntities?.map(entity => { return entity.Text!; }));
 
-  const insights: ComprehendInsights = {
+  const insights = {
     sentiment: detectSentimentResponse.Sentiment!,
     sentiment_score: {
       positive: detectSentimentResponse.SentimentScore?.Positive!,
@@ -89,22 +64,22 @@ const analyze = async (text: string, lang: string) => {
 };
 
 const processRecord = async (record: KinesisStreamRecord) => {
-  const payload: StreamData = JSON.parse(Buffer.from(record.kinesis.data, 'base64').toString('utf8'));
-  const tweet = payload.data!;
+  const payload = TweetStreamParse(record.kinesis.data);
+  const tweet = payload.data;
   const lang = tweet.lang || 'ja';
-  const fullText = getFullText(tweet);
-  const normalizedText = normalize(fullText);
+  const fullText = getFullText(payload);
+  const normalizedText = Normalize(fullText);
   const insights = await analyze(normalizedText, lang);
-  const data = {
+  const newData = {
     ...payload,
     analysis: {
       normalized_text: normalizedText,
-      comprehend: insights,
+      ...insights,
     },
   };
   const processedRecord = {
     PartitionKey: record.kinesis.partitionKey,
-    Data: Buffer.from(JSON.stringify(data)),
+    Data: Buffer.from(JSON.stringify(newData)),
   };
   return processedRecord;
 };

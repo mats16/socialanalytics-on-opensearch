@@ -113,6 +113,8 @@ export class ContainerInsights extends Construct {
     taskDefinition.addContainer('CloudWatchAgent', {
       containerName: 'cloudwatch-agent',
       image: ecs.ContainerImage.fromRegistry('public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest'),
+      cpu: 256,
+      memoryReservationMiB: 512,
       secrets: {
         PROMETHEUS_CONFIG_CONTENT: ecs.Secret.fromSsmParameter(prometheusConfig),
         CW_CONFIG_CONTENT: ecs.Secret.fromSsmParameter(cloudWatchConfig),
