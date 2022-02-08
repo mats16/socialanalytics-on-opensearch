@@ -41,7 +41,7 @@ export const twitterStreamProducer = async () => {
     ],
     'expansions': ['author_id', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'],
   };
-  logger.info('Connect to twitter...');
+  logger.info({ message: 'Connect to twitter...' });
   const stream = await client.v2.searchStream({ ...options, autoConnect: true });
 
   stream.on(
@@ -53,23 +53,26 @@ export const twitterStreamProducer = async () => {
   stream.on(
     // Emitted when Node.js {response} is closed by remote or using .close().
     ETwitterStreamEvent.ConnectionClosed,
-    () => logger.info('Connection has been closed.'),
+    () => logger.info({ message: 'Connection has been closed.' }),
   );
 
   stream.on(
     // Emitted when a Twitter payload (a tweet or not, given the endpoint).
     ETwitterStreamEvent.Data,
-    eventData => tweetLogger.info(eventData),
+    eventData => {
+      const { data, includes, matching_rules, errors } = eventData;
+      tweetLogger.info({ data, includes, matching_rules, errors });
+    },
   );
 
   stream.on(
     // Emitted when a Twitter sent a signal to maintain connection active
     ETwitterStreamEvent.DataKeepAlive,
-    () => logger.info('Twitter has a keep-alive packet.'),
+    () => logger.info({ message: 'Twitter has a keep-alive packet.' }),
   );
 
   process.on('SIGTERM', () => {
     stream.close();
-    console.log('SIGTERM received. ');
+    logger.info({ message: 'SIGTERM received.' });
   });
 };
