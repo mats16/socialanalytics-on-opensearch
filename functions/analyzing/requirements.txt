@@ -1,2 +1,0 @@
-emoji==0.5.4
-#neologdn==0.4
