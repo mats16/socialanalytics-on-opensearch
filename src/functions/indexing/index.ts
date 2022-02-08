@@ -8,7 +8,7 @@ import { KinesisStreamHandler } from 'aws-lambda';
 import { TweetStreamParse, TweetStreamData, Deduplicate, Normalize } from '../utils';
 
 
-const allowedTimeRange = 1000 * 60 * 60 * 24 * 365;
+const allowedTimeRange = 1000 * 60 * 60 * 24 * 365 * 2;
 
 const hostname = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
 const region = process.env.AWS_REGION!;
@@ -89,7 +89,7 @@ const genBulkActions = (data: TweetStreamData): string[]=> {
   addBulkAction(bulkActions, data);
   const now = new Date();
   data.includes?.tweets?.map(x => {
-    // 元ツイートが1年以内だったらメトリクスも更新する
+    // 元ツイートがN年以内だったらメトリクスも更新する
     const date = new Date(x.created_at || 0);
     if (now.getTime() - date.getTime() < allowedTimeRange ) {
       addBulkAction(bulkActions, { data: x });
