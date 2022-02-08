@@ -85,6 +85,12 @@ export class Dashboard extends Construct {
           backend_roles: [userPool.authenticatedRole.roleArn],
         },
       });
+      this.Domain.addRoleMapping('ReadAllRoleMapping', {
+        name: 'readall',
+        body: {
+          backend_roles: [userPool.authenticatedRole.roleArn],
+        },
+      });
     };
 
     this.BulkOperationRole = new iam.Role(this, 'BulkOperationRole', {
