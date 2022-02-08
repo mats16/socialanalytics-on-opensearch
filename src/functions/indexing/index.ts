@@ -1,12 +1,12 @@
+import { Sha256 } from '@aws-crypto/sha256-js';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpRequest } from '@aws-sdk/protocol-http';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { KinesisStreamHandler } from 'aws-lambda';
 import { TweetStreamParse, TweetStreamData, Deduplicate, Normalize } from '../utils';
 
-const { Sha256 } = require('@aws-crypto/sha256-js');
-const { SignatureV4 } = require('@aws-sdk/signature-v4');
 
 const allowedTimeRange = 1000 * 60 * 60 * 24 * 365;
 
@@ -111,9 +111,8 @@ export const handler: KinesisStreamHandler = async (event) => {
     path: '_bulk',
     body: bulkActions.join('\n') + '\n',
   });
-  console.log(bulkActions.join('\n') + '\n');
-  const signedRequest = await signer.sign(request);
+  const signedRequest = await signer.sign(request) as HttpRequest;
   const { response } = await client.handle(signedRequest);
-  console.log(response.statusCode);
+  logger.info({ message: `statusCode: ${response.statusCode}` });
 
 };

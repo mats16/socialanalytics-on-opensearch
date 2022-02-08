@@ -1,5 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger';
-import { CognitoIdentityClient, GetIdentityPoolRolesCommand, SetIdentityPoolRolesCommand, SetIdentityPoolRolesCommandInput } from "@aws-sdk/client-cognito-identity";
+import { CognitoIdentityClient, GetIdentityPoolRolesCommand, SetIdentityPoolRolesCommand, SetIdentityPoolRolesCommandInput } from '@aws-sdk/client-cognito-identity';
 import { CognitoIdentityProviderClient, ListUserPoolClientsCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { CdkCustomResourceHandler, CdkCustomResourceResponse } from 'aws-lambda';
 
@@ -14,8 +14,8 @@ const region = process.env.AWS_REGION || 'us-west-2';
 const logger = new Logger({ logLevel: 'INFO', serviceName: 'enable-role-from-token' });
 
 const getAppClient = async (userPoolId: string, appClinetPrefix: string) => {
-  const cognito = new CognitoIdentityProviderClient({region});
-  const cmd = new ListUserPoolClientsCommand({UserPoolId: userPoolId});
+  const cognito = new CognitoIdentityProviderClient({ region });
+  const cmd = new ListUserPoolClientsCommand({ UserPoolId: userPoolId });
   const { UserPoolClients } = await cognito.send(cmd);
   const { ClientName: clientName, ClientId: clientId } = UserPoolClients?.find(x => x.ClientName?.startsWith(appClinetPrefix))!;
   const cognitoRegion = userPoolId.split('_').shift();
@@ -25,26 +25,26 @@ const getAppClient = async (userPoolId: string, appClinetPrefix: string) => {
 };
 
 const getIdentityPoolRoles = async (identityPoolId: string) => {
-  const client = new CognitoIdentityClient({region});
-  const cmd = new GetIdentityPoolRolesCommand({IdentityPoolId: identityPoolId});
+  const client = new CognitoIdentityClient({ region });
+  const cmd = new GetIdentityPoolRolesCommand({ IdentityPoolId: identityPoolId });
   const res = await client.send(cmd);
   logger.info({
     message: 'Get IdentityPoolRoles successfully',
-    roles: JSON.stringify(res)
+    roles: JSON.stringify(res),
   });
-  return res
+  return res;
 };
 
 const setIdentityPoolRoles = async (input: SetIdentityPoolRolesCommandInput) => {
-  const client = new CognitoIdentityClient({region});
+  const client = new CognitoIdentityClient({ region });
   const cmd = new SetIdentityPoolRolesCommand(input);
   const res = await client.send(cmd);
   logger.info({
     message: 'SetIdentityPoolRoles successfully',
-    input: JSON.stringify(input)
+    input: JSON.stringify(input),
   });
-  return res
-}
+  return res;
+};
 
 const enableRoleFromToken = async (props: Props): Promise<CdkCustomResourceResponse> => {
   const { identityPoolId, userPoolId, appClinetPrefix } = props;
@@ -58,9 +58,9 @@ const enableRoleFromToken = async (props: Props): Promise<CdkCustomResourceRespo
       ...RoleMappings,
       [identityProvider]: {
         Type: 'Token',
-        AmbiguousRoleResolution: 'AuthenticatedRole'
+        AmbiguousRoleResolution: 'AuthenticatedRole',
       },
-    }
+    },
   });
   return { PhysicalResourceId: identityProvider };
 };
@@ -70,13 +70,13 @@ const disableRoleFromToken = async (props: Props): Promise<CdkCustomResourceResp
   const { identityProvider } = await getAppClient(userPoolId, appClinetPrefix);
   // update identity pool
   const { RoleMappings, Roles } = await getIdentityPoolRoles(identityPoolId);
-  delete RoleMappings?.[identityProvider]
+  delete RoleMappings?.[identityProvider];
   await setIdentityPoolRoles({
     IdentityPoolId: identityPoolId,
     Roles,
     RoleMappings,
   });
-  return {}
+  return {};
 };
 
 export const handler: CdkCustomResourceHandler = async (event, _context) => {

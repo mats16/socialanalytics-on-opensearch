@@ -59,15 +59,15 @@ export class UserPool extends cognito.UserPool {
             'cognito-identity:GetIdentityPoolRoles',
             'cognito-identity:SetIdentityPoolRoles',
           ],
-          resources: [`arn:aws:cognito-identity:${this.stack.region}:${this.stack.account}:identitypool/${this.identityPoolId}`]
+          resources: [`arn:aws:cognito-identity:${this.stack.region}:${this.stack.account}:identitypool/${this.identityPoolId}`],
         }),
         new iam.PolicyStatement({
           actions: ['cognito-idp:ListUserPoolClients'],
-          resources: [this.userPoolArn]
+          resources: [this.userPoolArn],
         }),
         new iam.PolicyStatement({
-          actions: ['iam:PassRole',],
-          resources: [this.authenticatedRole.roleArn]
+          actions: ['iam:PassRole'],
+          resources: [this.authenticatedRole.roleArn],
         }),
       ],
     });

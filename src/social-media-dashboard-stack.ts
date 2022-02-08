@@ -9,8 +9,8 @@ import { Secret, SecretStringValueBeta1 } from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { UserPool } from './resources/cognito-for-opensearch';
 import { ContainerInsights } from './resources/container-insights';
-import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { Dashboard } from './resources/dashboard';
+import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
 
 interface SocialAnalyticsStackProps extends StackProps {

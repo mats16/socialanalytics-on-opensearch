@@ -1,12 +1,12 @@
+import { Sha256 } from '@aws-crypto/sha256-js';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpRequest } from '@aws-sdk/protocol-http';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { CdkCustomResourceHandler, CdkCustomResourceResponse } from 'aws-lambda';
 
-const { Sha256 } = require('@aws-crypto/sha256-js');
-const { SignatureV4 } = require('@aws-sdk/signature-v4');
 
 interface Props {
   host: string;
@@ -25,7 +25,7 @@ const getRoleArn = async() => {
   const { Account, Arn } = await sts.send(cmd);
   const roleName = Arn?.split('/')[1];
   const roleArn = `arn:aws:iam::${Account}:role/${roleName}`;
-  logger.info({message: `Lambda Execution Role: ${roleArn}`});
+  logger.info({ message: `Lambda Execution Role: ${roleArn}` });
   return roleArn;
 };
 
@@ -49,7 +49,7 @@ const opensearchRequest = async (method: 'GET'|'PUT'|'DELETE', host: string, pat
     service: 'es',
     sha256: Sha256,
   });
-  const signedRequest = await signer.sign(request);
+  const signedRequest = await signer.sign(request) as HttpRequest;
   // Send the request
   const client = new NodeHttpHandler();
   const { response } = await client.handle(signedRequest);
@@ -72,21 +72,21 @@ const waitPermissionReady = async (host: string) => {
       return statusCode;
     } else if (statusCode == 403) {
       const message = 'Access policy is not ready. Please wait...';
-      logger.warn({message, statusCode, host});
+      logger.warn({ message, statusCode, host });
       await new Promise(resolve => setTimeout(resolve, 10*1000)); // 10秒待つ
-      return await retryRequest(count + 1);
+      return retryRequest(count + 1);
     } else if (statusCode == 401) {
       const message = 'Fine-grained access control is not ready. Please wait...';
-      logger.warn({message, statusCode, host});
+      logger.warn({ message, statusCode, host });
       await new Promise(resolve => setTimeout(resolve, 10*1000)); // 10秒待つ
-      return await retryRequest(count + 1);
+      return retryRequest(count + 1);
     } else {
       const message = 'Request failed.';
-      logger.error({message, statusCode, host});
+      logger.error({ message, statusCode, host });
       throw new Error(message);
     }
   };
-  return await retryRequest();
+  return retryRequest();
 };
 
 const onCreate = async (props: Props): Promise<CdkCustomResourceResponse> => {
@@ -103,7 +103,7 @@ const onCreate = async (props: Props): Promise<CdkCustomResourceResponse> => {
   };
   const response: CdkCustomResourceResponse = {
     PhysicalResourceId: physicalResourceId,
-    Data: { Host: host, Path: path, Name: name }
+    Data: { Host: host, Path: path, Name: name },
   };
   return response;
 };

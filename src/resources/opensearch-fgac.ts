@@ -7,70 +7,70 @@ import * as cr from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 
 interface IndexPermission {
-  index_patterns?: string[]
-  dls?: string
-  fls?: string[]
-  masked_fields?: string[]
-  allowed_actions?: string[]
+  index_patterns?: string[];
+  dls?: string;
+  fls?: string[];
+  masked_fields?: string[];
+  allowed_actions?: string[];
 }
 
 interface TenantPermission {
-  tenant_patterns?: string[]
-  allowed_actions?: string[]
+  tenant_patterns?: string[];
+  allowed_actions?: string[];
 }
 
 interface RoleProps {
-  name?: string
+  name?: string;
   body: {
-    cluster_permissions?: string[]
-    index_permissions?: IndexPermission[]
-    tenant_permissions?: TenantPermission[]
-  }
+    cluster_permissions?: string[];
+    index_permissions?: IndexPermission[];
+    tenant_permissions?: TenantPermission[];
+  };
 };
 
 interface RoleMappingProps {
-  name?: string
+  name?: string;
   body: {
-    backend_roles?: string[]
-    hosts?: string[]
-    users?: string[]
-  }
+    backend_roles?: string[];
+    hosts?: string[];
+    users?: string[];
+  };
 };
 
 interface FieldProperty {
-  type?: 'boolean'|'byte'|'short'|'integer'|'long'|'float'|'half_float'|'scaled_float'|'double'|'keyword'|'text'|'date'|'ip'|'date'|'binary'|'object'|'nested'
-  format?: string
-  index?: boolean
-  enabled?: boolean
+  type?: 'boolean'|'byte'|'short'|'integer'|'long'|'float'|'half_float'|'scaled_float'|'double'|'keyword'|'text'|'date'|'ip'|'date'|'binary'|'object'|'nested';
+  format?: string;
+  index?: boolean;
+  enabled?: boolean;
   properties?: {
-    [key: string]: FieldProperty
-  }
+    [key: string]: FieldProperty;
+  };
 }
 
 interface TemplateProps {
-  name?: string
+  name?: string;
   body: {
-    index_patterns: string[]
+    index_patterns: string[];
     template: {
-      aliased?: object
+      aliased?: object;
       settings: {
-        number_of_shards: number
-        number_of_replicas: number
-      }
+        number_of_shards: number;
+        number_of_replicas: number;
+      };
       mappings: {
         _source?: {
-          enabled: boolean
-        }
+          enabled: boolean;
+        };
         properties: {
-          [key: string]: FieldProperty
-        }
-      }
-    }
-    priority?: number
-    composed_of?: string[]
-    version?: number
-    _meta?: object
-  }
+          [key: string]: FieldProperty;
+        };
+      };
+    };
+    priority?: number;
+    composed_of?: string[];
+    version?: number;
+    _meta?: object;
+  };
 };
 
 export class Domain extends opensearch.Domain {
@@ -127,13 +127,13 @@ export class Domain extends opensearch.Domain {
             'indices:admin/mappings/get',
           ],
         }],
-      }
+      },
     });
     this.addRoleMapping('ConsoleRoleMapping', {
       name: consoleRole.getAttString('Name'),
       body: {
-        backend_roles: [`arn:aws:iam::${this.stack.account}:role/*`]
-      }
+        backend_roles: [`arn:aws:iam::${this.stack.account}:role/*`],
+      },
     });
 
   };
@@ -167,7 +167,7 @@ export class Domain extends opensearch.Domain {
     });
     return resource;
   };
-  addTemplate(id: string, props: TemplateProps){
+  addTemplate(id: string, props: TemplateProps) {
     const name = props.name || id;
     const body = props.body;
     const resource = new CustomResource(this, id, {

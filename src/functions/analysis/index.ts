@@ -11,9 +11,9 @@ const region = process.env.AWS_REGION || 'us-west-2';
 const indexingStreamName = process.env.INDEXING_STREAM_NAME!;
 
 const logger = new Logger({ logLevel: 'INFO', serviceName: 'analysis' });
-const translate = new TranslateClient({region});
-const comprehend = new ComprehendClient({region});
-const kinesis = new KinesisClient({region});
+const translate = new TranslateClient({ region });
+const comprehend = new ComprehendClient({ region });
+const kinesis = new KinesisClient({ region });
 
 const getFullText = (streamData: TweetStreamData): string => {
   const tweet = streamData.data;
