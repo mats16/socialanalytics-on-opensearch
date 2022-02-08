@@ -7,6 +7,7 @@ import * as cr from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 
 interface UserPoolProps extends cognito.UserPoolProps {
+  allowedSignupDomains: string[];
   cognitoDomainPrefix: string;
 }
 
@@ -17,6 +18,18 @@ export class UserPool extends cognito.UserPool {
 
   constructor(scope: Construct, id: string, props: UserPoolProps) {
     super(scope, id, props);
+
+    const preSignUpFunction = new NodejsFunction(this, 'PreSignUpFunction', {
+      description: 'Social Analytics - PreSignUp trigger',
+      entry: './src/functions/pre-sign-up/index.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_14_X,
+      architecture: lambda.Architecture.ARM_64,
+      environment: {
+        ALLOWED_SIGNUP_DOMAINS: props.allowedSignupDomains.join(','),
+      },
+    });
+    this.addTrigger(cognito.UserPoolOperation.PRE_SIGN_UP, preSignUpFunction);
 
     const domainPrefix = props.cognitoDomainPrefix;
 

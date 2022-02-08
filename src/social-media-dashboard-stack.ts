@@ -1,4 +1,5 @@
 import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy } from 'aws-cdk-lib';
+import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
@@ -102,6 +103,17 @@ export class SocialAnalyticsStack extends Stack {
         username: false,
         email: true,
       },
+      autoVerify: {
+        email: true,
+      },
+      userVerification: {
+        emailStyle: VerificationEmailStyle.LINK,
+      },
+      selfSignUpEnabled: true,
+      allowedSignupDomains: [
+        'amazon.com',
+        'amazon.co.jp',
+      ],
       cognitoDomainPrefix: [this.stackName.toLowerCase(), this.account].join('-'),
     });
 
