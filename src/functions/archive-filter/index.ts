@@ -9,10 +9,10 @@ const liveStreamFilter = (record: FirehoseTransformationEventRecord) => {
   let data = record.data;
   let result: FirehoseRecordTransformationStatus = 'Dropped';
   try {
-    const payload = TweetStreamParse(data);
-    if (payload.backup) {
-      const tweet = payload.data;
-      data = Buffer.from(JSON.stringify(tweet)).toString('base64');
+    const stream = TweetStreamParse(data);
+    if (stream.backup) {
+      delete stream.backup;
+      data = Buffer.from(JSON.stringify(stream)).toString('base64');
       result = 'Ok';
     };
   } catch (error) {

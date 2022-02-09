@@ -102,7 +102,7 @@ export class DeliveryStream extends Construct {
         },
         bucketArn,
         roleArn: role.roleArn,
-        prefix: 'raw/dt=!{partitionKeyFromQuery:dt}/',
+        prefix: 'raw/tweets/v2/dt=!{partitionKeyFromQuery:dt}/',
         errorOutputPrefix: 'error/!{firehose:error-output-type}/',
         bufferingHints: {
           intervalInSeconds: 900,
@@ -129,7 +129,7 @@ export class DeliveryStream extends Construct {
               parameters: [
                 {
                   parameterName: 'MetadataExtractionQuery',
-                  parameterValue: '{dt : .created_at | split(".")[0] | strptime("%Y-%m-%dT%H:%M:%S") | strftime("%Y-%m-%d")}', // 2022-01-24T17:41:38.000Z
+                  parameterValue: '{dt : .data.created_at | split(".")[0] | strptime("%Y-%m-%dT%H:%M:%S") | strftime("%Y-%m-%d")}', // 2022-01-24T17:41:38.000Z
                 },
                 {
                   parameterName: 'JsonParsingEngine',
