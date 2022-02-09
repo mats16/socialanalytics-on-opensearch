@@ -81,7 +81,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "268a9ea6c7f5e001e7715b04f754f9bf5a64cc408b9b0420b962918e7efec8c9.zip",
+          "S3Key": "9ad971fcbf35b3461d7b9ed385d8b62209c693d96f65406d0ead575bf48e51d9.zip",
         },
         "Description": "Social Analytics processor - Analysis by Amazon Comprehend",
         "Environment": Object {
@@ -258,7 +258,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "fecb9f4fa5bcbe880f264cdbc920deaa5a59ddd781367e8d12cb537a3668d084.zip",
+          "S3Key": "a1d371200ed6d182447cdd9f335664a6a8b63b633d76e9b44e96407aa43cdf02.zip",
         },
         "Description": "Social Analytics filter - Filtering with baclup flag",
         "Environment": Object {
@@ -1781,7 +1781,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "78ae4f8fc37d388021c15a6de923f8acdde1be9ca07a95f91c0908c65354b922.zip",
+          "S3Key": "153bfc1a70a74b55f9a08d11d664db683b113387f8e692ceffb7664b1e4e5b4e.zip",
         },
         "Description": "Social Analytics processor - Bulk load to OpenSearch",
         "Environment": Object {
@@ -1879,7 +1879,7 @@ scrape_configs:
             "Enabled": true,
           },
           "ErrorOutputPrefix": "error/!{firehose:error-output-type}/",
-          "Prefix": "raw/dt=!{partitionKeyFromQuery:dt}/",
+          "Prefix": "raw/tweets/v2/dt=!{partitionKeyFromQuery:dt}/",
           "ProcessingConfiguration": Object {
             "Enabled": true,
             "Processors": Array [
@@ -1901,7 +1901,7 @@ scrape_configs:
                 "Parameters": Array [
                   Object {
                     "ParameterName": "MetadataExtractionQuery",
-                    "ParameterValue": "{dt : .created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%Y-%m-%d\\")}",
+                    "ParameterValue": "{dt : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%Y-%m-%d\\")}",
                   },
                   Object {
                     "ParameterName": "JsonParsingEngine",

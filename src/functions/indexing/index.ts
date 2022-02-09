@@ -5,7 +5,7 @@ import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpRequest } from '@aws-sdk/protocol-http';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { KinesisStreamHandler } from 'aws-lambda';
-import { TweetStreamParse, TweetStreamData, Deduplicate, Normalize } from '../utils';
+import { TweetStreamParse, StreamResult, Deduplicate, Normalize } from '../utils';
 
 
 const allowedTimeRange = 1000 * 60 * 60 * 24 * 365 * 2;
@@ -29,8 +29,8 @@ const client = new NodeHttpHandler();
 
 const logger = new Logger({ logLevel: 'INFO', serviceName: 'indexing' });
 
-const getSearchMetadata = (data: TweetStreamData) => {
-  const tweet = data.data;
+const getSearchMetadata = (stream: StreamResult) => {
+  const tweet = stream.data;
   const date = (tweet.created_at)
     ? new Date(tweet.created_at)
     : new Date();
@@ -42,14 +42,14 @@ const getSearchMetadata = (data: TweetStreamData) => {
   return metadata;
 };
 
-const getSearchDocument = (data: TweetStreamData) => {
-  const tweet = data.data;
-  const author = data.includes?.users?.find(x => x.id == tweet.author_id);
+const getSearchDocument = (stream: StreamResult) => {
+  const tweet = stream.data;
+  const author = stream.includes?.users?.find(x => x.id == tweet.author_id);
   delete tweet.author_id; // author.id と被るので削除
   const doc = {
     //'@timestamp': tweet.created_at,
     ...tweet,
-    text: data.analysis?.normalized_text || Normalize(tweet.text),
+    text: stream.analysis?.normalized_text || Normalize(tweet.text),
     url: `https://twitter.com/${tweet.author_id}/status/${tweet.id}`,
     author,
     context_annotations: {
@@ -67,28 +67,28 @@ const getSearchDocument = (data: TweetStreamData) => {
       id: tweet.referenced_tweets?.map(x => x.id),
     },
     matching_rules: {
-      id: data.matching_rules?.map(rule => rule.id.toString()),
-      tag: Deduplicate(data.matching_rules?.map(rule => rule.tag)),
+      id: stream.matching_rules?.map(rule => rule.id.toString()),
+      tag: Deduplicate(stream.matching_rules?.map(rule => rule.tag)),
     },
-    analysis: data.analysis,
-    includes: data.includes,
+    analysis: stream.analysis,
+    includes: stream.includes,
   };
   return doc;
 };
 
-const addBulkAction = (bulkActions: string[], data: TweetStreamData) => {
-  const metadata = getSearchMetadata(data);
-  const doc = getSearchDocument(data);
+const addBulkAction = (bulkActions: string[], stream: StreamResult) => {
+  const metadata = getSearchMetadata(stream);
+  const doc = getSearchDocument(stream);
   const bulkHeader = JSON.stringify({ update: metadata });
   const bulkBody = JSON.stringify({ doc, doc_as_upsert: true });
   bulkActions.push(bulkHeader, bulkBody);
 };
 
-const genBulkActions = (data: TweetStreamData): string[]=> {
+const genBulkActions = (stream: StreamResult): string[]=> {
   const bulkActions: string[] = [];
-  addBulkAction(bulkActions, data);
+  addBulkAction(bulkActions, stream);
   const now = new Date();
-  data.includes?.tweets?.map(x => {
+  stream.includes?.tweets?.map(x => {
     // 元ツイートがN年以内だったらメトリクスも更新する
     const date = new Date(x.created_at || 0);
     if (now.getTime() - date.getTime() < allowedTimeRange ) {

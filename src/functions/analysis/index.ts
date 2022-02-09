@@ -4,7 +4,7 @@ import { KinesisClient, PutRecordsCommand } from '@aws-sdk/client-kinesis';
 import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
-import { TweetStreamParse, TweetStreamData, Deduplicate, Normalize } from '../utils';
+import { TweetStreamParse, StreamResult, Deduplicate, Normalize } from '../utils';
 
 const entityScoreThreshold = 0.8;
 const region = process.env.AWS_REGION || 'us-west-2';
@@ -15,11 +15,11 @@ const translate = new TranslateClient({ region });
 const comprehend = new ComprehendClient({ region });
 const kinesis = new KinesisClient({ region });
 
-const getFullText = (streamData: TweetStreamData): string => {
-  const tweet = streamData.data;
+const getFullText = (stream: StreamResult): string => {
+  const tweet = stream.data;
   let fullText: string = tweet.text;
-  if (tweet.referenced_tweets?.[0].type == 'retweeted' && streamData.includes?.tweets?.[0].text) {
-    fullText = streamData.includes?.tweets?.[0].text;
+  if (tweet.referenced_tweets?.[0].type == 'retweeted' && stream.includes?.tweets?.[0].text) {
+    fullText = stream.includes?.tweets?.[0].text;
   };
   return fullText;
 };
