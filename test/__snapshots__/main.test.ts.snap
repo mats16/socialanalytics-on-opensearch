@@ -1526,6 +1526,37 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Policy",
     },
+    "DashboardDomainReadAllRoleMappingFF2D0332": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainProviderframeworkonEvent09950933",
+            "Arn",
+          ],
+        },
+        "body": Object {
+          "backend_roles": Array [
+            Object {
+              "Fn::GetAtt": Array [
+                "testUserPoolAuthRole24574640",
+                "Arn",
+              ],
+            },
+          ],
+        },
+        "host": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainED696CAB",
+            "DomainEndpoint",
+          ],
+        },
+        "name": "readall",
+        "path": "_plugins/_security/api/rolesmapping/",
+      },
+      "Type": "Custom::OpenSearchRoleMapping",
+      "UpdateReplacePolicy": "Delete",
+    },
     "DashboardDomainTweetsTemplate35A526B1": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
@@ -1750,7 +1781,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "79f5689605537f796d5e9f3da51a56526c1848c5ef5119d40efbc4928bdda04b.zip",
+          "S3Key": "78ae4f8fc37d388021c15a6de923f8acdde1be9ca07a95f91c0908c65354b922.zip",
         },
         "Description": "Social Analytics processor - Bulk load to OpenSearch",
         "Environment": Object {
@@ -2186,7 +2217,7 @@ scrape_configs:
             ],
             "Essential": true,
             "Image": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:6ffac748919b091a09c6b682b84dc148043bca7ee20d812b1b238920aedfe8e3",
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:b550fa4a389a3f3658c22d33b676703793add480479a2b226deb3424d9d610db",
             },
             "LogConfiguration": Object {
               "LogDriver": "awsfirelens",
@@ -2646,21 +2677,27 @@ scrape_configs:
           ],
         },
         "AdminCreateUserConfig": Object {
-          "AllowAdminCreateUserOnly": true,
+          "AllowAdminCreateUserOnly": false,
         },
         "AutoVerifiedAttributes": Array [
           "email",
         ],
-        "EmailVerificationMessage": "The verification code to your new account is {####}",
-        "EmailVerificationSubject": "Verify your new account",
+        "LambdaConfig": Object {
+          "PreSignUp": Object {
+            "Fn::GetAtt": Array [
+              "testUserPoolPreSignUpFunction9FAF4483",
+              "Arn",
+            ],
+          },
+        },
         "SmsVerificationMessage": "The verification code to your new account is {####}",
         "UsernameAttributes": Array [
           "email",
         ],
         "VerificationMessageTemplate": Object {
-          "DefaultEmailOption": "CONFIRM_WITH_CODE",
-          "EmailMessage": "The verification code to your new account is {####}",
-          "EmailSubject": "Verify your new account",
+          "DefaultEmailOption": "CONFIRM_WITH_LINK",
+          "EmailMessageByLink": "Verify your account by clicking on {##Verify Email##}",
+          "EmailSubjectByLink": "Verify your new account",
           "SmsMessage": "The verification code to your new account is {####}",
         },
       },
@@ -2935,6 +2972,88 @@ scrape_configs:
       "Type": "AWS::IAM::Policy",
     },
     "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventServiceRoleE5EEA8BA": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "testUserPoolPreSignUpFunction9FAF4483": Object {
+      "DependsOn": Array [
+        "testUserPoolPreSignUpFunctionServiceRole353E967F",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "796ba7a282ba2979752d964eeea9f4e31173ad91a29353ee3e1b363fb16464a1.zip",
+        },
+        "Description": "Social Analytics - PreSignUp trigger",
+        "Environment": Object {
+          "Variables": Object {
+            "ALLOWED_SIGNUP_DOMAINS": "amazon.com,amazon.co.jp",
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "testUserPoolPreSignUpFunctionServiceRole353E967F",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "testUserPoolPreSignUpFunctionPreSignUpCognito6AC6B041": Object {
+      "Properties": Object {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": Object {
+          "Fn::GetAtt": Array [
+            "testUserPoolPreSignUpFunction9FAF4483",
+            "Arn",
+          ],
+        },
+        "Principal": "cognito-idp.amazonaws.com",
+        "SourceArn": Object {
+          "Fn::GetAtt": Array [
+            "testUserPool38F3A57B",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "testUserPoolPreSignUpFunctionServiceRole353E967F": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
