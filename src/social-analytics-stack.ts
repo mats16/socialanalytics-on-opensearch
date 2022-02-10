@@ -3,7 +3,7 @@ import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { KinesisEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { KinesisEventSource, S3EventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Secret, SecretStringValueBeta1 } from 'aws-cdk-lib/aws-secretsmanager';
@@ -30,15 +30,18 @@ export class SocialAnalyticsStack extends Stack {
 
     const bucket = new s3.Bucket(this, 'Bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
+      intelligentTieringConfigurations: [{
+        name: 'default',
+        archiveAccessTierTime: Duration.days(90),
+        deepArchiveAccessTierTime: Duration.days(180),
+      }],
     });
 
     const ingestionStream = new kinesis.Stream(this, 'IngestionStream', {
-      streamMode: kinesis.StreamMode.ON_DEMAND,
       encryption: kinesis.StreamEncryption.MANAGED,
     });
 
     const indexingStream = new kinesis.Stream(this, 'IndexingStream', {
-      streamMode: kinesis.StreamMode.ON_DEMAND,
       encryption: kinesis.StreamEncryption.MANAGED,
     });
 
@@ -57,7 +60,7 @@ export class SocialAnalyticsStack extends Stack {
       events: [
         new KinesisEventSource(ingestionStream, {
           startingPosition: lambda.StartingPosition.LATEST,
-          batchSize: 200,
+          batchSize: 100,
           maxBatchingWindow: Duration.seconds(15),
           maxRecordAge: Duration.days(1),
         }),
@@ -137,13 +140,59 @@ export class SocialAnalyticsStack extends Stack {
       events: [
         new KinesisEventSource(indexingStream, {
           startingPosition: lambda.StartingPosition.LATEST,
-          batchSize: 500,
+          batchSize: 100,
           maxBatchingWindow: Duration.seconds(15),
           maxRecordAge: Duration.days(1),
         }),
       ],
       role: dashboard.BulkOperationRole,
     });
+
+    const reprocessingTweetsV1Function = new NodejsFunction(this, 'ReprocessingTweetsV1Function', {
+      description: 'Social Analytics processor - Reprocessing for tweets v1',
+      entry: './src/functions/reprocessing-tweets-v1/index.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_14_X,
+      architecture: lambda.Architecture.ARM_64,
+      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
+      memorySize: 256,
+      timeout: Duration.minutes(10),
+      environment: {
+        STREAM_NAME: ingestionStream.streamName,
+      },
+      events: [
+        new S3EventSource(bucket, {
+          events: [s3.EventType.OBJECT_CREATED],
+          filters: [{ prefix: 'reprocessing/tweets/v1/' }],
+        }),
+      ],
+    });
+    bucket.grantRead(reprocessingTweetsV1Function, 'reprocessing/tweets/v1/*');
+    bucket.grantDelete(reprocessingTweetsV1Function, 'reprocessing/tweets/v1/*');
+    ingestionStream.grantWrite(reprocessingTweetsV1Function);
+
+    const reprocessingTweetsV2Function = new NodejsFunction(this, 'ReprocessingTweetsV2Function', {
+      description: 'Social Analytics processor - Reprocessing for tweets v2',
+      entry: './src/functions/reprocessing-tweets-v2/index.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_14_X,
+      architecture: lambda.Architecture.ARM_64,
+      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
+      memorySize: 256,
+      timeout: Duration.minutes(10),
+      environment: {
+        STREAM_NAME: ingestionStream.streamName,
+      },
+      events: [
+        new S3EventSource(bucket, {
+          events: [s3.EventType.OBJECT_CREATED],
+          filters: [{ prefix: 'reprocessing/tweets/v2/' }],
+        }),
+      ],
+    });
+    bucket.grantRead(reprocessingTweetsV2Function, 'reprocessing/tweets/v2/*');
+    bucket.grantDelete(reprocessingTweetsV2Function, 'reprocessing/tweets/v2/*');
+    ingestionStream.grantWrite(reprocessingTweetsV2Function);
 
   }
 }

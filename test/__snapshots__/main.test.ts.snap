@@ -81,7 +81,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "9ad971fcbf35b3461d7b9ed385d8b62209c693d96f65406d0ead575bf48e51d9.zip",
+          "S3Key": "f92dfa1ce2431fdf72a31c0a814f203d0dfd611339eb65bde9ac292378d62d40.zip",
         },
         "Description": "Social Analytics processor - Analysis by Amazon Comprehend",
         "Environment": Object {
@@ -121,7 +121,7 @@ Object {
     },
     "AnalysisFunctionKinesisEventSourcetestIngestionStreamB9108F92DD806EA3": Object {
       "Properties": Object {
-        "BatchSize": 200,
+        "BatchSize": 100,
         "EventSourceArn": Object {
           "Fn::GetAtt": Array [
             "IngestionStream56E76A34",
@@ -347,9 +347,309 @@ Object {
             },
           ],
         },
+        "IntelligentTieringConfigurations": Array [
+          Object {
+            "Id": "default",
+            "Status": "Enabled",
+            "Tierings": Array [
+              Object {
+                "AccessTier": "ARCHIVE_ACCESS",
+                "Days": 90,
+              },
+              Object {
+                "AccessTier": "DEEP_ARCHIVE_ACCESS",
+                "Days": 180,
+              },
+            ],
+          },
+        ],
       },
       "Type": "AWS::S3::Bucket",
       "UpdateReplacePolicy": "Retain",
+    },
+    "BucketAllowBucketNotificationsTotestReprocessingTweetsV1FunctionA1235A6839B2A5C1": Object {
+      "Properties": Object {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": Object {
+          "Fn::GetAtt": Array [
+            "ReprocessingTweetsV1FunctionB14F58B9",
+            "Arn",
+          ],
+        },
+        "Principal": "s3.amazonaws.com",
+        "SourceAccount": Object {
+          "Ref": "AWS::AccountId",
+        },
+        "SourceArn": Object {
+          "Fn::GetAtt": Array [
+            "Bucket83908E77",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "BucketAllowBucketNotificationsTotestReprocessingTweetsV2FunctionF2955A012B3FDC64": Object {
+      "Properties": Object {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": Object {
+          "Fn::GetAtt": Array [
+            "ReprocessingTweetsV2Function74EB2C8B",
+            "Arn",
+          ],
+        },
+        "Principal": "s3.amazonaws.com",
+        "SourceAccount": Object {
+          "Ref": "AWS::AccountId",
+        },
+        "SourceArn": Object {
+          "Fn::GetAtt": Array [
+            "Bucket83908E77",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "BucketNotifications8F2E257D": Object {
+      "DependsOn": Array [
+        "BucketAllowBucketNotificationsTotestReprocessingTweetsV1FunctionA1235A6839B2A5C1",
+        "BucketAllowBucketNotificationsTotestReprocessingTweetsV2FunctionF2955A012B3FDC64",
+      ],
+      "Properties": Object {
+        "BucketName": Object {
+          "Ref": "Bucket83908E77",
+        },
+        "Managed": true,
+        "NotificationConfiguration": Object {
+          "LambdaFunctionConfigurations": Array [
+            Object {
+              "Events": Array [
+                "s3:ObjectCreated:*",
+              ],
+              "Filter": Object {
+                "Key": Object {
+                  "FilterRules": Array [
+                    Object {
+                      "Name": "prefix",
+                      "Value": "reprocessing/tweets/v1/",
+                    },
+                  ],
+                },
+              },
+              "LambdaFunctionArn": Object {
+                "Fn::GetAtt": Array [
+                  "ReprocessingTweetsV1FunctionB14F58B9",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Events": Array [
+                "s3:ObjectCreated:*",
+              ],
+              "Filter": Object {
+                "Key": Object {
+                  "FilterRules": Array [
+                    Object {
+                      "Name": "prefix",
+                      "Value": "reprocessing/tweets/v2/",
+                    },
+                  ],
+                },
+              },
+              "LambdaFunctionArn": Object {
+                "Fn::GetAtt": Array [
+                  "ReprocessingTweetsV2Function74EB2C8B",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+        },
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::S3BucketNotifications",
+    },
+    "BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691": Object {
+      "DependsOn": Array [
+        "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36",
+        "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "ZipFile": "import boto3  # type: ignore
+import json
+import logging
+import urllib.request
+
+s3 = boto3.client(\\"s3\\")
+
+CONFIGURATION_TYPES = [\\"TopicConfigurations\\", \\"QueueConfigurations\\", \\"LambdaFunctionConfigurations\\"]
+
+def handler(event: dict, context):
+    response_status = \\"SUCCESS\\"
+    error_message = \\"\\"
+    try:
+        props = event[\\"ResourceProperties\\"]
+        bucket = props[\\"BucketName\\"]
+        notification_configuration = props[\\"NotificationConfiguration\\"]
+        request_type = event[\\"RequestType\\"]
+        managed = props.get('Managed', 'true').lower() == 'true'
+        stack_id = event['StackId']
+
+        if managed:
+          config = handle_managed(request_type, notification_configuration)
+        else:
+          config = handle_unmanaged(bucket, stack_id, request_type, notification_configuration)
+
+        put_bucket_notification_configuration(bucket, config)
+    except Exception as e:
+        logging.exception(\\"Failed to put bucket notification configuration\\")
+        response_status = \\"FAILED\\"
+        error_message = f\\"Error: {str(e)}. \\"
+    finally:
+        submit_response(event, context, response_status, error_message)
+
+
+def handle_managed(request_type, notification_configuration):
+  if request_type == 'Delete':
+    return {}
+  return notification_configuration
+
+
+def handle_unmanaged(bucket, stack_id, request_type, notification_configuration):
+
+  # find external notifications
+  external_notifications = find_external_notifications(bucket, stack_id)
+
+  # if delete, that's all we need
+  if request_type == 'Delete':
+    return external_notifications
+
+  def with_id(notification):
+    notification['Id'] = f\\"{stack_id}-{hash(json.dumps(notification, sort_keys=True))}\\"
+    return notification
+
+  # otherwise, merge external with incoming config and augment with id
+  notifications = {}
+  for t in CONFIGURATION_TYPES:
+    external = external_notifications.get(t, [])
+    incoming = [with_id(n) for n in notification_configuration.get(t, [])]
+    notifications[t] = external + incoming
+  return notifications
+
+
+def find_external_notifications(bucket, stack_id):
+  existing_notifications = get_bucket_notification_configuration(bucket)
+  external_notifications = {}
+  for t in CONFIGURATION_TYPES:
+    # if the notification was created by us, we know what id to expect
+    # so we can filter by it.
+    external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\\"{stack_id}-\\")]
+
+  return external_notifications
+
+
+def get_bucket_notification_configuration(bucket):
+  return s3.get_bucket_notification_configuration(Bucket=bucket)
+
+
+def put_bucket_notification_configuration(bucket, notification_configuration):
+  s3.put_bucket_notification_configuration(Bucket=bucket, NotificationConfiguration=notification_configuration)
+
+
+def submit_response(event: dict, context, response_status: str, error_message: str):
+    response_body = json.dumps(
+        {
+            \\"Status\\": response_status,
+            \\"Reason\\": f\\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\\",
+            \\"PhysicalResourceId\\": event.get(\\"PhysicalResourceId\\") or event[\\"LogicalResourceId\\"],
+            \\"StackId\\": event[\\"StackId\\"],
+            \\"RequestId\\": event[\\"RequestId\\"],
+            \\"LogicalResourceId\\": event[\\"LogicalResourceId\\"],
+            \\"NoEcho\\": False,
+        }
+    ).encode(\\"utf-8\\")
+    headers = {\\"content-type\\": \\"\\", \\"content-length\\": str(len(response_body))}
+    try:
+        req = urllib.request.Request(url=event[\\"ResponseURL\\"], headers=headers, data=response_body, method=\\"PUT\\")
+        with urllib.request.urlopen(req) as response:
+            print(response.read().decode(\\"utf-8\\"))
+        print(\\"Status code: \\" + response.reason)
+    except Exception as e:
+        print(\\"send(..) failed executing request.urlopen(..): \\" + str(e))
+",
+        },
+        "Description": "AWS CloudFormation handler for \\"Custom::S3BucketNotifications\\" resources (@aws-cdk/aws-s3)",
+        "Handler": "index.handler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC",
+            "Arn",
+          ],
+        },
+        "Runtime": "python3.7",
+        "Timeout": 300,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "s3:PutBucketNotification",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36",
+        "Roles": Array [
+          Object {
+            "Ref": "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
     },
     "ContainerInsightsCloudWatchConfigC7791928": Object {
       "Properties": Object {
@@ -1414,7 +1714,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "10d3903fbb0894dc1fd6dcc4a583a0bf4aac2218777f861989952d593c18f7e8.zip",
+          "S3Key": "0cfde626a167ddba6316bba0be8de428ab3ede9b9f8330d0e0be0fd96fe2bdf2.zip",
         },
         "Description": "Lambda-backed custom resources - OpenSearch resources",
         "Environment": Object {
@@ -1525,37 +1825,6 @@ scrape_configs:
         ],
       },
       "Type": "AWS::IAM::Policy",
-    },
-    "DashboardDomainReadAllRoleMappingFF2D0332": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "DashboardDomainProviderframeworkonEvent09950933",
-            "Arn",
-          ],
-        },
-        "body": Object {
-          "backend_roles": Array [
-            Object {
-              "Fn::GetAtt": Array [
-                "testUserPoolAuthRole24574640",
-                "Arn",
-              ],
-            },
-          ],
-        },
-        "host": Object {
-          "Fn::GetAtt": Array [
-            "DashboardDomainED696CAB",
-            "DomainEndpoint",
-          ],
-        },
-        "name": "readall",
-        "path": "_plugins/_security/api/rolesmapping/",
-      },
-      "Type": "Custom::OpenSearchRoleMapping",
-      "UpdateReplacePolicy": "Delete",
     },
     "DashboardDomainTweetsTemplate35A526B1": Object {
       "DeletionPolicy": "Delete",
@@ -1781,7 +2050,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "153bfc1a70a74b55f9a08d11d664db683b113387f8e692ceffb7664b1e4e5b4e.zip",
+          "S3Key": "cc99bcb5b5cd4d32d806410f86d28b6d43b5655e46627741855b07f7999f9a0c.zip",
         },
         "Description": "Social Analytics processor - Bulk load to OpenSearch",
         "Environment": Object {
@@ -1824,7 +2093,7 @@ scrape_configs:
     },
     "IndexingFunctionKinesisEventSourcetestIndexingStream6714392794C96F8F": Object {
       "Properties": Object {
-        "BatchSize": 500,
+        "BatchSize": 100,
         "EventSourceArn": Object {
           "Fn::GetAtt": Array [
             "IndexingStream9338356A",
@@ -1843,12 +2112,13 @@ scrape_configs:
     "IndexingStream9338356A": Object {
       "Properties": Object {
         "RetentionPeriodHours": 24,
+        "ShardCount": 1,
         "StreamEncryption": Object {
           "EncryptionType": "KMS",
           "KeyId": "alias/aws/kinesis",
         },
         "StreamModeDetails": Object {
-          "StreamMode": "ON_DEMAND",
+          "StreamMode": "PROVISIONED",
         },
       },
       "Type": "AWS::Kinesis::Stream",
@@ -2089,15 +2359,360 @@ scrape_configs:
     "IngestionStream56E76A34": Object {
       "Properties": Object {
         "RetentionPeriodHours": 24,
+        "ShardCount": 1,
         "StreamEncryption": Object {
           "EncryptionType": "KMS",
           "KeyId": "alias/aws/kinesis",
         },
         "StreamModeDetails": Object {
-          "StreamMode": "ON_DEMAND",
+          "StreamMode": "PROVISIONED",
         },
       },
       "Type": "AWS::Kinesis::Stream",
+    },
+    "ReprocessingTweetsV1FunctionB14F58B9": Object {
+      "DependsOn": Array [
+        "ReprocessingTweetsV1FunctionServiceRoleDefaultPolicy4F9AB317",
+        "ReprocessingTweetsV1FunctionServiceRole753CDC60",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "900c0e2c930dd6d9d413543a816bafb3f44368ba9b113c5f20a0676d67bce200.zip",
+        },
+        "Description": "Social Analytics processor - Reprocessing for tweets v1",
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "STREAM_NAME": Object {
+              "Ref": "IngestionStream56E76A34",
+            },
+          },
+        },
+        "Handler": "index.handler",
+        "Layers": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+              ],
+            ],
+          },
+        ],
+        "MemorySize": 256,
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "ReprocessingTweetsV1FunctionServiceRole753CDC60",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+        "Timeout": 600,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "ReprocessingTweetsV1FunctionServiceRole753CDC60": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ReprocessingTweetsV1FunctionServiceRoleDefaultPolicy4F9AB317": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "Bucket83908E77",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "Bucket83908E77",
+                          "Arn",
+                        ],
+                      },
+                      "/reprocessing/tweets/v1/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "s3:DeleteObject*",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    Object {
+                      "Fn::GetAtt": Array [
+                        "Bucket83908E77",
+                        "Arn",
+                      ],
+                    },
+                    "/reprocessing/tweets/v1/*",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "kinesis:ListShards",
+                "kinesis:PutRecord",
+                "kinesis:PutRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "IngestionStream56E76A34",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "ReprocessingTweetsV1FunctionServiceRoleDefaultPolicy4F9AB317",
+        "Roles": Array [
+          Object {
+            "Ref": "ReprocessingTweetsV1FunctionServiceRole753CDC60",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "ReprocessingTweetsV2Function74EB2C8B": Object {
+      "DependsOn": Array [
+        "ReprocessingTweetsV2FunctionServiceRoleDefaultPolicy3BC7F158",
+        "ReprocessingTweetsV2FunctionServiceRole3BBD9A4D",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "c2dc6c76a454b04ef72b1d77646ca72a1c9f5ab71a7704e6bd950ab90929c4f0.zip",
+        },
+        "Description": "Social Analytics processor - Reprocessing for tweets v2",
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "STREAM_NAME": Object {
+              "Ref": "IngestionStream56E76A34",
+            },
+          },
+        },
+        "Handler": "index.handler",
+        "Layers": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+              ],
+            ],
+          },
+        ],
+        "MemorySize": 256,
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "ReprocessingTweetsV2FunctionServiceRole3BBD9A4D",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+        "Timeout": 600,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "ReprocessingTweetsV2FunctionServiceRole3BBD9A4D": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ReprocessingTweetsV2FunctionServiceRoleDefaultPolicy3BC7F158": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "Bucket83908E77",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "Bucket83908E77",
+                          "Arn",
+                        ],
+                      },
+                      "/reprocessing/tweets/v2/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "s3:DeleteObject*",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    Object {
+                      "Fn::GetAtt": Array [
+                        "Bucket83908E77",
+                        "Arn",
+                      ],
+                    },
+                    "/reprocessing/tweets/v2/*",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "kinesis:ListShards",
+                "kinesis:PutRecord",
+                "kinesis:PutRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "IngestionStream56E76A34",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "ReprocessingTweetsV2FunctionServiceRoleDefaultPolicy3BC7F158",
+        "Roles": Array [
+          Object {
+            "Ref": "ReprocessingTweetsV2FunctionServiceRole3BBD9A4D",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
     },
     "TwitterBearerTokenCBE899A9": Object {
       "DeletionPolicy": "Delete",
@@ -2776,7 +3391,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "decb4324310e019e1e5652b0d3c65ac3ac28353ecb66fc056500dadf2cbaaa40.zip",
+          "S3Key": "e68e9ad77882bff155fd56a729fcb39076c1afb661d5759156e7b04f9a79ad85.zip",
         },
         "Description": "Lambda-backed custom resources - Enable role from token",
         "Environment": Object {

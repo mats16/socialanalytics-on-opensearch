@@ -1,12 +1,12 @@
+import { Readable } from 'stream';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
-import { HttpRequest } from '@aws-sdk/protocol-http';
+import { HttpRequest, HttpResponse } from '@aws-sdk/protocol-http';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { CdkCustomResourceHandler, CdkCustomResourceResponse } from 'aws-lambda';
-
 
 interface Props {
   host: string;
@@ -16,8 +16,34 @@ interface Props {
   ServiceToken?: string;
 };
 
+interface RolesmappingResponse {
+  [key: string]: {
+    hosts: string[];
+    users: string[];
+    reserved: boolean;
+    hidden: boolean;
+    backend_roles: string[];
+    and_backend_roles: string[];
+  };
+};
+
 const region = process.env.AWS_REGION || 'us-west-2';
 const logger = new Logger({ logLevel: 'INFO', serviceName: 'opensearch-resources' });
+
+const asBuffer = async (response: HttpResponse) => {
+  const stream = response.body as Readable;
+  const chunks: Buffer[] = [];
+  return new Promise<Buffer>((resolve, reject) => {
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('error', (err) => reject(err));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+};
+const responseParse = async (response: HttpResponse) => {
+  const buffer = await asBuffer(response);
+  const bufferString = buffer.toString();
+  return JSON.parse(bufferString);
+};
 
 const getRoleArn = async() => {
   const sts = new STSClient({ region });
@@ -53,23 +79,30 @@ const opensearchRequest = async (method: 'GET'|'PUT'|'DELETE', host: string, pat
   // Send the request
   const client = new NodeHttpHandler();
   const { response } = await client.handle(signedRequest);
-  const statusCode = response.statusCode;
-  return { statusCode };
+  const responseBody = await responseParse(response);
+  return { statusCode: response.statusCode, response: responseBody };
 };
 
 const waitPermissionReady = async (host: string) => {
-  //const roleArn = await getRoleArn();
+  const roleArn = await getRoleArn();
   const retryRequest = async (count = 0): Promise<number> => {
     if (count == 30) {
       const message = 'Exceeded max retry count.';
       logger.error({ message, host });
       throw new Error(message);
     };
-    const { statusCode } = await opensearchRequest('GET', host, '_plugins/_security/api/rolesmapping/', 'all_access');
+    const { statusCode, response } = await opensearchRequest('GET', host, '_plugins/_security/api/rolesmapping/', 'all_access');
     if (statusCode == 200) {
-      const message = 'This role has all_access permission.';
-      logger.info({ message, statusCode, host });
-      return statusCode;
+      const res: RolesmappingResponse = response;
+      if (res.all_access.backend_roles.includes(roleArn)) {
+        const message = 'This role has all_access permission.';
+        logger.info({ message, statusCode, host });
+        return statusCode;
+      } else {
+        const message = 'IAM Role is not in backend_roles. Something is wrong.';
+        logger.error({ message, statusCode, response: JSON.stringify(response) });
+        throw new Error(message);
+      };
     } else if (statusCode == 403) {
       const message = 'Access policy is not ready. Please wait...';
       logger.warn({ message, statusCode, host });

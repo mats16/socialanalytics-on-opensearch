@@ -1,6 +1,6 @@
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
-  cdkVersion: '2.10.0',
+  cdkVersion: '2.12.0',
   defaultReleaseBranch: 'main',
   name: 'social-analytics',
   // cdkDependencies: undefined,  /* Which AWS CDK modules (those that start with "@aws-cdk/") this app uses. */
@@ -12,6 +12,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   deps: [
     '@aws-cdk/aws-kinesisfirehose-alpha',
     '@aws-cdk/aws-kinesisfirehose-destinations-alpha',
+    '@aws-sdk/client-s3',
     '@aws-sdk/client-cognito-identity',
     '@aws-sdk/client-cognito-identity-provider',
     '@aws-sdk/client-comprehend',
@@ -24,9 +25,12 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@aws-sdk/node-http-handler',
     '@aws-crypto/sha256-js',
     '@aws-lambda-powertools/logger',
+    '@aws-lambda-powertools/metrics',
+    '@aws-lambda-powertools/tracer',
     '@types/aws-lambda',
     'bluebird',
-    'cfn-response',
+    //'cfn-response',
+    'node-html-parser',
     'twitter-api-v2',
     'yaml',
   ],

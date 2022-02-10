@@ -51,7 +51,7 @@ const enableRoleFromToken = async (props: Props): Promise<CdkCustomResourceRespo
   const { identityProvider } = await getAppClient(userPoolId, appClinetPrefix);
   // update identity pool
   const { RoleMappings, Roles } = await getIdentityPoolRoles(identityPoolId);
-  await setIdentityPoolRoles({
+  const input = {
     IdentityPoolId: identityPoolId,
     Roles,
     RoleMappings: {
@@ -61,7 +61,8 @@ const enableRoleFromToken = async (props: Props): Promise<CdkCustomResourceRespo
         AmbiguousRoleResolution: 'AuthenticatedRole',
       },
     },
-  });
+  };
+  await setIdentityPoolRoles(input);
   return { PhysicalResourceId: identityProvider };
 };
 
@@ -71,11 +72,16 @@ const disableRoleFromToken = async (props: Props): Promise<CdkCustomResourceResp
   // update identity pool
   const { RoleMappings, Roles } = await getIdentityPoolRoles(identityPoolId);
   delete RoleMappings?.[identityProvider];
-  await setIdentityPoolRoles({
+  const input = {
     IdentityPoolId: identityPoolId,
     Roles,
     RoleMappings,
-  });
+  };
+  try {
+    await setIdentityPoolRoles(input);
+  } catch (err) {
+    console.log(err);
+  };
   return {};
 };
 
