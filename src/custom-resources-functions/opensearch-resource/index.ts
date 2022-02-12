@@ -16,6 +16,15 @@ interface Props {
   ServiceToken?: string;
 };
 
+interface ErrorResponse {
+  status: string;
+  message: string;
+};
+
+interface TemplateResponse {
+  acknowledged: boolean;
+};
+
 interface RolesmappingResponse {
   [key: string]: {
     hosts: string[];
@@ -80,6 +89,7 @@ const opensearchRequest = async (method: 'GET'|'PUT'|'DELETE', host: string, pat
   const client = new NodeHttpHandler();
   const { response } = await client.handle(signedRequest);
   const responseBody = await responseParse(response);
+  console.log(responseBody);
   return { statusCode: response.statusCode, response: responseBody };
 };
 
@@ -125,35 +135,35 @@ const waitPermissionReady = async (host: string) => {
 const onCreate = async (props: Props): Promise<CdkCustomResourceResponse> => {
   const { host, path, name, body } = props;
   const physicalResourceId = `${host}/${path}${name}`;
-  const { statusCode } = await opensearchRequest('PUT', host, path, name, body);
+  const { statusCode, response } = await opensearchRequest('PUT', host, path, name, body);
   if (statusCode == 200 || statusCode == 201) {
     const message = 'The resource created successfully.';
     logger.info({ message, statusCode, physicalResourceId });
   } else {
-    const message = 'Request failed.';
-    logger.error({ message, statusCode, physicalResourceId });
+    const { status, message } = response as ErrorResponse;
+    logger.error({ statusCode, status, message });
     throw new Error(`Request failed. statusCode:${statusCode}`);
   };
-  const response: CdkCustomResourceResponse = {
+  const res: CdkCustomResourceResponse = {
     PhysicalResourceId: physicalResourceId,
     Data: { Host: host, Path: path, Name: name },
   };
-  return response;
+  return res;
 };
 
 const onDelete = async (props: Props): Promise<CdkCustomResourceResponse> => {
   const { host, path, name } = props;
   const physicalResourceId = `${host}/${path}${name}`;
-  const { statusCode } = await opensearchRequest('DELETE', host, path, name);
+  const { statusCode, response } = await opensearchRequest('DELETE', host, path, name);
   if (statusCode == 200 || statusCode == 201) {
     const message = 'The resource deleted successfully.';
     logger.info({ message, statusCode, physicalResourceId });
   } else {
-    const message = 'The resource has not been deleted successfully.';
-    logger.error({ message, statusCode, physicalResourceId });
+    const { status, message } = response as ErrorResponse;
+    logger.error({ statusCode, status, message });
   };
-  const response: CdkCustomResourceResponse = {};
-  return response;
+  const res: CdkCustomResourceResponse = {};
+  return res;
 };
 
 const onUpdate = async (props: Props, oldProps: Props): Promise<CdkCustomResourceResponse> => {

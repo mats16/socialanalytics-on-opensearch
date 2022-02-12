@@ -137,6 +137,10 @@
       "type": "runtime"
     },
     {
+      "name": "@aws-sdk/client-ssm",
+      "type": "runtime"
+    },
+    {
       "name": "@aws-sdk/client-sts",
       "type": "runtime"
     },
@@ -167,6 +171,10 @@
     {
       "name": "aws-cdk-lib",
       "version": "^2.12.0",
+      "type": "runtime"
+    },
+    {
+      "name": "axios",
       "type": "runtime"
     },
     {

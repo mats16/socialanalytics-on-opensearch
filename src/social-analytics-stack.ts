@@ -3,11 +3,16 @@ import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { KinesisEventSource, S3EventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { KinesisEventSource, SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import { SqsDestination } from 'aws-cdk-lib/aws-s3-notifications';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { Tweetv2FieldsParams } from 'twitter-api-v2';
+import { Application, ExtensionLayerVersion } from './resources/appconfig';
 import { UserPool } from './resources/cognito-for-opensearch';
 import { ContainerInsights } from './resources/container-insights';
 import { Dashboard } from './resources/dashboard';
@@ -23,10 +28,45 @@ export class SocialAnalyticsStack extends Stack {
     super(scope, id, props);
 
     const twitterBearerTokenParameter = new CfnParameter(this, 'TwitterBearerTokenParameter', { type: 'String', default: props.defaultTwitterBearerToken, noEcho: true });
-    const twitterBearerToken = new StringParameter(this, 'TwitterBearerToken2', {
+    const twitterBearerToken = new StringParameter(this, 'TwitterBearerToken', {
       description: 'Social Analytics - Twitter Bearer Token',
-      parameterName: `/${id}/TwitterBearerToken`,
+      parameterName: `/${this.stackName}/Twitter/BearerToken`,
       stringValue: twitterBearerTokenParameter.valueAsString,
+    });
+    const twitterFieldsParams = new StringParameter(this, 'TwitterFieldsParams', {
+      description: 'Social Analytics - Twitter Fields Params',
+      parameterName: `/${this.stackName}/Twitter/FieldsParams`,
+      stringValue: JSON.stringify({
+        'tweet.fields': [
+          'id', 'text', // default
+          //'attachments',
+          'author_id',
+          'context_annotations',
+          'conversation_id',
+          'created_at',
+          'entities',
+          'geo',
+          'in_reply_to_user_id',
+          'lang',
+          //'non_public_metrics',
+          //'organic_metrics',
+          'possibly_sensitive',
+          //'promoted_metrics',
+          'public_metrics',
+          'referenced_tweets',
+          'reply_settings',
+          'source',
+          //'withheld'
+        ],
+        'user.fields': [
+          'id', 'name', 'username', // default
+          'public_metrics',
+        ],
+        'place.fields': [
+          'contained_within', 'country', 'country_code', 'full_name', 'geo', 'id', 'name', 'place_type',
+        ],
+        'expansions': ['author_id', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'],
+      } as Partial<Tweetv2FieldsParams>),
     });
 
     const lambdaCommonSettings: NodejsFunctionProps = {
@@ -108,6 +148,7 @@ export class SocialAnalyticsStack extends Stack {
 
     const twitterStreamingReader = new TwitterStreamingReader(this, 'TwitterStreamingReader', {
       twitterBearerToken,
+      twitterFieldsParams,
       ingestionStream,
     });
 
@@ -161,51 +202,52 @@ export class SocialAnalyticsStack extends Stack {
       role: dashboard.BulkOperationRole,
     });
 
-    const reprocessingTweetsV1Function = new NodejsFunction(this, 'ReprocessingTweetsV1Function', {
-      description: 'Social Analytics processor - Reprocessing for tweets v1',
-      entry: './src/functions/reprocessing-tweets-v1/index.ts',
-      handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_14_X,
-      architecture: lambda.Architecture.ARM_64,
-      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
-      memorySize: 256,
-      timeout: Duration.minutes(10),
-      environment: {
-        STREAM_NAME: ingestionStream.streamName,
-      },
-      events: [
-        new S3EventSource(bucket, {
-          events: [s3.EventType.OBJECT_CREATED],
-          filters: [{ prefix: 'reprocessing/tweets/v1/' }],
-        }),
-      ],
-    });
-    bucket.grantRead(reprocessingTweetsV1Function, 'reprocessing/tweets/v1/*');
-    bucket.grantDelete(reprocessingTweetsV1Function, 'reprocessing/tweets/v1/*');
-    ingestionStream.grantWrite(reprocessingTweetsV1Function);
+    const appconfigApp = new Application(this, 'AppConfig', { name: this.stackName });
+    const appconfigEnv = appconfigApp.addEnvironment('Production');
+    const appconfigConfigTwitterBearerToken = appconfigApp.addSSMParameterConfigProfile('TwitterBearerToken', twitterBearerToken);
+    appconfigEnv.deploy('TwitterBearerTokenDeploy', appconfigConfigTwitterBearerToken.configurationProfileId);
+    const appconfigConfigTwitterFieldsParams = appconfigApp.addSSMParameterConfigProfile('TwitterFieldsParams', twitterFieldsParams);
+    appconfigEnv.deploy('TwitterFieldsParamsDeploy', appconfigConfigTwitterFieldsParams.configurationProfileId);
 
-    const reprocessingTweetsV2Function = new NodejsFunction(this, 'ReprocessingTweetsV2Function', {
-      description: 'Social Analytics processor - Reprocessing for tweets v2',
-      entry: './src/functions/reprocessing-tweets-v2/index.ts',
+    const reprocessTweetsV1BucketPrefix = 'reprocess/tweets/v1/';
+    const reprocessTweetsV1Queue = new sqs.Queue(this, 'ReprocessTweetsV1Queue', { retentionPeriod: Duration.days(14), visibilityTimeout: Duration.seconds(180) });
+    bucket.addEventNotification(s3.EventType.OBJECT_CREATED, new SqsDestination(reprocessTweetsV1Queue), { prefix: reprocessTweetsV1BucketPrefix });
+    const reprocessTweetsV1Function = new NodejsFunction(this, 'ReprocessTweetsV1Function', {
+      ...lambdaCommonSettings,
+      description: 'Social Analytics processor - Processing with lookup API for TweetsV1',
+      entry: './src/functions/reprocess-tweets-v1/index.ts',
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_14_X,
-      architecture: lambda.Architecture.ARM_64,
-      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
-      memorySize: 256,
-      timeout: Duration.minutes(10),
-      environment: {
-        STREAM_NAME: ingestionStream.streamName,
-      },
+      architecture: lambda.Architecture.X86_64,
+      layers: [ExtensionLayerVersion(this, 'AppConfigLambdaExtension', this.region)],
+      memorySize: 512,
+      timeout: Duration.seconds(180),
       events: [
-        new S3EventSource(bucket, {
-          events: [s3.EventType.OBJECT_CREATED],
-          filters: [{ prefix: 'reprocessing/tweets/v2/' }],
+        new SqsEventSource(reprocessTweetsV1Queue, {
+          batchSize: 12,
+          maxBatchingWindow: Duration.seconds(1),
         }),
       ],
+      initialPolicy: [
+        new iam.PolicyStatement({
+          actions: [
+            'appconfig:StartConfigurationSession',
+            'appconfig:GetLatestConfiguration',
+          ],
+          resources: ['*'],
+        }),
+      ],
+      environment: {
+        APPCONFIG_APPLICATION: appconfigApp.applicationName,
+        APPCONFIG_ENVIRONMENT: appconfigEnv.environmentName,
+        APPCONFIG_CONFIG_TWITTER_BEARER_TOKEN: appconfigConfigTwitterBearerToken.configurationProfileName,
+        APPCONFIG_CONFIG_TWITTER_FIELDS_PARAMS: appconfigConfigTwitterFieldsParams.configurationProfileName,
+        STREAM_NAME: ingestionStream.streamName,
+      },
+      reservedConcurrentExecutions: 1,
     });
-    bucket.grantRead(reprocessingTweetsV2Function, 'reprocessing/tweets/v2/*');
-    bucket.grantDelete(reprocessingTweetsV2Function, 'reprocessing/tweets/v2/*');
-    ingestionStream.grantWrite(reprocessingTweetsV2Function);
+    bucket.grantRead(reprocessTweetsV1Function, `${reprocessTweetsV1BucketPrefix}*`);
+    bucket.grantDelete(reprocessTweetsV1Function, `${reprocessTweetsV1BucketPrefix}*`);
+    ingestionStream.grantWrite(reprocessTweetsV1Function);
 
   }
 }
