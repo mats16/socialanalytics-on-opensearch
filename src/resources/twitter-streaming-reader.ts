@@ -3,11 +3,12 @@ import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import { IStringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
 interface TwitterStreamingReaderProps {
-  twitterBearerToken: secretsmanager.ISecret;
+  twitterBearerToken: IStringParameter;
+  twitterFieldsParams: IStringParameter;
   ingestionStream: kinesis.IStream;
 };
 
@@ -33,16 +34,12 @@ export class TwitterStreamingReader extends Construct {
 
     const twitterStreamingReaderImage = new DockerImageAsset(this, 'TwitterStreamingReaderImage', {
       directory: './src/containers/twitter-streaming-reader',
-      buildArgs: {
-        '--platform': 'linux/arm64',
-      },
+      buildArgs: { '--platform': 'linux/arm64' },
     });
 
     const logRouterImage = new DockerImageAsset(this, 'LogRouterImage', {
       directory: './src/containers/log-router',
-      buildArgs: {
-        '--platform': 'linux/arm64',
-      },
+      buildArgs: { '--platform': 'linux/arm64' },
     });
 
     const cluster = new ecs.Cluster(this, 'Cluster', { vpc, containerInsights: true });
@@ -63,7 +60,8 @@ export class TwitterStreamingReader extends Construct {
       memoryReservationMiB: 256,
       essential: true,
       secrets: {
-        TWITTER_BEARER_TOKEN: ecs.Secret.fromSecretsManager(props.twitterBearerToken),
+        TWITTER_BEARER_TOKEN: ecs.Secret.fromSsmParameter(props.twitterBearerToken),
+        TWITTER_FIELDS_PARAMS: ecs.Secret.fromSsmParameter(props.twitterFieldsParams),
       },
       readonlyRootFilesystem: true,
       logging: new ecs.FireLensLogDriver({}),

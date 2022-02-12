@@ -1,36 +1,64 @@
+import { Readable } from 'stream';
+import { Sha256 } from '@aws-crypto/sha256-js';
 import { Logger } from '@aws-lambda-powertools/logger';
+import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
+import { Tracer } from '@aws-lambda-powertools/tracer';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
-import { HttpRequest } from '@aws-sdk/protocol-http';
+import { HttpRequest, HttpResponse } from '@aws-sdk/protocol-http';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { KinesisStreamHandler } from 'aws-lambda';
-import { TweetStreamParse, TweetStreamData, Deduplicate, Normalize } from '../utils';
+import { TweetStreamParse, StreamResult, Deduplicate, Normalize } from '../utils';
 
-const { Sha256 } = require('@aws-crypto/sha256-js');
-const { SignatureV4 } = require('@aws-sdk/signature-v4');
-
-const allowedTimeRange = 1000 * 60 * 60 * 24 * 365;
-
+const allowedTimeRange = 1000 * 60 * 60 * 24 * 365 * 2;
 const hostname = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
-const region = process.env.AWS_REGION!;
+const region = process.env.AWS_REGION || 'us-west-2';
 
-const headers = {
-  'Content-Type': 'application/json',
-  'host': hostname,
-};
-
-const signer = new SignatureV4({
-  credentials: defaultProvider(),
-  region: region,
-  service: 'es',
-  sha256: Sha256,
-});
+const logger = new Logger({ logLevel: 'INFO', serviceName: 'IndexingFunction' });
+const metrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'IndexingFunction' });
+const searchMetrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'OpenSearch' });
+const tracer = new Tracer({ serviceName: 'IndexingFunction' });
 
 const client = new NodeHttpHandler();
 
-const logger = new Logger({ logLevel: 'INFO', serviceName: 'indexing' });
+type BulkResponseItem = {
+  [key in 'create'|'delete'|'index'|'update']: {
+    [key: string]: any;
+    _index: string;
+    _id: string;
+    status: number;
+    error?: {
+      type: string;
+      reason: string;
+      index: string;
+      shard: string;
+      index_uuid: string;
+    };
+  };
+};;
+interface BulkResponse {
+  took: number;
+  errors: boolean;
+  items: BulkResponseItem[];
+};
 
-const getSearchMetadata = (data: TweetStreamData) => {
-  const tweet = data.data;
+const asBuffer = async (response: HttpResponse) => {
+  const stream = response.body as Readable;
+  const chunks: Buffer[] = [];
+  return new Promise<Buffer>((resolve, reject) => {
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('error', (err) => reject(err));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+};
+const responseParse = async (response: HttpResponse) => {
+  const buffer = await asBuffer(response);
+  const bufferString = buffer.toString();
+  return JSON.parse(bufferString);
+};
+
+const getSearchMetadata = (stream: StreamResult) => {
+  const tweet = stream.data;
   const date = (tweet.created_at)
     ? new Date(tweet.created_at)
     : new Date();
@@ -42,14 +70,13 @@ const getSearchMetadata = (data: TweetStreamData) => {
   return metadata;
 };
 
-const getSearchDocument = (data: TweetStreamData) => {
-  const tweet = data.data;
-  const author = data.includes?.users?.find(x => x.id == tweet.author_id);
+const getSearchDocument = (stream: StreamResult) => {
+  const tweet = stream.data;
+  const author = stream.includes?.users?.find(x => x.id == tweet.author_id);
   delete tweet.author_id; // author.id と被るので削除
   const doc = {
-    //'@timestamp': tweet.created_at,
     ...tweet,
-    text: data.analysis?.normalized_text || Normalize(tweet.text),
+    text: stream.analysis?.normalized_text || Normalize(tweet.text),
     url: `https://twitter.com/${tweet.author_id}/status/${tweet.id}`,
     author,
     context_annotations: {
@@ -58,38 +85,38 @@ const getSearchDocument = (data: TweetStreamData) => {
     },
     entities: {
       annotation: tweet.entities?.annotations?.map(x => x.normalized_text),
-      cashtag: tweet.entities?.cashtags?.map(x => x.tag.toLowerCase()),
-      hashtag: tweet.entities?.hashtags?.map(x => x.tag.toLowerCase()),
-      mention: tweet.entities?.mentions?.map(x => x.username.toLowerCase()),
+      cashtag: tweet.entities?.cashtags?.map(x => x.tag?.toLowerCase()),
+      hashtag: tweet.entities?.hashtags?.map(x => x.tag?.toLowerCase()),
+      mention: tweet.entities?.mentions?.map(x => x.username?.toLowerCase()),
     },
     referenced_tweets: {
       type: tweet.referenced_tweets?.map(x => x.type),
       id: tweet.referenced_tweets?.map(x => x.id),
     },
     matching_rules: {
-      id: data.matching_rules?.map(rule => rule.id.toString()),
-      tag: Deduplicate(data.matching_rules?.map(rule => rule.tag)),
+      id: stream.matching_rules?.map(rule => rule.id.toString()),
+      tag: Deduplicate(stream.matching_rules?.map(rule => rule.tag)),
     },
-    analysis: data.analysis,
-    includes: data.includes,
+    analysis: stream.analysis,
+    includes: stream.includes,
   };
   return doc;
 };
 
-const addBulkAction = (bulkActions: string[], data: TweetStreamData) => {
-  const metadata = getSearchMetadata(data);
-  const doc = getSearchDocument(data);
+const addBulkAction = (bulkActions: string[], stream: StreamResult) => {
+  const metadata = getSearchMetadata(stream);
+  const doc = getSearchDocument(stream);
   const bulkHeader = JSON.stringify({ update: metadata });
   const bulkBody = JSON.stringify({ doc, doc_as_upsert: true });
   bulkActions.push(bulkHeader, bulkBody);
 };
 
-const genBulkActions = (data: TweetStreamData): string[]=> {
+const genBulkActions = (stream: StreamResult): string[]=> {
   const bulkActions: string[] = [];
-  addBulkAction(bulkActions, data);
+  addBulkAction(bulkActions, stream);
   const now = new Date();
-  data.includes?.tweets?.map(x => {
-    // 元ツイートが1年以内だったらメトリクスも更新する
+  stream.includes?.tweets?.map(x => {
+    // 元ツイートがN年以内だったらメトリクスも更新する
     const date = new Date(x.created_at || 0);
     if (now.getTime() - date.getTime() < allowedTimeRange ) {
       addBulkAction(bulkActions, { data: x });
@@ -99,21 +126,38 @@ const genBulkActions = (data: TweetStreamData): string[]=> {
 };
 
 export const handler: KinesisStreamHandler = async (event) => {
+  metrics.addMetric('IncomingRecordCount', MetricUnits.Count, event.Records.length);
   const bulkActions = event.Records.flatMap(record => {
     const tweetStreamData = TweetStreamParse(record.kinesis.data);
     return genBulkActions(tweetStreamData);
   });
-
   const request = new HttpRequest({
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+      'host': hostname,
+    },
     hostname,
     method: 'POST',
     path: '_bulk',
     body: bulkActions.join('\n') + '\n',
   });
-  console.log(bulkActions.join('\n') + '\n');
-  const signedRequest = await signer.sign(request);
+  const signer = new SignatureV4({
+    credentials: defaultProvider(),
+    region: region,
+    service: 'es',
+    sha256: Sha256,
+  });
+  const signedRequest = await signer.sign(request) as HttpRequest;
   const { response } = await client.handle(signedRequest);
-  console.log(response.statusCode);
-
+  const responseBody: BulkResponse = await responseParse(response);
+  searchMetrics.addDimension('API', 'Bulk');
+  searchMetrics.addMetric('TookTime', MetricUnits.Milliseconds, responseBody.took);
+  if (responseBody.errors) {
+    const errorCount = responseBody.items.filter(item => { item.update.error; }).length;
+    searchMetrics.addMetric('ErrorCount', MetricUnits.Count, errorCount);
+  };
+  searchMetrics.clearDimensions();
+  metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, bulkActions.length/2);
+  metrics.publishStoredMetrics();
+  return;
 };

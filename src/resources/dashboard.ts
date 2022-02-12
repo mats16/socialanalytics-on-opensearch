@@ -3,9 +3,9 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
-import { Domain } from './opensearch-fgac';
 import { Construct } from 'constructs';
 import { UserPool } from './cognito-for-opensearch';
+import { Domain } from './opensearch-fgac';
 
 interface DashboardProps {
   userPool?: UserPool;
@@ -83,8 +83,14 @@ export class Dashboard extends Construct {
         name: 'opensearch_dashboards_user',
         body: {
           backend_roles: [userPool.authenticatedRole.roleArn],
-        }
-      })
+        },
+      });
+      //this.Domain.addRoleMapping('ReadAllRoleMapping', {
+      //  name: 'readall',
+      //  body: {
+      //    backend_roles: [userPool.authenticatedRole.roleArn],
+      //  },
+      //});
     };
 
     this.BulkOperationRole = new iam.Role(this, 'BulkOperationRole', {
@@ -100,13 +106,13 @@ export class Dashboard extends Construct {
           allowed_actions: ['write', 'create_index'],
         }],
         cluster_permissions: ['indices:data/write/bulk'],
-      }
+      },
     });
     this.Domain.addRoleMapping('BulkOperationRoleMapping', {
       name: bulkOperationRole.getAttString('Name'),
       body: {
         backend_roles: [this.BulkOperationRole.roleArn],
-      }
+      },
     });
 
     this.Domain.addTemplate('TweetsTemplate', {
@@ -264,10 +270,10 @@ export class Dashboard extends Construct {
                 enabled: false,
               },
             },
-          }
+          },
         },
-      }
-    })
+      },
+    });
 
   };
 }

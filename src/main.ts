@@ -1,5 +1,5 @@
 import { App } from 'aws-cdk-lib';
-import { SocialAnalyticsStack } from './social-media-dashboard-stack';
+import { SocialAnalyticsStack } from './social-analytics-stack';
 
 const devEnv = {
   account: process.env.CDK_DEFAULT_ACCOUNT,

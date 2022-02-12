@@ -1,23 +1,26 @@
 import { TweetV2SingleStreamResult } from 'twitter-api-v2';
 
-export interface TweetStreamData extends Partial<TweetV2SingleStreamResult> {
-  data: TweetV2SingleStreamResult['data'];
-  analysis?: {
-    normalized_text: string;
-    sentiment: string | undefined;
-    sentiment_score: {
-      positive: number | undefined;
-      negative: number | undefined;
-      neutral: number | undefined;
-      mixed: number | undefined;
-    };
-    entities: string[] | undefined;
+export interface Analysis {
+  normalized_text?: string;
+  sentiment?: string | undefined;
+  sentiment_score?: {
+    positive: number | undefined;
+    negative: number | undefined;
+    neutral: number | undefined;
+    mixed: number | undefined;
   };
+  entities?: string[] | undefined;
+};
+
+export interface StreamResult extends Partial<TweetV2SingleStreamResult> {
+  data: TweetV2SingleStreamResult['data'];
+  analysis?: Analysis;
   backup?: boolean;
 };
 
-export const TweetStreamParse = (data: string): TweetStreamData => {
-  return JSON.parse(Buffer.from(data, 'base64').toString('utf8'));
+export const TweetStreamParse = (b64string: string) => {
+  const stream: StreamResult = JSON.parse(Buffer.from(b64string, 'base64').toString('utf8'));
+  return stream;
 };
 
 export const Deduplicate = (array: string[]|undefined) => {

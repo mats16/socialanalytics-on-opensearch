@@ -1,7 +1,6 @@
 //import '@aws-cdk/assert/jest';
 import { App } from 'aws-cdk-lib/core';
-//import { MyStack } from '../src/main';
-import { SocialAnalyticsStack } from '../src/social-media-dashboard-stack';
+import { SocialAnalyticsStack } from '../src/social-analytics-stack';
 
 test('Snapshot', () => {
   const app = new App();
