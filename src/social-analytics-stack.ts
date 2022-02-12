@@ -31,10 +31,11 @@ export class SocialAnalyticsStack extends Stack {
 
     const bucket = new s3.Bucket(this, 'Bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
-      intelligentTieringConfigurations: [{
-        name: 'default',
-        archiveAccessTierTime: Duration.days(90),
-        deepArchiveAccessTierTime: Duration.days(180),
+      lifecycleRules: [{
+        transitions: [{
+          storageClass: s3.StorageClass.INTELLIGENT_TIERING,
+          transitionAfter: Duration.days(0),
+        }],
       }],
     });
 
