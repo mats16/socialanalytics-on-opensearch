@@ -8,8 +8,10 @@ import { Construct } from 'constructs';
 
 interface DeliveryStreamProps {
   sourceStream: IStream;
-  destinationBucket: IBucket;
   processorFunction: IFunction;
+  destinationBucket: IBucket;
+  prefix: string;
+  errorOutputPrefix: string;
 };
 
 export class DeliveryStream extends Construct {
@@ -19,8 +21,9 @@ export class DeliveryStream extends Construct {
     super(scope, id);
 
     const sourceStreamArn = props.sourceStream.streamArn;
-    const bucketArn = props.destinationBucket.bucketArn;
     const processorFunctionArn = props.processorFunction.functionArn;
+    const bucketArn = props.destinationBucket.bucketArn;
+    const { prefix, errorOutputPrefix } = props;
 
     const logGroup = new logs.LogGroup(this, 'LogGroup', {
       retention: logs.RetentionDays.TWO_WEEKS,
@@ -59,7 +62,8 @@ export class DeliveryStream extends Construct {
               ],
               resources: [
                 bucketArn,
-                `${bucketArn}/*`,
+                `${bucketArn}/${prefix}*`,
+                `${bucketArn}/${errorOutputPrefix}*`,
               ],
             }),
           ],
@@ -102,8 +106,8 @@ export class DeliveryStream extends Construct {
         },
         bucketArn,
         roleArn: role.roleArn,
-        prefix: 'raw/tweets/v2/dt=!{partitionKeyFromQuery:dt}/',
-        errorOutputPrefix: 'error/!{firehose:error-output-type}/',
+        prefix: `${prefix}dt=!{partitionKeyFromQuery:dt}/`,
+        errorOutputPrefix: `${errorOutputPrefix}!{firehose:error-output-type}/`,
         bufferingHints: {
           intervalInSeconds: 900,
           sizeInMBs: 128,

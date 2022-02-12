@@ -92,7 +92,10 @@ export class SocialAnalyticsStack extends Stack {
 
     const ingestionArchiveStream = new DeliveryStream(this, 'IngestionArchiveStream', {
       sourceStream: ingestionStream,
+      processorFunction: archiveFilterFunction,
       destinationBucket: bucket,
+      prefix: 'raw/tweets/v2/',
+      errorOutputPrefix: 'raw/tweets/v2-error/',
       processorFunction: archiveFilterFunction,
     });
 
