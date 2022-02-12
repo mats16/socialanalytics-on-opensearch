@@ -29,6 +29,13 @@ export class SocialAnalyticsStack extends Stack {
       stringValue: twitterBearerTokenParameter.valueAsString,
     });
 
+    const lambdaCommonSettings: NodejsFunctionProps = {
+      runtime: lambda.Runtime.NODEJS_14_X,
+      architecture: lambda.Architecture.ARM_64,
+      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
+      logRetention: logs.RetentionDays.TWO_WEEKS,
+    };
+
     const bucket = new s3.Bucket(this, 'Bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
       lifecycleRules: [{
@@ -48,12 +55,10 @@ export class SocialAnalyticsStack extends Stack {
     });
 
     const analysisFunction = new NodejsFunction(this, 'AnalysisFunction', {
+      ...lambdaCommonSettings,
       description: 'Social Analytics processor - Analysis by Amazon Comprehend',
       entry: './src/functions/analysis/index.ts',
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_14_X,
-      architecture: lambda.Architecture.ARM_64,
-      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
       memorySize: 256,
       timeout: Duration.minutes(5),
       environment: {
@@ -78,12 +83,10 @@ export class SocialAnalyticsStack extends Stack {
     indexingStream.grantWrite(analysisFunction);
 
     const archiveFilterFunction = new NodejsFunction(this, 'ArchiveFilterFunction', {
+      ...lambdaCommonSettings,
       description: 'Social Analytics filter - Filtering with baclup flag',
       entry: './src/functions/archive-filter/index.ts',
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_14_X,
-      architecture: lambda.Architecture.ARM_64,
-      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
       timeout: Duration.minutes(5),
     });
 
@@ -128,12 +131,10 @@ export class SocialAnalyticsStack extends Stack {
     userPool.enableRoleFromToken(`AmazonOpenSearchService-${dashboard.Domain.domainName}-`);
 
     const indexingFunction = new NodejsFunction(this, 'IndexingFunction', {
+      ...lambdaCommonSettings,
       description: 'Social Analytics processor - Bulk load to OpenSearch',
       entry: './src/functions/indexing/index.ts',
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_14_X,
-      architecture: lambda.Architecture.ARM_64,
-      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
       memorySize: 256,
       timeout: Duration.minutes(5),
       environment: {
