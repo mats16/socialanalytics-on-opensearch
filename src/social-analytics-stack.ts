@@ -6,7 +6,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { KinesisEventSource, S3EventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import { Secret, SecretStringValueBeta1 } from 'aws-cdk-lib/aws-secretsmanager';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { UserPool } from './resources/cognito-for-opensearch';
 import { ContainerInsights } from './resources/container-insights';
@@ -23,9 +23,10 @@ export class SocialAnalyticsStack extends Stack {
     super(scope, id, props);
 
     const twitterBearerTokenParameter = new CfnParameter(this, 'TwitterBearerTokenParameter', { type: 'String', default: props.defaultTwitterBearerToken, noEcho: true });
-    const twitterBearerToken = new Secret(this, 'TwitterBearerToken', {
-      description: 'Bearer Token authenticates requests on behalf of your developer App.',
-      secretStringBeta1: SecretStringValueBeta1.fromUnsafePlaintext(twitterBearerTokenParameter.valueAsString),
+    const twitterBearerToken = new StringParameter(this, 'TwitterBearerToken2', {
+      description: 'Social Analytics - Twitter Bearer Token',
+      parameterName: `/${id}/TwitterBearerToken`,
+      stringValue: twitterBearerTokenParameter.valueAsString,
     });
 
     const bucket = new s3.Bucket(this, 'Bucket', {

@@ -3,11 +3,11 @@ import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import { IStringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
 interface TwitterStreamingReaderProps {
-  twitterBearerToken: secretsmanager.ISecret;
+  twitterBearerToken: IStringParameter;
   ingestionStream: kinesis.IStream;
 };
 
@@ -63,7 +63,7 @@ export class TwitterStreamingReader extends Construct {
       memoryReservationMiB: 256,
       essential: true,
       secrets: {
-        TWITTER_BEARER_TOKEN: ecs.Secret.fromSecretsManager(props.twitterBearerToken),
+        TWITTER_BEARER_TOKEN: ecs.Secret.fromSsmParameter(props.twitterBearerToken),
       },
       readonlyRootFilesystem: true,
       logging: new ecs.FireLensLogDriver({}),
