@@ -3019,6 +3019,7 @@ scrape_configs:
             "APPCONFIG_CONFIG_TWITTER_BEARER_TOKEN": "TwitterBearerToken",
             "APPCONFIG_CONFIG_TWITTER_FIELDS_PARAMS": "TwitterFieldsParams",
             "APPCONFIG_ENVIRONMENT": "Production",
+            "AWS_APPCONFIG_EXTENSION_POLL_INTERVAL_SECONDS": "180",
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
             "STREAM_NAME": Object {
               "Ref": "IngestionStream56E76A34",

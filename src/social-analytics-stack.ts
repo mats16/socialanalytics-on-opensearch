@@ -237,6 +237,7 @@ export class SocialAnalyticsStack extends Stack {
         }),
       ],
       environment: {
+        AWS_APPCONFIG_EXTENSION_POLL_INTERVAL_SECONDS: '180',
         APPCONFIG_APPLICATION: appconfigApp.applicationName,
         APPCONFIG_ENVIRONMENT: appconfigEnv.environmentName,
         APPCONFIG_CONFIG_TWITTER_BEARER_TOKEN: appconfigConfigTwitterBearerToken.configurationProfileName,
