@@ -96,7 +96,14 @@ export class SocialAnalyticsStack extends Stack {
       destinationBucket: bucket,
       prefix: 'raw/tweets/v2/',
       errorOutputPrefix: 'raw/tweets/v2-error/',
+    });
+
+    const indexingArchiveStream = new DeliveryStream(this, 'IndexingArchiveStream', {
+      sourceStream: indexingStream,
       processorFunction: archiveFilterFunction,
+      destinationBucket: bucket,
+      prefix: 'raw-with-analysis/tweets/v2/',
+      errorOutputPrefix: 'raw-with-analysis/tweets/v2-error/',
     });
 
     const twitterStreamingReader = new TwitterStreamingReader(this, 'TwitterStreamingReader', {
