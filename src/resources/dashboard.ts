@@ -207,6 +207,12 @@ export class Dashboard extends Construct {
                   username: {
                     type: 'keyword',
                   },
+                  url: {
+                    type: 'keyword',
+                  },
+                  verified: {
+                    type: 'keyword',
+                  },
                   public_metrics: {
                     properties: {
                       followers_count: {

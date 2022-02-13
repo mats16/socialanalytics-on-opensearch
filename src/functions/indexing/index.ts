@@ -126,6 +126,7 @@ const genBulkActions = (stream: StreamResult): string[]=> {
 };
 
 export const handler: KinesisStreamHandler = async (event) => {
+  const segment = tracer.getSegment();
   metrics.addMetric('IncomingRecordCount', MetricUnits.Count, event.Records.length);
   const bulkActions = event.Records.flatMap(record => {
     const tweetStreamData = TweetStreamParse(record.kinesis.data);

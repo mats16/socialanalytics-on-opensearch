@@ -143,7 +143,7 @@ export class Environment extends Construct {
   };
 };
 
-const AppConfigExtensionLayerMap: {[key: string]: string} = {
+const AppConfigExtensionVersionMap: {[key: string]: string} = {
   // https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-lambda-extensions.html#appconfig-integration-lambda-extensions-add
   'us-east-1': 'arn:aws:lambda:us-east-1:027255383542:layer:AWS-AppConfig-Extension:61',
   'us-east-2': 'arn:aws:lambda:us-east-2:728743619870:layer:AWS-AppConfig-Extension:47',
@@ -169,6 +169,6 @@ const AppConfigExtensionLayerMap: {[key: string]: string} = {
   'me-south-1': 'arn:aws:lambda:me-south-1:559955524753:layer:AWS-AppConfig-Extension:44',
 };
 export const ExtensionLayerVersion = (scope: Construct, id: string, region: string) => {
-  const layerArn = AppConfigExtensionLayerMap[region];
+  const layerArn = AppConfigExtensionVersionMap[region];
   return LayerVersion.fromLayerVersionArn(scope, id, layerArn);
 };

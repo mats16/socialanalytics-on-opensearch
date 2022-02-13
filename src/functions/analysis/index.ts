@@ -16,8 +16,8 @@ const logger = new Logger({ logLevel: 'INFO', serviceName: 'AnalysisFunction' })
 const metrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'AnalysisFunction' });
 const tracer = new Tracer({ serviceName: 'AnalysisFunction' });
 
-const kinesis = new KinesisClient({ region });
-const comprehend = new ComprehendClient({ region, maxAttempts: 20 });
+const kinesis = tracer.captureAWSv3Client(new KinesisClient({ region }));
+const comprehend = tracer.captureAWSv3Client(new ComprehendClient({ region, maxAttempts: 20 }));
 
 const detectLanguage = async (text: string) => {
   const cmd = new DetectDominantLanguageCommand({ Text: text });
@@ -112,19 +112,18 @@ const processRecord = async (record: KinesisStreamRecord) => {
   const fullText = getFullText(stream);
   const normalizedText = Normalize(fullText);
   const lang = tweet.lang || await detectLanguage(normalizedText);
-  const analyzedData = await analyze(normalizedText, lang);
-  const analyzedStreamResult: StreamResult = {
-    ...stream,
-    analysis: analyzedData,
-  };
+  if (!stream.analysis) {
+    stream.analysis = await analyze(normalizedText, lang);
+  }
   const processedRecord = {
     PartitionKey: record.kinesis.partitionKey,
-    Data: Buffer.from(JSON.stringify(analyzedStreamResult)),
+    Data: Buffer.from(JSON.stringify(stream)),
   };
   return processedRecord;
 };
 
 export const handler: KinesisStreamHandler = async (event) => {
+  const segment = tracer.getSegment();
   metrics.addMetric('IncomingRecordCount', MetricUnits.Count, event.Records.length);
   const processedRecords = await Promise.map(event.Records, processRecord, { concurrency: 10 });
   if (processedRecords.length > 0) {

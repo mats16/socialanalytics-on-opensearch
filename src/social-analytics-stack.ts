@@ -9,10 +9,9 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { SqsDestination } from 'aws-cdk-lib/aws-s3-notifications';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { Tweetv2FieldsParams } from 'twitter-api-v2';
-import { Application, ExtensionLayerVersion } from './resources/appconfig';
 import { UserPool } from './resources/cognito-for-opensearch';
 import { ContainerInsights } from './resources/container-insights';
 import { Dashboard } from './resources/dashboard';
@@ -34,6 +33,7 @@ export class SocialAnalyticsStack extends Stack {
       stringValue: twitterBearerTokenParameter.valueAsString,
     });
     const twitterFieldsParams = new StringParameter(this, 'TwitterFieldsParams', {
+      // https://developer.twitter.com/en/docs/twitter-api/data-dictionary/introduction
       description: 'Social Analytics - Twitter Fields Params',
       parameterName: `/${this.stackName}/Twitter/FieldsParams`,
       stringValue: JSON.stringify({
@@ -60,20 +60,47 @@ export class SocialAnalyticsStack extends Stack {
         ],
         'user.fields': [
           'id', 'name', 'username', // default
+          'url',
+          'verified',
           'public_metrics',
         ],
         'place.fields': [
-          'contained_within', 'country', 'country_code', 'full_name', 'geo', 'id', 'name', 'place_type',
+          'id', 'full_name', // default
+          'contained_within',
+          'country',
+          'country_code',
+          'geo',
+          'name',
+          'place_type',
         ],
-        'expansions': ['author_id', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'],
+        'expansions': [
+          //https://developer.twitter.com/en/docs/twitter-api/expansions
+          'author_id',
+          'entities.mentions.username',
+          'in_reply_to_user_id',
+          'referenced_tweets.id',
+          'referenced_tweets.id.author_id',
+        ],
       } as Partial<Tweetv2FieldsParams>),
+    });
+    const twitterFilterDomains = new StringListParameter(this, 'twitterFilterDomains', {
+      description: 'Social Analytics - Domains of context_annotations for filtering',
+      parameterName: `/${this.stackName}/Twitter/FilterDomains`,
+      stringListValue: ['Musician', 'Music Genre', 'Actor', 'TV Shows', 'Multimedia Franchise', 'Fictional Character', 'Entertainment Personality'],
+    });
+
+    const twitterParameterPolicyStatement = new iam.PolicyStatement({
+      actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
+      resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/${this.stackName}/Twitter/*`],
     });
 
     const lambdaCommonSettings: NodejsFunctionProps = {
+      handler: 'handler',
       runtime: lambda.Runtime.NODEJS_14_X,
       architecture: lambda.Architecture.ARM_64,
       insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
       logRetention: logs.RetentionDays.TWO_WEEKS,
+      tracing: lambda.Tracing.ACTIVE,
     };
 
     const bucket = new s3.Bucket(this, 'Bucket', {
@@ -98,7 +125,6 @@ export class SocialAnalyticsStack extends Stack {
       ...lambdaCommonSettings,
       description: 'Social Analytics processor - Analysis by Amazon Comprehend',
       entry: './src/functions/analysis/index.ts',
-      handler: 'handler',
       memorySize: 256,
       timeout: Duration.minutes(5),
       environment: {
@@ -112,13 +138,16 @@ export class SocialAnalyticsStack extends Stack {
           maxRecordAge: Duration.days(1),
         }),
       ],
-      initialPolicy: [new iam.PolicyStatement({
-        actions: [
-          'comprehend:Detect*',
-          'translate:TranslateText',
-        ],
-        resources: ['*'],
-      })],
+      initialPolicy: [
+        twitterParameterPolicyStatement,
+        new iam.PolicyStatement({
+          actions: [
+            'comprehend:Detect*',
+            'translate:TranslateText',
+          ],
+          resources: ['*'],
+        }),
+      ],
     });
     indexingStream.grantWrite(analysisFunction);
 
@@ -126,7 +155,6 @@ export class SocialAnalyticsStack extends Stack {
       ...lambdaCommonSettings,
       description: 'Social Analytics filter - Filtering with baclup flag',
       entry: './src/functions/archive-filter/index.ts',
-      handler: 'handler',
       timeout: Duration.minutes(5),
     });
 
@@ -185,7 +213,6 @@ export class SocialAnalyticsStack extends Stack {
       ...lambdaCommonSettings,
       description: 'Social Analytics processor - Bulk load to OpenSearch',
       entry: './src/functions/indexing/index.ts',
-      handler: 'handler',
       memorySize: 256,
       timeout: Duration.minutes(5),
       environment: {
@@ -202,46 +229,24 @@ export class SocialAnalyticsStack extends Stack {
       role: dashboard.BulkOperationRole,
     });
 
-    const appconfigApp = new Application(this, 'AppConfig', { name: this.stackName });
-    const appconfigEnv = appconfigApp.addEnvironment('Production');
-    const appconfigConfigTwitterBearerToken = appconfigApp.addSSMParameterConfigProfile('TwitterBearerToken', twitterBearerToken);
-    appconfigEnv.deploy('TwitterBearerTokenDeploy', appconfigConfigTwitterBearerToken.configurationProfileId);
-    const appconfigConfigTwitterFieldsParams = appconfigApp.addSSMParameterConfigProfile('TwitterFieldsParams', twitterFieldsParams);
-    appconfigEnv.deploy('TwitterFieldsParamsDeploy', appconfigConfigTwitterFieldsParams.configurationProfileId);
-
     const reprocessTweetsV1BucketPrefix = 'reprocess/tweets/v1/';
-    const reprocessTweetsV1Queue = new sqs.Queue(this, 'ReprocessTweetsV1Queue', { retentionPeriod: Duration.days(14), visibilityTimeout: Duration.seconds(180) });
+    const reprocessTweetsV1Queue = new sqs.Queue(this, 'ReprocessTweetsV1Queue', { retentionPeriod: Duration.days(14), visibilityTimeout: Duration.seconds(300) });
     bucket.addEventNotification(s3.EventType.OBJECT_CREATED, new SqsDestination(reprocessTweetsV1Queue), { prefix: reprocessTweetsV1BucketPrefix });
     const reprocessTweetsV1Function = new NodejsFunction(this, 'ReprocessTweetsV1Function', {
       ...lambdaCommonSettings,
       description: 'Social Analytics processor - Processing with lookup API for TweetsV1',
       entry: './src/functions/reprocess-tweets-v1/index.ts',
-      handler: 'handler',
-      architecture: lambda.Architecture.X86_64,
-      layers: [ExtensionLayerVersion(this, 'AppConfigLambdaExtension', this.region)],
       memorySize: 512,
-      timeout: Duration.seconds(180),
+      timeout: Duration.seconds(300),
       events: [
         new SqsEventSource(reprocessTweetsV1Queue, {
           batchSize: 12,
           maxBatchingWindow: Duration.seconds(1),
         }),
       ],
-      initialPolicy: [
-        new iam.PolicyStatement({
-          actions: [
-            'appconfig:StartConfigurationSession',
-            'appconfig:GetLatestConfiguration',
-          ],
-          resources: ['*'],
-        }),
-      ],
+      initialPolicy: [twitterParameterPolicyStatement],
       environment: {
-        AWS_APPCONFIG_EXTENSION_POLL_INTERVAL_SECONDS: '180',
-        APPCONFIG_APPLICATION: appconfigApp.applicationName,
-        APPCONFIG_ENVIRONMENT: appconfigEnv.environmentName,
-        APPCONFIG_CONFIG_TWITTER_BEARER_TOKEN: appconfigConfigTwitterBearerToken.configurationProfileName,
-        APPCONFIG_CONFIG_TWITTER_FIELDS_PARAMS: appconfigConfigTwitterFieldsParams.configurationProfileName,
+        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
         STREAM_NAME: ingestionStream.streamName,
       },
       reservedConcurrentExecutions: 1,

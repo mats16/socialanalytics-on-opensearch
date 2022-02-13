@@ -5,10 +5,6 @@
       "type": "build"
     },
     {
-      "name": "@types/cfn-response",
-      "type": "build"
-    },
-    {
       "name": "@types/jest",
       "type": "build"
     },
@@ -93,14 +89,6 @@
       "type": "build"
     },
     {
-      "name": "@aws-cdk/aws-kinesisfirehose-alpha",
-      "type": "runtime"
-    },
-    {
-      "name": "@aws-cdk/aws-kinesisfirehose-destinations-alpha",
-      "type": "runtime"
-    },
-    {
       "name": "@aws-crypto/sha256-js",
       "type": "runtime"
     },
@@ -171,10 +159,6 @@
     {
       "name": "aws-cdk-lib",
       "version": "^2.12.0",
-      "type": "runtime"
-    },
-    {
-      "name": "axios",
       "type": "runtime"
     },
     {
