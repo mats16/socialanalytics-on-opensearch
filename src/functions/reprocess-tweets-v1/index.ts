@@ -10,34 +10,56 @@ import { Promise } from 'bluebird';
 import { TweetV1, TweetV2, TwitterApi, TweetV2LookupResult, Tweetv2FieldsParams } from 'twitter-api-v2';
 import { StreamResult, Deduplicate } from '../utils';
 
-const twitterApiLookupInterval = 2200; // Quota: 300req/900s
+const twitterApiLookupInterval = 2180; // Quota: 300req/900s
 let twitterBearerToken: string = '';
 let twitterFieldsParams: Partial<Tweetv2FieldsParams> = {};
-let twitterFilterDomains: string[] = [];
+let twitterFilterContextDomains: string[] = [];
+let twitterFilterSourceLabels: string[] = [];
 
 const region = process.env.AWS_REGION || 'us-west-2';
 const streamName = process.env.STREAM_NAME!;
 const twitterParameterPrefix = process.env.TWITTER_PARAMETER_PREFIX!;
 
-const logger = new Logger({ logLevel: 'INFO', serviceName: 'ReprocessTweetsV1Function' });
-const metrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'ReprocessTweetsV1Function' });
-const twitterApiMetrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'twitter-api-v2' });
-const tracer = new Tracer({ serviceName: 'ReprocessTweetsV1Function' });
+const logger = new Logger();
+const metrics = new Metrics();
+const twitterApiMetrics = new Metrics({ serviceName: 'twitter-api-v2' });
+const tracer = new Tracer();
 
 const s3 = tracer.captureAWSv3Client(new S3Client({ region }));
 const kinesis = tracer.captureAWSv3Client(new KinesisClient({ region, maxAttempts: 10 }));
 
 const fetchParameterStore = async () => {
-  const ssm = tracer.captureAWSv3Client(new SSMClient({ region }));
-  const cmd = new GetParametersByPathCommand({ Path: twitterParameterPrefix });
-  const { Parameters } = await ssm.send(cmd);
-  const twitterBearerTokenParameter = Parameters?.find(param => param.Name?.endsWith('BearerToken'))!;
-  twitterBearerToken = twitterBearerTokenParameter.Value!;
-  const twitterFieldsParamsParameter = Parameters?.find(param => param.Name?.endsWith('FieldsParams'))!;
-  twitterFieldsParams = JSON.parse(twitterFieldsParamsParameter.Value!);
-  const twitterFilterDomainsParameter = Parameters?.find(param => param.Name?.endsWith('FilterDomains'))!;
-  twitterFilterDomains = twitterFilterDomainsParameter.Value!.split(',');
-  logger.info({message: 'Get palameters from parameter store successfully'});
+  const parentSubsegment = tracer.getSegment();
+  const subsegment = parentSubsegment.addNewSubsegment('Fetch parameters');
+  tracer.setSegment(subsegment);
+  try {
+    const ssm = tracer.captureAWSv3Client(new SSMClient({ region }));
+    const cmd = new GetParametersByPathCommand({ Path: twitterParameterPrefix, Recursive: true });
+    const { Parameters } = await ssm.send(cmd);
+    // Updates
+    twitterBearerToken = Parameters!.find(param => param.Name!.endsWith('BearerToken'))!.Value!;
+    twitterFieldsParams = JSON.parse(Parameters!.find(param => param.Name?.endsWith('FieldsParams'))!.Value!);
+    twitterFilterContextDomains = Parameters!.find(param => param.Name?.endsWith('Filter/ContextDomains'))!.Value!.split(',');
+    twitterFilterSourceLabels = Parameters!.find(param => param.Name?.endsWith('Filter/SourceLabels'))!.Value!.split(',');
+    logger.info({ message: 'Get palameters from parameter store successfully' });
+  } catch (err) {
+    tracer.addErrorAsMetadata(err as Error);
+  } finally {
+    subsegment.close();
+    tracer.setSegment(parentSubsegment);
+  };
+};
+
+const sourceLabelFilter = (tweet: TweetV2): boolean => {
+  const sourceLabel = tweet.source || '';
+  const isFiltered = twitterFilterSourceLabels.includes(sourceLabel);
+  return (isFiltered) ? false: true;
+};
+
+const contextDomainFilter = (tweet: TweetV2): boolean => {
+  const contextAnnotationsDomains = tweet.context_annotations?.map(a => a.domain.name) || [];
+  const isFiltered = contextAnnotationsDomains.some(domain => twitterFilterContextDomains.includes(domain));
+  return (isFiltered) ? false: true;
 };
 
 const asBuffer = async (response: GetObjectCommandOutput) => {
@@ -60,7 +82,6 @@ const tweetV1stringToId = (tweetV1string: string) => {
 };
 
 const getObjectLines = async(bucket: string, key: string): Promise<string[]> => {
-  const parentSubsegment = tracer.getSegment();
   const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
   try {
     const output = await s3.send(cmd);
@@ -74,7 +95,6 @@ const getObjectLines = async(bucket: string, key: string): Promise<string[]> => 
 };
 
 const deleteObject = async(bucket: string, key: string)=> {
-  const parentSubsegment = tracer.getSegment();
   const cmd = new DeleteObjectCommand({ Bucket: bucket, Key: key });
   try {
     await s3.send(cmd);
@@ -102,21 +122,23 @@ const arraySplit = <T = object>(array: T[], n: number): T[][] => {
 
 const lookupTweets = async (tweetIds: string[]): Promise<TweetV2LookupResult> => {
   const parentSubsegment = tracer.getSegment();
-  if (tweetIds.length > 100) {
-    throw new Error('Up to 100 tweets are allowed to lookup.');
-  }
-  // Sleep for 300req/900s
-  await new Promise(resolve => setTimeout(resolve, twitterApiLookupInterval));
-  // Call twitter api v2
+  const subsegment = parentSubsegment.addNewSubsegment('Lookup tweets');
+  tracer.setSegment(subsegment);
   twitterApiMetrics.addDimension('api', 'lookup');
-  const twitterApi = new TwitterApi(twitterBearerToken);
-  const lookupResult = await twitterApi.v2.tweets(tweetIds, twitterFieldsParams);
-  twitterApiMetrics.addMetric('RequestCount', MetricUnits.Count, 1);
-  twitterApiMetrics.addMetric('RequestRecordCount', MetricUnits.Count, tweetIds.length);
-  twitterApiMetrics.addMetric('ResponseRecordCount', MetricUnits.Count, lookupResult.data.length);
-  if (lookupResult.errors) {
-    twitterApiMetrics.addMetric('ResponseErrorRecordCount', MetricUnits.Count, lookupResult.errors.length);
-  };
+  let lookupResult: TweetV2LookupResult;
+  try {
+    // Call twitter api v2
+    const twitterApi = new TwitterApi(twitterBearerToken);
+    lookupResult = await twitterApi.v2.tweets(tweetIds, twitterFieldsParams);
+    twitterApiMetrics.addMetric('RequestCount', MetricUnits.Count, 1);
+    twitterApiMetrics.addMetric('ResponseErrorRecordCount', MetricUnits.Count, lookupResult.errors?.length||0);
+  } catch (err) {
+    tracer.addErrorAsMetadata(err as Error);
+    throw err;
+  } finally {
+    subsegment.close();
+    tracer.setSegment(parentSubsegment);
+  }
   return lookupResult;
 };
 
@@ -152,17 +174,27 @@ const streamResultsToKinesisRecord = (streamResults: StreamResult[]): PutRecords
   return records;
 };
 
+const sleep = async (ms: number) => {
+  const parentSubsegment = tracer.getSegment();
+  const subsegment = parentSubsegment.addNewSubsegment('Sleep');
+  tracer.setSegment(subsegment);
+  await new Promise(resolve => setTimeout(resolve, ms));
+  subsegment.close();
+  tracer.setSegment(parentSubsegment);
+  return;
+};
+
 const processTweetIds = async (tweetIds: string[]) => {
   const parentSubsegment = tracer.getSegment();
+  const subsegment = parentSubsegment.addNewSubsegment('Process 100 tweets');
+  tracer.setSegment(subsegment);
   // Get data from twitter api v2
+  await sleep(twitterApiLookupInterval); // Sleep for 300req/900s
   const lookupResult = await lookupTweets(tweetIds);
   // Filtering for non-tech topics
-  const domainFilter = (tweet: TweetV2): boolean => {
-    const contextAnnotationsDomains = tweet.context_annotations?.map(a => a.domain.name) || [];
-    const isFiltered = contextAnnotationsDomains.some(domain => twitterFilterDomains.includes(domain));
-    return (isFiltered) ? false: true;
-  };
-  lookupResult.data = lookupResult.data.filter(domainFilter);
+  const filteredTweets = lookupResult.data.filter(sourceLabelFilter).filter(contextDomainFilter);
+  metrics.addMetric('FilteredTweetsRate', MetricUnits.Percent, (lookupResult.data.length - filteredTweets.length) / lookupResult.data.length * 100);
+  lookupResult.data = filteredTweets;
   // Transform to stream data from lookup data
   const streamResults = lookupResultToStreamResults(lookupResult);
   if (streamResults.length > 0) {
@@ -174,11 +206,12 @@ const processTweetIds = async (tweetIds: string[]) => {
     const { FailedRecordCount } = await kinesis.send(putRecordsCommand);
     metrics.addMetric('FailedRecordCount', MetricUnits.Count, FailedRecordCount || 0);
   }
+  subsegment.close();
+  tracer.setSegment(parentSubsegment);
   return;
 };
 
 const getTweetIds = async (sqsRecord: SQSRecord) => {
-  const parentSubsegment = tracer.getSegment();
   const { Records: s3Records }: S3Event = JSON.parse(sqsRecord.body);
   const s3Keys = s3Records.map(s3Record => {
     return { bucket: s3Record.s3.bucket.name, key: s3Record.s3.object.key.replace(/%3D/g, '=') };
@@ -189,15 +222,32 @@ const getTweetIds = async (sqsRecord: SQSRecord) => {
 };
 
 export const handler: SQSHandler = async (event, _context) => {
-  const segment = tracer.getSegment();
-  await fetchParameterStore();
-
   const sqsRecords = event.Records;
+  // Tracing
+  const segment = tracer.getSegment();
+  // Fetch parameters
+  await fetchParameterStore();
+  // Get TweetIds from S3
+  const subsegment = segment.addNewSubsegment('Get tweet ids');
+  tracer.setSegment(subsegment);
   const tweetIds = (await Promise.map(sqsRecords, getTweetIds)).flat();
   const deduplicatedTweetIds = Deduplicate(tweetIds) || []; // 重複排除
+  subsegment.close();
+  tracer.setSegment(segment);
+  // Process
+  const subsegment2 = segment.addNewSubsegment('Main Process');
+  tracer.setSegment(subsegment2);
   const tweetIdsArray = arraySplit<string>(deduplicatedTweetIds, 100); // 100件づつのArray
   await Promise.map(tweetIdsArray, processTweetIds, { concurrency: 1 });
+  subsegment2.close();
+  tracer.setSegment(segment);
+  // Detete
+  const subsegment3 = segment.addNewSubsegment('Delete Objects');
+  tracer.setSegment(subsegment3);
   await deleteAllObjects(sqsRecords);
+  subsegment3.close();
+  tracer.setSegment(segment);
+  // Metrics
   metrics.publishStoredMetrics();
   twitterApiMetrics.publishStoredMetrics();
   return;

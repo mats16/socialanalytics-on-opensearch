@@ -26,15 +26,19 @@ export class SocialAnalyticsStack extends Stack {
   constructor(scope: Construct, id: string, props: SocialAnalyticsStackProps = {}) {
     super(scope, id, props);
 
-    const twitterBearerTokenParameter = new CfnParameter(this, 'TwitterBearerTokenParameter', { type: 'String', default: props.defaultTwitterBearerToken, noEcho: true });
+    const twitterBearerTokenParameter = new CfnParameter(this, 'TwitterBearerTokenParameter', {
+      type: 'String',
+      default: props.defaultTwitterBearerToken,
+      noEcho: true,
+    });
     const twitterBearerToken = new StringParameter(this, 'TwitterBearerToken', {
-      description: 'Social Analytics - Twitter Bearer Token',
+      description: 'Twitter Bearer Token',
       parameterName: `/${this.stackName}/Twitter/BearerToken`,
       stringValue: twitterBearerTokenParameter.valueAsString,
     });
     const twitterFieldsParams = new StringParameter(this, 'TwitterFieldsParams', {
       // https://developer.twitter.com/en/docs/twitter-api/data-dictionary/introduction
-      description: 'Social Analytics - Twitter Fields Params',
+      description: 'Tweet fields params for API calls',
       parameterName: `/${this.stackName}/Twitter/FieldsParams`,
       stringValue: JSON.stringify({
         'tweet.fields': [
@@ -83,10 +87,17 @@ export class SocialAnalyticsStack extends Stack {
         ],
       } as Partial<Tweetv2FieldsParams>),
     });
-    const twitterFilterDomains = new StringListParameter(this, 'twitterFilterDomains', {
-      description: 'Social Analytics - Domains of context_annotations for filtering',
-      parameterName: `/${this.stackName}/Twitter/FilterDomains`,
+    const twitterFilterContextDomains = new StringListParameter(this, 'twitterFilterContextDomains', {
+      // https://developer.twitter.com/en/docs/twitter-api/annotations/overview
+      description: 'Context domains for filtering',
+      parameterName: `/${this.stackName}/Twitter/Filter/ContextDomains`,
       stringListValue: ['Musician', 'Music Genre', 'Actor', 'TV Shows', 'Multimedia Franchise', 'Fictional Character', 'Entertainment Personality'],
+    });
+    const twitterFilterSourceLabels = new StringListParameter(this, 'twitterFilterSourceLabels', {
+      // https://help.twitter.com/en/using-twitter/how-to-tweet#source-labels
+      description: 'Tweet source labels for filtering',
+      parameterName: `/${this.stackName}/Twitter/Filter/SourceLabels`,
+      stringListValue: ['twittbot.net', 'Mk00JapanBot', 'Gakeppu Tweet', 'BelugaCampaignSEA', 'rare_zaiko'],
     });
 
     const twitterParameterPolicyStatement = new iam.PolicyStatement({
@@ -128,6 +139,9 @@ export class SocialAnalyticsStack extends Stack {
       memorySize: 256,
       timeout: Duration.minutes(5),
       environment: {
+        POWERTOOLS_SERVICE_NAME: 'AnalysisFunction',
+        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
+        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/Filter/`,
         INDEXING_STREAM_NAME: indexingStream.streamName,
       },
       events: [
@@ -156,6 +170,10 @@ export class SocialAnalyticsStack extends Stack {
       description: 'Social Analytics filter - Filtering with baclup flag',
       entry: './src/functions/archive-filter/index.ts',
       timeout: Duration.minutes(5),
+      environment: {
+        POWERTOOLS_SERVICE_NAME: 'ArchiveFilterFunction',
+        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
+      },
     });
 
     const ingestionArchiveStream = new DeliveryStream(this, 'IngestionArchiveStream', {
@@ -216,6 +234,8 @@ export class SocialAnalyticsStack extends Stack {
       memorySize: 256,
       timeout: Duration.minutes(5),
       environment: {
+        POWERTOOLS_SERVICE_NAME: 'IndexingFunction',
+        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
         OPENSEARCH_DOMAIN_ENDPOINT: dashboard.Domain.domainEndpoint,
       },
       events: [
@@ -240,12 +260,14 @@ export class SocialAnalyticsStack extends Stack {
       timeout: Duration.seconds(300),
       events: [
         new SqsEventSource(reprocessTweetsV1Queue, {
-          batchSize: 12,
+          batchSize: 10,
           maxBatchingWindow: Duration.seconds(1),
         }),
       ],
       initialPolicy: [twitterParameterPolicyStatement],
       environment: {
+        POWERTOOLS_SERVICE_NAME: 'ReprocessTweetsV1Function',
+        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
         TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
         STREAM_NAME: ingestionStream.streamName,
       },

@@ -14,10 +14,10 @@ const allowedTimeRange = 1000 * 60 * 60 * 24 * 365 * 2;
 const hostname = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
 const region = process.env.AWS_REGION || 'us-west-2';
 
-const logger = new Logger({ logLevel: 'INFO', serviceName: 'IndexingFunction' });
-const metrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'IndexingFunction' });
-const searchMetrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'OpenSearch' });
-const tracer = new Tracer({ serviceName: 'IndexingFunction' });
+const logger = new Logger();
+const metrics = new Metrics();
+const searchMetrics = new Metrics({ serviceName: 'OpenSearch' });
+const tracer = new Tracer();
 
 const client = new NodeHttpHandler();
 
@@ -84,7 +84,7 @@ const getSearchDocument = (stream: StreamResult) => {
       entity: Deduplicate(tweet.context_annotations?.map(x => x.entity.name)),
     },
     entities: {
-      annotation: tweet.entities?.annotations?.map(x => x.normalized_text),
+      annotation: tweet.entities?.annotations?.map(x => x.normalized_text.toLowerCase()),
       cashtag: tweet.entities?.cashtags?.map(x => x.tag?.toLowerCase()),
       hashtag: tweet.entities?.hashtags?.map(x => x.tag?.toLowerCase()),
       mention: tweet.entities?.mentions?.map(x => x.username?.toLowerCase()),

@@ -3,21 +3,59 @@ import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
 import { Tracer } from '@aws-lambda-powertools/tracer';
 import { ComprehendClient, DetectSentimentCommand, DetectEntitiesCommand, DetectDominantLanguageCommand } from '@aws-sdk/client-comprehend';
 import { KinesisClient, PutRecordsCommand } from '@aws-sdk/client-kinesis';
+import { SSMClient, GetParametersByPathCommand } from '@aws-sdk/client-ssm';
 import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
+import { TweetV2 } from 'twitter-api-v2';
 import { TweetStreamParse, StreamResult, Deduplicate, Normalize, Analysis } from '../utils';
 
 const entityScoreThreshold = 0.8;
+let twitterFilterContextDomains: string[] = [];
+let twitterFilterSourceLabels: string[] = [];
+
 const region = process.env.AWS_REGION || 'us-west-2';
 const indexingStreamName = process.env.INDEXING_STREAM_NAME!;
+const twitterParameterPrefix = process.env.TWITTER_PARAMETER_PREFIX!;
 
-const logger = new Logger({ logLevel: 'INFO', serviceName: 'AnalysisFunction' });
-const metrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'AnalysisFunction' });
-const tracer = new Tracer({ serviceName: 'AnalysisFunction' });
+const logger = new Logger();
+const metrics = new Metrics();
+const tracer = new Tracer();
 
 const kinesis = tracer.captureAWSv3Client(new KinesisClient({ region }));
 const comprehend = tracer.captureAWSv3Client(new ComprehendClient({ region, maxAttempts: 20 }));
+
+const fetchParameterStore = async () => {
+  const parentSubsegment = tracer.getSegment();
+  const subsegment = parentSubsegment.addNewSubsegment('Fetch parameters');
+  tracer.setSegment(subsegment);
+  try {
+    const ssm = tracer.captureAWSv3Client(new SSMClient({ region }));
+    const cmd = new GetParametersByPathCommand({ Path: twitterParameterPrefix, Recursive: true });
+    const { Parameters } = await ssm.send(cmd);
+    // Updates
+    twitterFilterContextDomains = Parameters!.find(param => param.Name?.endsWith('Filter/ContextDomains'))!.Value!.split(',');
+    twitterFilterSourceLabels = Parameters!.find(param => param.Name?.endsWith('Filter/SourceLabels'))!.Value!.split(',');
+    logger.info({ message: 'Get palameters from parameter store successfully' });
+  } catch (err) {
+    tracer.addErrorAsMetadata(err as Error);
+  } finally {
+    subsegment.close();
+    tracer.setSegment(parentSubsegment);
+  };
+};
+
+const sourceLabelFilter = (tweet: TweetV2): boolean => {
+  const sourceLabel = tweet.source || '';
+  const isFiltered = twitterFilterSourceLabels.includes(sourceLabel);
+  return (isFiltered) ? false: true;
+};
+
+const contextDomainFilter = (tweet: TweetV2): boolean => {
+  const contextAnnotationsDomains = tweet.context_annotations?.map(a => a.domain.name) || [];
+  const isFiltered = contextAnnotationsDomains.some(domain => twitterFilterContextDomains.includes(domain));
+  return (isFiltered) ? false: true;
+};
 
 const detectLanguage = async (text: string) => {
   const cmd = new DetectDominantLanguageCommand({ Text: text });
@@ -31,20 +69,12 @@ const detectLanguage = async (text: string) => {
 const detectSentiment = async (text: string, lang: string) => {
   const cmd = new DetectSentimentCommand({ Text: text, LanguageCode: lang });
   const { Sentiment, SentimentScore, $metadata } = await comprehend.send(cmd);
-  metrics.addDimension('API', 'DetectSentiment');
-  metrics.addMetric('TotalRetryDelay', MetricUnits.Count, $metadata.totalRetryDelay || 0);
-  metrics.addMetric('Attempts', MetricUnits.Count, $metadata.attempts || 0);
-  metrics.clearDimensions();
   return { Sentiment, SentimentScore };
 };
 
 const detectEntities = async (text: string, lang: string) => {
   const cmd = new DetectEntitiesCommand({ Text: text, LanguageCode: lang });
   const { Entities, $metadata } = await comprehend.send(cmd);
-  metrics.addDimension('API', 'DetectEntities');
-  metrics.addMetric('TotalRetryDelay', MetricUnits.Count, $metadata.totalRetryDelay || 0);
-  metrics.addMetric('Attempts', MetricUnits.Count, $metadata.attempts || 0);
-  metrics.clearDimensions();
   return { Entities };
 };
 
@@ -90,7 +120,7 @@ const analyze = async (text: string, lang: string|undefined): Promise<Analysis> 
     }
     return flag;
   });
-  const entities = Deduplicate(filteredEntities?.map(entity => { return entity.Text!; }));
+  const entities = Deduplicate(filteredEntities?.map(entity => { return entity.Text!.toLowerCase(); }));
 
   const data: Analysis = {
     normalized_text: normalizedText,
@@ -106,8 +136,7 @@ const analyze = async (text: string, lang: string|undefined): Promise<Analysis> 
   return data;
 };
 
-const processRecord = async (record: KinesisStreamRecord) => {
-  const stream = TweetStreamParse(record.kinesis.data);
+const processRecord = async (stream: StreamResult) => {
   const tweet = stream.data;
   const fullText = getFullText(stream);
   const normalizedText = Normalize(fullText);
@@ -116,7 +145,7 @@ const processRecord = async (record: KinesisStreamRecord) => {
     stream.analysis = await analyze(normalizedText, lang);
   }
   const processedRecord = {
-    PartitionKey: record.kinesis.partitionKey,
+    PartitionKey: tweet.id,
     Data: Buffer.from(JSON.stringify(stream)),
   };
   return processedRecord;
@@ -125,14 +154,25 @@ const processRecord = async (record: KinesisStreamRecord) => {
 export const handler: KinesisStreamHandler = async (event) => {
   const segment = tracer.getSegment();
   metrics.addMetric('IncomingRecordCount', MetricUnits.Count, event.Records.length);
-  const processedRecords = await Promise.map(event.Records, processRecord, { concurrency: 10 });
+  await fetchParameterStore();
+  // Analysis & Transform
+  const subsegment = segment.addNewSubsegment('Process records');
+  tracer.setSegment(subsegment);
+
+  const streamArray = event.Records.map(record => TweetStreamParse(record.kinesis.data));
+  const filteredStreamArray = streamArray.filter(stream => sourceLabelFilter(stream.data)).filter(stream => contextDomainFilter(stream.data));
+  metrics.addMetric('FilteredTweetsRate', MetricUnits.Percent, (streamArray.length - filteredStreamArray.length) / streamArray.length * 100);
+
+  const processedRecords = await Promise.map(filteredStreamArray, processRecord, { concurrency: 10 });
+  subsegment.close();
+  tracer.setSegment(segment);
   if (processedRecords.length > 0) {
     const putRecordsCommand = new PutRecordsCommand({
       StreamName: indexingStreamName,
       Records: processedRecords,
     });
     const putRecords = await kinesis.send(putRecordsCommand);
-    metrics.addMetric('FailedRecordCount', MetricUnits.Count, putRecords.FailedRecordCount || 0);
+    //metrics.addMetric('FailedRecordCount', MetricUnits.Count, putRecords.FailedRecordCount || 0);
     metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, processedRecords.length);
   }
   metrics.publishStoredMetrics();

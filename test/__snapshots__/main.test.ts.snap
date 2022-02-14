@@ -81,7 +81,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "01f43970aeacb29443d5d5256081d9ff95310e27ab16944d754d2fb65dbcd7a1.zip",
+          "S3Key": "978487d5672df0bcbbee5a755ac1043607ef51f17b85ea1edfa26c3696fe109b.zip",
         },
         "Description": "Social Analytics processor - Analysis by Amazon Comprehend",
         "Environment": Object {
@@ -90,6 +90,9 @@ Object {
             "INDEXING_STREAM_NAME": Object {
               "Ref": "IndexingStream9338356A",
             },
+            "POWERTOOLS_METRICS_NAMESPACE": "test",
+            "POWERTOOLS_SERVICE_NAME": "AnalysisFunction",
+            "TWITTER_PARAMETER_PREFIX": "/test/Twitter/Filter/",
           },
         },
         "Handler": "index.handler",
@@ -322,6 +325,8 @@ Object {
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "POWERTOOLS_METRICS_NAMESPACE": "test",
+            "POWERTOOLS_SERVICE_NAME": "ArchiveFilterFunction",
           },
         },
         "Handler": "index.handler",
@@ -1071,6 +1076,103 @@ scrape_configs:
         "Roles": Array [
           Object {
             "Ref": "ContainerInsightsTaskDefinitionTaskRole1CE4BE83",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiB28EAD8E4": Object {
+      "DependsOn": Array [
+        "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRoleDefaultPolicy280095F8",
+        "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRole8C8B0491",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "2b33097fab137d18505e51fe514bf094eb0f0a7c84dbeee3bdea164d616e29aa.zip",
+        },
+        "Handler": "main",
+        "MemorySize": 512,
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRole8C8B0491",
+            "Arn",
+          ],
+        },
+        "Runtime": "go1.x",
+        "Timeout": 900,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRole8C8B0491": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRoleDefaultPolicy280095F8": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "ecr:GetAuthorizationToken",
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:GetRepositoryPolicy",
+                "ecr:DescribeRepositories",
+                "ecr:ListImages",
+                "ecr:DescribeImages",
+                "ecr:BatchGetImage",
+                "ecr:ListTagsForResource",
+                "ecr:DescribeImageScanFindings",
+                "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart",
+                "ecr:CompleteLayerUpload",
+                "ecr:PutImage",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": "s3:GetObject",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRoleDefaultPolicy280095F8",
+        "Roles": Array [
+          Object {
+            "Ref": "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRole8C8B0491",
           },
         ],
       },
@@ -2351,7 +2453,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "61e7ee84b694529a5ffd9d74f96ffcaae2f789a5c96ef629a43f7217510d7030.zip",
+          "S3Key": "23d4783fffc8402ad6c33f32c95b12e309085454878c2aa47b574360817c74fa.zip",
         },
         "Description": "Social Analytics processor - Bulk load to OpenSearch",
         "Environment": Object {
@@ -2363,6 +2465,8 @@ scrape_configs:
                 "DomainEndpoint",
               ],
             },
+            "POWERTOOLS_METRICS_NAMESPACE": "test",
+            "POWERTOOLS_SERVICE_NAME": "IndexingFunction",
           },
         },
         "Handler": "index.handler",
@@ -2802,12 +2906,14 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "ea5ea9af92eafc08cd253683692b03445a6af10e12ddfbe2855f65ce9b727616.zip",
+          "S3Key": "c078d11c9ffc5ff4ca94e67db8910d115633e30cd2c793e51acfbead97fc3f20.zip",
         },
         "Description": "Social Analytics processor - Processing with lookup API for TweetsV1",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "POWERTOOLS_METRICS_NAMESPACE": "test",
+            "POWERTOOLS_SERVICE_NAME": "ReprocessTweetsV1Function",
             "STREAM_NAME": Object {
               "Ref": "IngestionStream56E76A34",
             },
@@ -3038,7 +3144,7 @@ scrape_configs:
     },
     "ReprocessTweetsV1FunctionSqsEventSourcetestReprocessTweetsV1QueueE06412AE9CA3C667": Object {
       "Properties": Object {
-        "BatchSize": 12,
+        "BatchSize": 10,
         "EventSourceArn": Object {
           "Fn::GetAtt": Array [
             "ReprocessTweetsV1QueueE3C53075",
@@ -3105,7 +3211,7 @@ scrape_configs:
     },
     "TwitterBearerTokenCBE899A9": Object {
       "Properties": Object {
-        "Description": "Social Analytics - Twitter Bearer Token",
+        "Description": "Twitter Bearer Token",
         "Name": "/test/Twitter/BearerToken",
         "Type": "String",
         "Value": Object {
@@ -3116,7 +3222,7 @@ scrape_configs:
     },
     "TwitterFieldsParamsDD9504EE": Object {
       "Properties": Object {
-        "Description": "Social Analytics - Twitter Fields Params",
+        "Description": "Tweet fields params for API calls",
         "Name": "/test/Twitter/FieldsParams",
         "Type": "String",
         "Value": "{\\"tweet.fields\\":[\\"id\\",\\"text\\",\\"author_id\\",\\"context_annotations\\",\\"conversation_id\\",\\"created_at\\",\\"entities\\",\\"geo\\",\\"in_reply_to_user_id\\",\\"lang\\",\\"possibly_sensitive\\",\\"public_metrics\\",\\"referenced_tweets\\",\\"reply_settings\\",\\"source\\"],\\"user.fields\\":[\\"id\\",\\"name\\",\\"username\\",\\"url\\",\\"verified\\",\\"public_metrics\\"],\\"place.fields\\":[\\"id\\",\\"full_name\\",\\"contained_within\\",\\"country\\",\\"country_code\\",\\"geo\\",\\"name\\",\\"place_type\\"],\\"expansions\\":[\\"author_id\\",\\"entities.mentions.username\\",\\"in_reply_to_user_id\\",\\"referenced_tweets.id\\",\\"referenced_tweets.id.author_id\\"]}",
@@ -3140,6 +3246,90 @@ scrape_configs:
         "RetentionInDays": 14,
       },
       "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "TwitterStreamingReaderLogRouterImageAssetDeployCustomResourceF90BB735": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "DestImage": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "docker://",
+              Object {
+                "Fn::Select": Array [
+                  4,
+                  Object {
+                    "Fn::Split": Array [
+                      ":",
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TwitterStreamingReaderLogRouterRepoDF78D455",
+                          "Arn",
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              ".dkr.ecr.",
+              Object {
+                "Fn::Select": Array [
+                  3,
+                  Object {
+                    "Fn::Split": Array [
+                      ":",
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TwitterStreamingReaderLogRouterRepoDF78D455",
+                          "Arn",
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              ".",
+              Object {
+                "Ref": "AWS::URLSuffix",
+              },
+              "/",
+              Object {
+                "Ref": "TwitterStreamingReaderLogRouterRepoDF78D455",
+              },
+            ],
+          ],
+        },
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiB28EAD8E4",
+            "Arn",
+          ],
+        },
+        "SrcImage": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "docker://",
+              Object {
+                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:0791362fa667a221396ce6e512a8bfd8d719b92d01f2e8253155ebb063c25215",
+              },
+            ],
+          ],
+        },
+      },
+      "Type": "Custom::CDKBucketDeployment",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "TwitterStreamingReaderLogRouterRepoDF78D455": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "ImageScanningConfiguration": Object {
+          "ScanOnPush": true,
+        },
+        "RepositoryName": "test/log-router",
+      },
+      "Type": "AWS::ECR::Repository",
       "UpdateReplacePolicy": "Retain",
     },
     "TwitterStreamingReaderServiceE64B9C32": Object {
@@ -3230,7 +3420,53 @@ scrape_configs:
             ],
             "Essential": true,
             "Image": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:6f3acdd6ff5d02daac76843416ecb3da9d729ae27e35208c425fa9590f15a262",
+              "Fn::Join": Array [
+                "",
+                Array [
+                  Object {
+                    "Fn::Select": Array [
+                      4,
+                      Object {
+                        "Fn::Split": Array [
+                          ":",
+                          Object {
+                            "Fn::GetAtt": Array [
+                              "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                              "Arn",
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  ".dkr.ecr.",
+                  Object {
+                    "Fn::Select": Array [
+                      3,
+                      Object {
+                        "Fn::Split": Array [
+                          ":",
+                          Object {
+                            "Fn::GetAtt": Array [
+                              "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                              "Arn",
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  ".",
+                  Object {
+                    "Ref": "AWS::URLSuffix",
+                  },
+                  "/",
+                  Object {
+                    "Ref": "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                  },
+                  ":latest",
+                ],
+              ],
             },
             "LogConfiguration": Object {
               "LogDriver": "awsfirelens",
@@ -3336,7 +3572,53 @@ scrape_configs:
               "Timeout": 5,
             },
             "Image": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:0791362fa667a221396ce6e512a8bfd8d719b92d01f2e8253155ebb063c25215",
+              "Fn::Join": Array [
+                "",
+                Array [
+                  Object {
+                    "Fn::Select": Array [
+                      4,
+                      Object {
+                        "Fn::Split": Array [
+                          ":",
+                          Object {
+                            "Fn::GetAtt": Array [
+                              "TwitterStreamingReaderLogRouterRepoDF78D455",
+                              "Arn",
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  ".dkr.ecr.",
+                  Object {
+                    "Fn::Select": Array [
+                      3,
+                      Object {
+                        "Fn::Split": Array [
+                          ":",
+                          Object {
+                            "Fn::GetAtt": Array [
+                              "TwitterStreamingReaderLogRouterRepoDF78D455",
+                              "Arn",
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  ".",
+                  Object {
+                    "Ref": "AWS::URLSuffix",
+                  },
+                  "/",
+                  Object {
+                    "Ref": "TwitterStreamingReaderLogRouterRepoDF78D455",
+                  },
+                  ":latest",
+                ],
+              ],
             },
             "LogConfiguration": Object {
               "LogDriver": "awslogs",
@@ -3416,26 +3698,9 @@ scrape_configs:
               ],
               "Effect": "Allow",
               "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:",
-                    Object {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":ecr:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":repository/",
-                    Object {
-                      "Fn::Sub": "cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}",
-                    },
-                  ],
+                "Fn::GetAtt": Array [
+                  "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                  "Arn",
                 ],
               },
             },
@@ -3505,6 +3770,20 @@ scrape_configs:
                       "Ref": "TwitterFieldsParamsDD9504EE",
                     },
                   ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TwitterStreamingReaderLogRouterRepoDF78D455",
+                  "Arn",
                 ],
               },
             },
@@ -3592,6 +3871,17 @@ scrape_configs:
         ],
       },
       "Type": "AWS::IAM::Policy",
+    },
+    "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "ImageScanningConfiguration": Object {
+          "ScanOnPush": true,
+        },
+        "RepositoryName": "test/twitter-streaming-reader",
+      },
+      "Type": "AWS::ECR::Repository",
+      "UpdateReplacePolicy": "Retain",
     },
     "TwitterStreamingReaderVPC17D0C89D": Object {
       "Properties": Object {
@@ -3773,6 +4063,79 @@ scrape_configs:
         },
       },
       "Type": "AWS::EC2::VPCGatewayAttachment",
+    },
+    "TwitterStreamingReadertwitterStreamingReaderImageAssetDeployCustomResource6F37CCBB": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "DestImage": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "docker://",
+              Object {
+                "Fn::Select": Array [
+                  4,
+                  Object {
+                    "Fn::Split": Array [
+                      ":",
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                          "Arn",
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              ".dkr.ecr.",
+              Object {
+                "Fn::Select": Array [
+                  3,
+                  Object {
+                    "Fn::Split": Array [
+                      ":",
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                          "Arn",
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              ".",
+              Object {
+                "Ref": "AWS::URLSuffix",
+              },
+              "/",
+              Object {
+                "Ref": "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+              },
+            ],
+          ],
+        },
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiB28EAD8E4",
+            "Arn",
+          ],
+        },
+        "SrcImage": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "docker://",
+              Object {
+                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:6f3acdd6ff5d02daac76843416ecb3da9d729ae27e35208c425fa9590f15a262",
+              },
+            ],
+          ],
+        },
+      },
+      "Type": "Custom::CDKBucketDeployment",
+      "UpdateReplacePolicy": "Delete",
     },
     "testUserPool38F3A57B": Object {
       "DeletionPolicy": "Delete",
@@ -4216,12 +4579,21 @@ scrape_configs:
       },
       "Type": "AWS::Cognito::UserPoolDomain",
     },
-    "twitterFilterDomainsB23A95B7": Object {
+    "twitterFilterContextDomainsAC1EB275": Object {
       "Properties": Object {
-        "Description": "Social Analytics - Domains of context_annotations for filtering",
-        "Name": "/test/Twitter/FilterDomains",
+        "Description": "Context domains for filtering",
+        "Name": "/test/Twitter/Filter/ContextDomains",
         "Type": "StringList",
         "Value": "Musician,Music Genre,Actor,TV Shows,Multimedia Franchise,Fictional Character,Entertainment Personality",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "twitterFilterSourceLabelsEC9A582C": Object {
+      "Properties": Object {
+        "Description": "Tweet source labels for filtering",
+        "Name": "/test/Twitter/Filter/SourceLabels",
+        "Type": "StringList",
+        "Value": "twittbot.net,Mk00JapanBot,Gakeppu Tweet,BelugaCampaignSEA,rare_zaiko",
       },
       "Type": "AWS::SSM::Parameter",
     },
