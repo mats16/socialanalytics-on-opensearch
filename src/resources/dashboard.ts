@@ -79,18 +79,36 @@ export class Dashboard extends Construct {
         actions: ['sts:AssumeRoleWithWebIdentity'],
       }));
 
+      const dashboardsUserRole = this.Domain.addRole('DashboardsUserRole', {
+        name: 'dashboards_user',
+        body: {
+          cluster_permissions: ['cluster_composite_ops_ro'],
+          index_permissions: [
+            {
+              index_patterns: ['.kibana', '.kibana-6', '.kibana_*'],
+              allowed_actions: ['read', 'delete', 'manage', 'index'],
+            },
+            {
+              index_patterns: ['.tasks', '.management-beats'],
+              allowed_actions: ['indices_all'],
+            },
+            {
+              index_patterns: ['tweets-*'],
+              allowed_actions: ['read'],
+            },
+          ],
+          tenant_permissions: [{
+            tenant_patterns: ['global_tenant'],
+            allowed_actions: ['kibana_all_write'],
+          }]
+        },
+      });
       this.Domain.addRoleMapping('DashboardsUserRoleMapping', {
-        name: 'opensearch_dashboards_user',
+        name: dashboardsUserRole.getAttString('Name'),
         body: {
           backend_roles: [userPool.authenticatedRole.roleArn],
         },
       });
-      //this.Domain.addRoleMapping('ReadAllRoleMapping', {
-      //  name: 'readall',
-      //  body: {
-      //    backend_roles: [userPool.authenticatedRole.roleArn],
-      //  },
-      //});
     };
 
     this.BulkOperationRole = new iam.Role(this, 'BulkOperationRole', {
@@ -101,11 +119,11 @@ export class Dashboard extends Construct {
     const bulkOperationRole = this.Domain.addRole('BulkOperationRole', {
       name: 'bulk_operation',
       body: {
+        cluster_permissions: ['indices:data/write/bulk'],
         index_permissions: [{
           index_patterns: ['tweets-*'],
           allowed_actions: ['write', 'create_index'],
         }],
-        cluster_permissions: ['indices:data/write/bulk'],
       },
     });
     this.Domain.addRoleMapping('BulkOperationRoleMapping', {

@@ -16,7 +16,7 @@ interface IndexPermission {
 
 interface TenantPermission {
   tenant_patterns?: string[];
-  allowed_actions?: string[];
+  allowed_actions?: ('kibana_all_read'|'kibana_all_write')[];
 }
 
 interface RoleProps {
