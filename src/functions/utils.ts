@@ -2,14 +2,14 @@ import { TweetV2SingleStreamResult } from 'twitter-api-v2';
 
 export interface Analysis {
   normalized_text?: string;
-  sentiment?: string | undefined;
+  sentiment?: string;
   sentiment_score?: {
-    positive: number | undefined;
-    negative: number | undefined;
-    neutral: number | undefined;
-    mixed: number | undefined;
+    positive?: number;
+    negative?: number;
+    neutral?: number;
+    mixed?: number;
   };
-  entities?: string[] | undefined;
+  entities?: string[];
 };
 
 export interface StreamResult extends Partial<TweetV2SingleStreamResult> {

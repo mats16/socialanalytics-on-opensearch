@@ -176,8 +176,21 @@ export class Dashboard extends Construct {
                 },
               },
               geo: {
-                type: 'object',
-                enabled: false,
+                properties: {
+                  coordinates: {
+                    properties: {
+                      type: {
+                        type: 'keyword'
+                      },
+                      coordinates: {
+                        type: 'geo_point'
+                      }
+                    },
+                  },
+                  place_id: {
+                    type: 'keyword',
+                  },
+                },
               },
               id: {
                 type: 'keyword',
@@ -292,8 +305,16 @@ export class Dashboard extends Construct {
                 },
               },
               includes: {
-                type: 'object',
-                enabled: false,
+                properties: {
+                  tweets: {
+                    type: 'object',
+                    enabled: false,
+                  },
+                  users: {
+                    type: 'object',
+                    enabled: false,
+                  },
+                }
               },
             },
           },

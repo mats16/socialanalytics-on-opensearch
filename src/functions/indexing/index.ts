@@ -8,7 +8,8 @@ import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpRequest, HttpResponse } from '@aws-sdk/protocol-http';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { KinesisStreamHandler } from 'aws-lambda';
-import { TweetStreamParse, StreamResult, Deduplicate, Normalize } from '../utils';
+import { TweetV2, UserV2, TweetPublicMetricsV2, TTweetReplySettingsV2 } from 'twitter-api-v2'
+import { TweetStreamParse, StreamResult, Deduplicate, Normalize, Analysis } from '../utils';
 
 const allowedTimeRange = 1000 * 60 * 60 * 24 * 365 * 2;
 const hostname = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
@@ -20,6 +21,60 @@ const searchMetrics = new Metrics({ serviceName: 'OpenSearch' });
 const tracer = new Tracer();
 
 const client = new NodeHttpHandler();
+
+interface Metadata {
+  _index: string;
+  _id?: string;
+};
+// https://developer.twitter.com/en/docs/twitter-api/data-dictionary/object-model/tweet
+interface Document {
+  id: string;
+  text: string;
+  url: string;
+  author?: UserV2;
+  context_annotations?: {
+    domain?: string[];
+    entity?: string[];
+  },
+  conversation_id?: string;
+  created_at?: string;
+  entities?: {
+    annotation?: string[];
+    cashtag?: string[];
+    hashtag?: string[];
+    mention?: string[];
+    url?: string[]
+  },
+  geo?: {
+    coordinates?: {
+      type?: string
+      coordinates?: {
+        lat?: number
+        lon?: number
+      }
+    }
+    place_id?: string
+  };
+  in_reply_to_user_id?: string;
+  lang?: string;
+  possibly_sensitive?: boolean;
+  public_metrics?: TweetPublicMetricsV2;
+  referenced_tweets?: {
+    type?: ('retweeted'|'quoted'|'replied_to')[];
+    id?: string[];
+  };
+  reply_setting?: TTweetReplySettingsV2;
+  source?: string;
+  matching_rules?: {
+    id?: string[];
+    tag?: string[];
+  };
+  includes?: {
+    tweets?: TweetV2[];
+    users?: UserV2[];
+  };
+  analysis?: Analysis;
+};
 
 type BulkResponseItem = {
   [key in 'create'|'delete'|'index'|'update']: {
@@ -57,24 +112,24 @@ const responseParse = async (response: HttpResponse) => {
   return JSON.parse(bufferString);
 };
 
-const getSearchMetadata = (stream: StreamResult) => {
+const getSearchMetadata = (stream: StreamResult): Metadata => {
   const tweet = stream.data;
   const date = (tweet.created_at)
     ? new Date(tweet.created_at)
     : new Date();
   const index = 'tweets-' + date.toISOString().substring(0, 7);
-  const metadata = {
+  const metadata: Metadata = {
     _index: index,
     _id: tweet.id,
   };
   return metadata;
 };
 
-const getSearchDocument = (stream: StreamResult) => {
+const getSearchDocument = (stream: StreamResult): Document => {
   const tweet = stream.data;
   const author = stream.includes?.users?.find(x => x.id == tweet.author_id);
   delete tweet.author_id; // author.id と被るので削除
-  const doc = {
+  const doc: Document = {
     ...tweet,
     text: stream.analysis?.normalized_text || Normalize(tweet.text),
     url: `https://twitter.com/${tweet.author_id}/status/${tweet.id}`,
@@ -88,6 +143,17 @@ const getSearchDocument = (stream: StreamResult) => {
       cashtag: tweet.entities?.cashtags?.map(x => x.tag?.toLowerCase()),
       hashtag: tweet.entities?.hashtags?.map(x => x.tag?.toLowerCase()),
       mention: tweet.entities?.mentions?.map(x => x.username?.toLowerCase()),
+      url: tweet.entities?.urls?.map(x => x.expanded_url),
+    },
+    geo: {
+      coordinates: {
+        type: tweet.geo?.coordinates?.type,
+        coordinates: {
+          lat: tweet.geo?.coordinates?.coordinates?.[0],
+          lon: tweet.geo?.coordinates?.coordinates?.[1],
+        }
+      },
+      place_id: tweet.geo?.place_id,
     },
     referenced_tweets: {
       type: tweet.referenced_tweets?.map(x => x.type),
@@ -97,8 +163,8 @@ const getSearchDocument = (stream: StreamResult) => {
       id: stream.matching_rules?.map(rule => rule.id.toString()),
       tag: Deduplicate(stream.matching_rules?.map(rule => rule.tag)),
     },
-    analysis: stream.analysis,
     includes: stream.includes,
+    analysis: stream.analysis,
   };
   return doc;
 };
@@ -128,10 +194,18 @@ const genBulkActions = (stream: StreamResult): string[]=> {
 export const handler: KinesisStreamHandler = async (event) => {
   const segment = tracer.getSegment();
   metrics.addMetric('IncomingRecordCount', MetricUnits.Count, event.Records.length);
+  // Transforming
+  const subsegment = segment.addNewSubsegment('Trasform records');
+  tracer.setSegment(subsegment);
   const bulkActions = event.Records.flatMap(record => {
     const tweetStreamData = TweetStreamParse(record.kinesis.data);
     return genBulkActions(tweetStreamData);
   });
+  subsegment.close();
+  tracer.setSegment(segment);
+  // Call _bulk API
+  const subsegment2 = segment.addNewSubsegment('Bulk load');
+  tracer.setSegment(subsegment2);
   const request = new HttpRequest({
     headers: {
       'Content-Type': 'application/json',
@@ -150,14 +224,14 @@ export const handler: KinesisStreamHandler = async (event) => {
   });
   const signedRequest = await signer.sign(request) as HttpRequest;
   const { response } = await client.handle(signedRequest);
+  subsegment2.close();
+  tracer.setSegment(segment);
+  // Perse response
   const responseBody: BulkResponse = await responseParse(response);
-  searchMetrics.addDimension('API', 'Bulk');
-  searchMetrics.addMetric('TookTime', MetricUnits.Milliseconds, responseBody.took);
   if (responseBody.errors) {
     const errorCount = responseBody.items.filter(item => { item.update.error; }).length;
     searchMetrics.addMetric('ErrorCount', MetricUnits.Count, errorCount);
   };
-  searchMetrics.clearDimensions();
   metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, bulkActions.length/2);
   metrics.publishStoredMetrics();
   return;

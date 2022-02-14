@@ -39,7 +39,7 @@ interface RoleMappingProps {
 };
 
 interface FieldProperty {
-  type?: 'boolean'|'byte'|'short'|'integer'|'long'|'float'|'half_float'|'scaled_float'|'double'|'keyword'|'text'|'date'|'ip'|'date'|'binary'|'object'|'nested';
+  type?: 'boolean'|'byte'|'short'|'integer'|'long'|'float'|'half_float'|'scaled_float'|'double'|'keyword'|'text'|'date'|'ip'|'date'|'binary'|'object'|'nested'|'geo_point';
   format?: string;
   index?: boolean;
   enabled?: boolean;
