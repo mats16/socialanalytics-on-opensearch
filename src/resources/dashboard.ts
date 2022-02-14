@@ -82,10 +82,11 @@ export class Dashboard extends Construct {
       const dashboardsUserRole = this.Domain.addRole('DashboardsUserRole', {
         name: 'dashboards_user',
         body: {
+          description: 'Provide the minimum permissions for a dashboards user',
           cluster_permissions: ['cluster_composite_ops_ro'],
           index_permissions: [
             {
-              index_patterns: ['.kibana', '.kibana-6', '.kibana_*'],
+              index_patterns: ['.kibana_*', '.opensearch_dashboards_*'],
               allowed_actions: ['read', 'delete', 'manage', 'index'],
             },
             {
@@ -119,6 +120,7 @@ export class Dashboard extends Construct {
     const bulkOperationRole = this.Domain.addRole('BulkOperationRole', {
       name: 'bulk_operation',
       body: {
+        description: 'Provide the minimum permissions for a bulk operation user',
         cluster_permissions: ['indices:data/write/bulk'],
         index_permissions: [{
           index_patterns: ['tweets-*'],

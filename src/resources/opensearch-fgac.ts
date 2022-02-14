@@ -22,6 +22,7 @@ interface TenantPermission {
 interface RoleProps {
   name?: string;
   body: {
+    description?: string;
     cluster_permissions?: string[];
     index_permissions?: IndexPermission[];
     tenant_permissions?: TenantPermission[];
@@ -117,6 +118,7 @@ export class Domain extends opensearch.Domain {
     const consoleRole = this.addRole('ConsoleRole', {
       name: 'aws_console',
       body: {
+        description: 'Provide the minimum permissions for aws console user',
         cluster_permissions: [
           'cluster:monitor/health',
         ],
