@@ -106,7 +106,7 @@ export class DeliveryStream extends Construct {
         },
         bucketArn,
         roleArn: role.roleArn,
-        prefix: `${prefix}dt=!{partitionKeyFromQuery:dt}/`,
+        prefix: `${prefix}year=!{partitionKeyFromQuery:year}/month=!{partitionKeyFromQuery:month}/day=!{partitionKeyFromQuery:day}/`,
         errorOutputPrefix: `${errorOutputPrefix}!{firehose:error-output-type}/`,
         bufferingHints: {
           intervalInSeconds: 900,
@@ -133,7 +133,11 @@ export class DeliveryStream extends Construct {
               parameters: [
                 {
                   parameterName: 'MetadataExtractionQuery',
-                  parameterValue: '{dt : .data.created_at | split(".")[0] | strptime("%Y-%m-%dT%H:%M:%S") | strftime("%Y-%m-%d")}', // 2022-01-24T17:41:38.000Z
+                  parameterValue: '{\
+                    year : .data.created_at | split(".")[0] | strptime("%Y-%m-%dT%H:%M:%S") | strftime("%Y"),\
+                    month : .data.created_at | split(".")[0] | strptime("%Y-%m-%dT%H:%M:%S") | strftime("%m"),\
+                    day : .data.created_at | split(".")[0] | strptime("%Y-%m-%dT%H:%M:%S") | strftime("%d")\
+                  }',
                 },
                 {
                   parameterName: 'JsonParsingEngine',
