@@ -205,6 +205,7 @@ class Lambda implements LambdaInterface {
   };
 
   @metrics.logMetrics()
+  @twitterMetrics.logMetrics()
   @tracer.captureLambdaHandler()
   public async handler(event: SQSEvent, _context: Context): Promise<void> {
     await this.fetchParameter();

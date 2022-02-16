@@ -114,7 +114,7 @@ const analyzeRecord = async (record: TweetStreamRecord): Promise<TweetStreamReco
   const originText = getOriginText(record);
   const normalizedText = Normalize(originText);
   const lang = tweet.lang || await detectLanguage(normalizedText);
-  if (!record.analysis) {
+  if (typeof record.analysis == 'undefined') {
     record.analysis = await analyzeText(normalizedText, lang);
   };
   return record;

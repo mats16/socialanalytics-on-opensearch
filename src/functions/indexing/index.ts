@@ -165,8 +165,8 @@ const geo = (tweet: TweetV2) => {
     let geoPoint = undefined;
     if (tweet.geo?.coordinates?.coordinates) {
       geoPoint = {
-        lat: tweet.geo.coordinates.coordinates[0],
-        lon: tweet.geo.coordinates.coordinates[1],
+        lat: tweet.geo.coordinates.coordinates[1],
+        lon: tweet.geo.coordinates.coordinates[0],
       };
     };
     return {
