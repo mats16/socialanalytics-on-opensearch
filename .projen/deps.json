@@ -93,6 +93,10 @@
       "type": "runtime"
     },
     {
+      "name": "@aws-lambda-powertools/commons",
+      "type": "runtime"
+    },
+    {
       "name": "@aws-lambda-powertools/logger",
       "type": "runtime"
     },

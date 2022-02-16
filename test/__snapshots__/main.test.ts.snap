@@ -81,17 +81,18 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "978487d5672df0bcbbee5a755ac1043607ef51f17b85ea1edfa26c3696fe109b.zip",
+          "S3Key": "462d001abd2d636a08e74ec282eacea5ebaa4a5ff9d0fbc501550762f9fd3229.zip",
         },
-        "Description": "Social Analytics processor - Analysis by Amazon Comprehend",
+        "Description": "Analysis by Amazon Comprehend",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "INDEXING_STREAM_NAME": Object {
+            "DEST_STREAM_NAME": Object {
               "Ref": "IndexingStream9338356A",
             },
             "POWERTOOLS_METRICS_NAMESPACE": "test",
             "POWERTOOLS_SERVICE_NAME": "AnalysisFunction",
+            "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
             "TWITTER_PARAMETER_PREFIX": "/test/Twitter/Filter/",
           },
         },
@@ -319,9 +320,9 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "5a11aba0ffbdfb142c40f6e5080892b9540263923490ae38b62fd9814d95d7bc.zip",
+          "S3Key": "ae66470e7570f2fa69b2a79b989e0e51a8f0fd43061be69b1129a2f20b0c3a2d.zip",
         },
-        "Description": "Social Analytics filter - Filtering with baclup flag",
+        "Description": "Filtering with baclup flag",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
@@ -479,8 +480,12 @@ Object {
     },
     "BucketNotifications8F2E257D": Object {
       "DependsOn": Array [
-        "ReprocessTweetsV1QueuePolicy093707F7",
-        "ReprocessTweetsV1QueueE3C53075",
+        "ReindexTweetsV2FunctionQueuePolicyA269E64C",
+        "ReindexTweetsV2FunctionQueue24CDEFA4",
+        "ReingestTweetsV1FunctionQueuePolicyF98579A3",
+        "ReingestTweetsV1FunctionQueueBCFE63A8",
+        "ReingestTweetsV2FunctionQueuePolicy0BCB3395",
+        "ReingestTweetsV2FunctionQueue00EE7A69",
       ],
       "Properties": Object {
         "BucketName": Object {
@@ -498,14 +503,56 @@ Object {
                   "FilterRules": Array [
                     Object {
                       "Name": "prefix",
-                      "Value": "reprocess/tweets/v1/",
+                      "Value": "reingest/tweets/v1/",
                     },
                   ],
                 },
               },
               "QueueArn": Object {
                 "Fn::GetAtt": Array [
-                  "ReprocessTweetsV1QueueE3C53075",
+                  "ReingestTweetsV1FunctionQueueBCFE63A8",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Events": Array [
+                "s3:ObjectCreated:*",
+              ],
+              "Filter": Object {
+                "Key": Object {
+                  "FilterRules": Array [
+                    Object {
+                      "Name": "prefix",
+                      "Value": "reingest/tweets/v2/",
+                    },
+                  ],
+                },
+              },
+              "QueueArn": Object {
+                "Fn::GetAtt": Array [
+                  "ReingestTweetsV2FunctionQueue00EE7A69",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Events": Array [
+                "s3:ObjectCreated:*",
+              ],
+              "Filter": Object {
+                "Key": Object {
+                  "FilterRules": Array [
+                    Object {
+                      "Name": "prefix",
+                      "Value": "reindex/tweets/v2/",
+                    },
+                  ],
+                },
+              },
+              "QueueArn": Object {
+                "Fn::GetAtt": Array [
+                  "ReindexTweetsV2FunctionQueue24CDEFA4",
                   "Arn",
                 ],
               },
@@ -1413,6 +1460,7 @@ scrape_configs:
           "cluster_permissions": Array [
             "indices:data/write/bulk",
           ],
+          "description": "Provide the minimum permissions for a bulk operation user",
           "index_permissions": Array [
             Object {
               "allowed_actions": Array [
@@ -1486,6 +1534,7 @@ scrape_configs:
           "cluster_permissions": Array [
             "cluster:monitor/health",
           ],
+          "description": "Provide the minimum permissions for aws console user",
           "index_permissions": Array [
             Object {
               "allowed_actions": Array [
@@ -1552,6 +1601,74 @@ scrape_configs:
       "Type": "Custom::OpenSearchRoleMapping",
       "UpdateReplacePolicy": "Delete",
     },
+    "DashboardDomainDashboardsUserRoleC28A043B": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainProviderframeworkonEvent09950933",
+            "Arn",
+          ],
+        },
+        "body": Object {
+          "cluster_permissions": Array [
+            "cluster_composite_ops_ro",
+          ],
+          "description": "Provide the minimum permissions for a dashboards user",
+          "index_permissions": Array [
+            Object {
+              "allowed_actions": Array [
+                "read",
+                "delete",
+                "manage",
+                "index",
+              ],
+              "index_patterns": Array [
+                ".kibana_*",
+                ".opensearch_dashboards_*",
+              ],
+            },
+            Object {
+              "allowed_actions": Array [
+                "indices_all",
+              ],
+              "index_patterns": Array [
+                ".tasks",
+                ".management-beats",
+              ],
+            },
+            Object {
+              "allowed_actions": Array [
+                "read",
+              ],
+              "index_patterns": Array [
+                "tweets-*",
+              ],
+            },
+          ],
+          "tenant_permissions": Array [
+            Object {
+              "allowed_actions": Array [
+                "kibana_all_write",
+              ],
+              "tenant_patterns": Array [
+                "global_tenant",
+              ],
+            },
+          ],
+        },
+        "host": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainED696CAB",
+            "DomainEndpoint",
+          ],
+        },
+        "name": "dashboards_user",
+        "path": "_plugins/_security/api/roles/",
+      },
+      "Type": "Custom::OpenSearchRole",
+      "UpdateReplacePolicy": "Delete",
+    },
     "DashboardDomainDashboardsUserRoleMapping56C4E066": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
@@ -1577,7 +1694,12 @@ scrape_configs:
             "DomainEndpoint",
           ],
         },
-        "name": "opensearch_dashboards_user",
+        "name": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainDashboardsUserRoleC28A043B",
+            "Name",
+          ],
+        },
         "path": "_plugins/_security/api/rolesmapping/",
       },
       "Type": "Custom::OpenSearchRoleMapping",
@@ -2087,15 +2209,36 @@ scrape_configs:
                   },
                 },
                 "geo": Object {
-                  "enabled": false,
-                  "type": "object",
+                  "properties": Object {
+                    "coordinates": Object {
+                      "properties": Object {
+                        "coordinates": Object {
+                          "type": "geo_point",
+                        },
+                        "type": Object {
+                          "type": "keyword",
+                        },
+                      },
+                    },
+                    "place_id": Object {
+                      "type": "keyword",
+                    },
+                  },
                 },
                 "id": Object {
                   "type": "keyword",
                 },
                 "includes": Object {
-                  "enabled": false,
-                  "type": "object",
+                  "properties": Object {
+                    "tweets": Object {
+                      "enabled": false,
+                      "type": "object",
+                    },
+                    "users": Object {
+                      "enabled": false,
+                      "type": "object",
+                    },
+                  },
                 },
                 "lang": Object {
                   "type": "keyword",
@@ -2219,7 +2362,7 @@ scrape_configs:
             "Enabled": true,
           },
           "ErrorOutputPrefix": "raw-with-analysis/tweets/v2-error/!{firehose:error-output-type}/",
-          "Prefix": "raw-with-analysis/tweets/v2/dt=!{partitionKeyFromQuery:dt}/",
+          "Prefix": "raw-with-analysis/tweets/v2/year=!{partitionKeyFromQuery:year}/month=!{partitionKeyFromQuery:month}/day=!{partitionKeyFromQuery:day}/",
           "ProcessingConfiguration": Object {
             "Enabled": true,
             "Processors": Array [
@@ -2241,7 +2384,7 @@ scrape_configs:
                 "Parameters": Array [
                   Object {
                     "ParameterName": "MetadataExtractionQuery",
-                    "ParameterValue": "{dt : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%Y-%m-%d\\")}",
+                    "ParameterValue": "{                    year : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%Y\\"),                    month : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%m\\"),                    day : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%d\\")                  }",
                   },
                   Object {
                     "ParameterName": "JsonParsingEngine",
@@ -2453,9 +2596,9 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "23d4783fffc8402ad6c33f32c95b12e309085454878c2aa47b574360817c74fa.zip",
+          "S3Key": "7b817596a47496972e0a102d61b9055b4b394acc1bc44c87852c7313566426a2.zip",
         },
-        "Description": "Social Analytics processor - Bulk load to OpenSearch",
+        "Description": "Bulk load to OpenSearch",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
@@ -2467,6 +2610,7 @@ scrape_configs:
             },
             "POWERTOOLS_METRICS_NAMESPACE": "test",
             "POWERTOOLS_SERVICE_NAME": "IndexingFunction",
+            "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
           },
         },
         "Handler": "index.handler",
@@ -2580,7 +2724,7 @@ scrape_configs:
             "Enabled": true,
           },
           "ErrorOutputPrefix": "raw/tweets/v2-error/!{firehose:error-output-type}/",
-          "Prefix": "raw/tweets/v2/dt=!{partitionKeyFromQuery:dt}/",
+          "Prefix": "raw/tweets/v2/year=!{partitionKeyFromQuery:year}/month=!{partitionKeyFromQuery:month}/day=!{partitionKeyFromQuery:day}/",
           "ProcessingConfiguration": Object {
             "Enabled": true,
             "Processors": Array [
@@ -2602,7 +2746,7 @@ scrape_configs:
                 "Parameters": Array [
                   Object {
                     "ParameterName": "MetadataExtractionQuery",
-                    "ParameterValue": "{dt : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%Y-%m-%d\\")}",
+                    "ParameterValue": "{                    year : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%Y\\"),                    month : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%m\\"),                    day : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%d\\")                  }",
                   },
                   Object {
                     "ParameterName": "JsonParsingEngine",
@@ -2893,10 +3037,10 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Policy",
     },
-    "ReprocessTweetsV1Function91DE7BD4": Object {
+    "ReindexTweetsV2Function1508A276": Object {
       "DependsOn": Array [
-        "ReprocessTweetsV1FunctionServiceRoleDefaultPolicy7D1AA93A",
-        "ReprocessTweetsV1FunctionServiceRole17084D6F",
+        "ReindexTweetsV2FunctionServiceRoleDefaultPolicyF70624C7",
+        "ReindexTweetsV2FunctionServiceRoleA72F4EAA",
       ],
       "Properties": Object {
         "Architectures": Array [
@@ -2906,17 +3050,20 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "c078d11c9ffc5ff4ca94e67db8910d115633e30cd2c793e51acfbead97fc3f20.zip",
+          "S3Key": "b0ffb6feeb51e14ecd9a62c7781c94d3be229fa8e18eb69f77c0981d22343b40.zip",
         },
-        "Description": "Social Analytics processor - Processing with lookup API for TweetsV1",
+        "Description": "Re-index for TweetsV2",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "POWERTOOLS_METRICS_NAMESPACE": "test",
-            "POWERTOOLS_SERVICE_NAME": "ReprocessTweetsV1Function",
-            "STREAM_NAME": Object {
-              "Ref": "IngestionStream56E76A34",
+            "DEST_STREAM_NAME": Object {
+              "Ref": "IndexingStream9338356A",
             },
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "ReindexTweetsV2Function",
+            "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
             "TWITTER_PARAMETER_PREFIX": "/test/Twitter/",
           },
         },
@@ -2939,19 +3086,19 @@ scrape_configs:
         "ReservedConcurrentExecutions": 1,
         "Role": Object {
           "Fn::GetAtt": Array [
-            "ReprocessTweetsV1FunctionServiceRole17084D6F",
+            "ReindexTweetsV2FunctionServiceRoleA72F4EAA",
             "Arn",
           ],
         },
         "Runtime": "nodejs14.x",
-        "Timeout": 300,
+        "Timeout": 30,
         "TracingConfig": Object {
           "Mode": "Active",
         },
       },
       "Type": "AWS::Lambda::Function",
     },
-    "ReprocessTweetsV1FunctionLogRetention2E73ADD1": Object {
+    "ReindexTweetsV2FunctionLogRetention43E127C4": Object {
       "Properties": Object {
         "LogGroupName": Object {
           "Fn::Join": Array [
@@ -2959,7 +3106,7 @@ scrape_configs:
             Array [
               "/aws/lambda/",
               Object {
-                "Ref": "ReprocessTweetsV1Function91DE7BD4",
+                "Ref": "ReindexTweetsV2Function1508A276",
               },
             ],
           ],
@@ -2974,7 +3121,58 @@ scrape_configs:
       },
       "Type": "Custom::LogRetention",
     },
-    "ReprocessTweetsV1FunctionServiceRole17084D6F": Object {
+    "ReindexTweetsV2FunctionQueue24CDEFA4": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "MessageRetentionPeriod": 1209600,
+        "VisibilityTimeout": 30,
+      },
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "ReindexTweetsV2FunctionQueuePolicyA269E64C": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "sqs:SendMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+              ],
+              "Condition": Object {
+                "ArnLike": Object {
+                  "aws:SourceArn": Object {
+                    "Fn::GetAtt": Array [
+                      "Bucket83908E77",
+                      "Arn",
+                    ],
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "s3.amazonaws.com",
+              },
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "ReindexTweetsV2FunctionQueue24CDEFA4",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "Queues": Array [
+          Object {
+            "Ref": "ReindexTweetsV2FunctionQueue24CDEFA4",
+          },
+        ],
+      },
+      "Type": "AWS::SQS::QueuePolicy",
+    },
+    "ReindexTweetsV2FunctionServiceRoleA72F4EAA": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
@@ -3017,7 +3215,7 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Role",
     },
-    "ReprocessTweetsV1FunctionServiceRoleDefaultPolicy7D1AA93A": Object {
+    "ReindexTweetsV2FunctionServiceRoleDefaultPolicyF70624C7": Object {
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
@@ -3063,7 +3261,7 @@ scrape_configs:
               "Effect": "Allow",
               "Resource": Object {
                 "Fn::GetAtt": Array [
-                  "ReprocessTweetsV1QueueE3C53075",
+                  "ReindexTweetsV2FunctionQueue24CDEFA4",
                   "Arn",
                 ],
               },
@@ -3092,7 +3290,7 @@ scrape_configs:
                           "Arn",
                         ],
                       },
-                      "/reprocess/tweets/v1/*",
+                      "/reindex/tweets/v2/*",
                     ],
                   ],
                 },
@@ -3111,7 +3309,7 @@ scrape_configs:
                         "Arn",
                       ],
                     },
-                    "/reprocess/tweets/v1/*",
+                    "/reindex/tweets/v2/*",
                   ],
                 ],
               },
@@ -3125,7 +3323,7 @@ scrape_configs:
               "Effect": "Allow",
               "Resource": Object {
                 "Fn::GetAtt": Array [
-                  "IngestionStream56E76A34",
+                  "IndexingStream9338356A",
                   "Arn",
                 ],
               },
@@ -3133,32 +3331,115 @@ scrape_configs:
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "ReprocessTweetsV1FunctionServiceRoleDefaultPolicy7D1AA93A",
+        "PolicyName": "ReindexTweetsV2FunctionServiceRoleDefaultPolicyF70624C7",
         "Roles": Array [
           Object {
-            "Ref": "ReprocessTweetsV1FunctionServiceRole17084D6F",
+            "Ref": "ReindexTweetsV2FunctionServiceRoleA72F4EAA",
           },
         ],
       },
       "Type": "AWS::IAM::Policy",
     },
-    "ReprocessTweetsV1FunctionSqsEventSourcetestReprocessTweetsV1QueueE06412AE9CA3C667": Object {
+    "ReindexTweetsV2FunctionSqsEventSourcetestReindexTweetsV2FunctionQueue9DE0F4FDA5A0C855": Object {
       "Properties": Object {
-        "BatchSize": 10,
         "EventSourceArn": Object {
           "Fn::GetAtt": Array [
-            "ReprocessTweetsV1QueueE3C53075",
+            "ReindexTweetsV2FunctionQueue24CDEFA4",
             "Arn",
           ],
         },
         "FunctionName": Object {
-          "Ref": "ReprocessTweetsV1Function91DE7BD4",
+          "Ref": "ReindexTweetsV2Function1508A276",
         },
-        "MaximumBatchingWindowInSeconds": 1,
+        "MaximumBatchingWindowInSeconds": 10,
       },
       "Type": "AWS::Lambda::EventSourceMapping",
     },
-    "ReprocessTweetsV1QueueE3C53075": Object {
+    "ReingestTweetsV1Function1B873B33": Object {
+      "DependsOn": Array [
+        "ReingestTweetsV1FunctionServiceRoleDefaultPolicy49220E3B",
+        "ReingestTweetsV1FunctionServiceRole50A964C4",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "fb01d7598a06fbbf331c06dec381380074a13d3306ff51289b978d398022bb4d.zip",
+        },
+        "Description": "Re-ingest for TweetsV1",
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "DEST_STREAM_NAME": Object {
+              "Ref": "IngestionStream56E76A34",
+            },
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "ReingestTweetsV1Function",
+            "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
+            "TWITTER_PARAMETER_PREFIX": "/test/Twitter/",
+          },
+        },
+        "Handler": "index.handler",
+        "Layers": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+              ],
+            ],
+          },
+        ],
+        "MemorySize": 512,
+        "ReservedConcurrentExecutions": 1,
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "ReingestTweetsV1FunctionServiceRole50A964C4",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+        "Timeout": 300,
+        "TracingConfig": Object {
+          "Mode": "Active",
+        },
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "ReingestTweetsV1FunctionLogRetention33B281DC": Object {
+      "Properties": Object {
+        "LogGroupName": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/aws/lambda/",
+              Object {
+                "Ref": "ReingestTweetsV1Function1B873B33",
+              },
+            ],
+          ],
+        },
+        "RetentionInDays": 14,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::LogRetention",
+    },
+    "ReingestTweetsV1FunctionQueueBCFE63A8": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
         "MessageRetentionPeriod": 1209600,
@@ -3167,7 +3448,7 @@ scrape_configs:
       "Type": "AWS::SQS::Queue",
       "UpdateReplacePolicy": "Delete",
     },
-    "ReprocessTweetsV1QueuePolicy093707F7": Object {
+    "ReingestTweetsV1FunctionQueuePolicyF98579A3": Object {
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
@@ -3193,7 +3474,7 @@ scrape_configs:
               },
               "Resource": Object {
                 "Fn::GetAtt": Array [
-                  "ReprocessTweetsV1QueueE3C53075",
+                  "ReingestTweetsV1FunctionQueueBCFE63A8",
                   "Arn",
                 ],
               },
@@ -3203,11 +3484,512 @@ scrape_configs:
         },
         "Queues": Array [
           Object {
-            "Ref": "ReprocessTweetsV1QueueE3C53075",
+            "Ref": "ReingestTweetsV1FunctionQueueBCFE63A8",
           },
         ],
       },
       "Type": "AWS::SQS::QueuePolicy",
+    },
+    "ReingestTweetsV1FunctionServiceRole50A964C4": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ReingestTweetsV1FunctionServiceRoleDefaultPolicy49220E3B": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "ssm:GetParameter",
+                "ssm:GetParametersByPath",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:aws:ssm:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/test/Twitter/*",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "sqs:ReceiveMessage",
+                "sqs:ChangeMessageVisibility",
+                "sqs:GetQueueUrl",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "ReingestTweetsV1FunctionQueueBCFE63A8",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "Bucket83908E77",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "Bucket83908E77",
+                          "Arn",
+                        ],
+                      },
+                      "/reingest/tweets/v1/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "s3:DeleteObject*",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    Object {
+                      "Fn::GetAtt": Array [
+                        "Bucket83908E77",
+                        "Arn",
+                      ],
+                    },
+                    "/reingest/tweets/v1/*",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "kinesis:ListShards",
+                "kinesis:PutRecord",
+                "kinesis:PutRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "IngestionStream56E76A34",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "ReingestTweetsV1FunctionServiceRoleDefaultPolicy49220E3B",
+        "Roles": Array [
+          Object {
+            "Ref": "ReingestTweetsV1FunctionServiceRole50A964C4",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "ReingestTweetsV1FunctionSqsEventSourcetestReingestTweetsV1FunctionQueueD3DCCF5A88C0BE36": Object {
+      "Properties": Object {
+        "EventSourceArn": Object {
+          "Fn::GetAtt": Array [
+            "ReingestTweetsV1FunctionQueueBCFE63A8",
+            "Arn",
+          ],
+        },
+        "FunctionName": Object {
+          "Ref": "ReingestTweetsV1Function1B873B33",
+        },
+        "MaximumBatchingWindowInSeconds": 10,
+      },
+      "Type": "AWS::Lambda::EventSourceMapping",
+    },
+    "ReingestTweetsV2Function867ADFC1": Object {
+      "DependsOn": Array [
+        "ReingestTweetsV2FunctionServiceRoleDefaultPolicy200AEA52",
+        "ReingestTweetsV2FunctionServiceRole9AB93EDA",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "b0ffb6feeb51e14ecd9a62c7781c94d3be229fa8e18eb69f77c0981d22343b40.zip",
+        },
+        "Description": "Re-ingest for TweetsV2",
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "DEST_STREAM_NAME": Object {
+              "Ref": "IngestionStream56E76A34",
+            },
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "ReingestTweetsV2Function",
+            "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
+            "TWITTER_PARAMETER_PREFIX": "/test/Twitter/",
+          },
+        },
+        "Handler": "index.handler",
+        "Layers": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+              ],
+            ],
+          },
+        ],
+        "MemorySize": 512,
+        "ReservedConcurrentExecutions": 1,
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "ReingestTweetsV2FunctionServiceRole9AB93EDA",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+        "Timeout": 30,
+        "TracingConfig": Object {
+          "Mode": "Active",
+        },
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "ReingestTweetsV2FunctionLogRetention579E3295": Object {
+      "Properties": Object {
+        "LogGroupName": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/aws/lambda/",
+              Object {
+                "Ref": "ReingestTweetsV2Function867ADFC1",
+              },
+            ],
+          ],
+        },
+        "RetentionInDays": 14,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::LogRetention",
+    },
+    "ReingestTweetsV2FunctionQueue00EE7A69": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "MessageRetentionPeriod": 1209600,
+        "VisibilityTimeout": 30,
+      },
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "ReingestTweetsV2FunctionQueuePolicy0BCB3395": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "sqs:SendMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+              ],
+              "Condition": Object {
+                "ArnLike": Object {
+                  "aws:SourceArn": Object {
+                    "Fn::GetAtt": Array [
+                      "Bucket83908E77",
+                      "Arn",
+                    ],
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "s3.amazonaws.com",
+              },
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "ReingestTweetsV2FunctionQueue00EE7A69",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "Queues": Array [
+          Object {
+            "Ref": "ReingestTweetsV2FunctionQueue00EE7A69",
+          },
+        ],
+      },
+      "Type": "AWS::SQS::QueuePolicy",
+    },
+    "ReingestTweetsV2FunctionServiceRole9AB93EDA": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ReingestTweetsV2FunctionServiceRoleDefaultPolicy200AEA52": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "ssm:GetParameter",
+                "ssm:GetParametersByPath",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:aws:ssm:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/test/Twitter/*",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "sqs:ReceiveMessage",
+                "sqs:ChangeMessageVisibility",
+                "sqs:GetQueueUrl",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "ReingestTweetsV2FunctionQueue00EE7A69",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "Bucket83908E77",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "Bucket83908E77",
+                          "Arn",
+                        ],
+                      },
+                      "/reingest/tweets/v2/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "s3:DeleteObject*",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    Object {
+                      "Fn::GetAtt": Array [
+                        "Bucket83908E77",
+                        "Arn",
+                      ],
+                    },
+                    "/reingest/tweets/v2/*",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "kinesis:ListShards",
+                "kinesis:PutRecord",
+                "kinesis:PutRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "IngestionStream56E76A34",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "ReingestTweetsV2FunctionServiceRoleDefaultPolicy200AEA52",
+        "Roles": Array [
+          Object {
+            "Ref": "ReingestTweetsV2FunctionServiceRole9AB93EDA",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "ReingestTweetsV2FunctionSqsEventSourcetestReingestTweetsV2FunctionQueue0E22A1A877154228": Object {
+      "Properties": Object {
+        "EventSourceArn": Object {
+          "Fn::GetAtt": Array [
+            "ReingestTweetsV2FunctionQueue00EE7A69",
+            "Arn",
+          ],
+        },
+        "FunctionName": Object {
+          "Ref": "ReingestTweetsV2Function867ADFC1",
+        },
+        "MaximumBatchingWindowInSeconds": 10,
+      },
+      "Type": "AWS::Lambda::EventSourceMapping",
     },
     "TwitterBearerTokenCBE899A9": Object {
       "Properties": Object {
@@ -3312,7 +4094,7 @@ scrape_configs:
             Array [
               "docker://",
               Object {
-                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:0791362fa667a221396ce6e512a8bfd8d719b92d01f2e8253155ebb063c25215",
+                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:bf4d8dadfad1831a025ef8be294970e68f59a613caf844b1b20b84e173e76131",
               },
             ],
           ],
@@ -4593,7 +5375,7 @@ scrape_configs:
         "Description": "Tweet source labels for filtering",
         "Name": "/test/Twitter/Filter/SourceLabels",
         "Type": "StringList",
-        "Value": "twittbot.net,Mk00JapanBot,Gakeppu Tweet,BelugaCampaignSEA,rare_zaiko",
+        "Value": "twittbot.net,Mk00JapanBot,Gakeppu Tweet,BelugaCampaignSEA,rare_zaiko,Wn32ShimaneBot,uhiiman_bot,atulsbots",
       },
       "Type": "AWS::SSM::Parameter",
     },

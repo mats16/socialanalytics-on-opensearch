@@ -12,25 +12,21 @@ export interface Analysis {
   entities?: string[];
 };
 
-export interface StreamResult extends Partial<TweetV2SingleStreamResult> {
+export interface TweetStreamRecord extends Partial<TweetV2SingleStreamResult> {
   data: TweetV2SingleStreamResult['data'];
   analysis?: Analysis;
   backup?: boolean;
 };
 
 export const TweetStreamParse = (b64string: string) => {
-  const stream: StreamResult = JSON.parse(Buffer.from(b64string, 'base64').toString('utf8'));
-  return stream;
+  const record = JSON.parse(Buffer.from(b64string, 'base64').toString('utf8'));
+  return record as TweetStreamRecord;
 };
 
-export const Deduplicate = (array: string[]|undefined) => {
-  if (typeof array === 'undefined') {
-    return array;
-  } else {
-    const set = new Set(array);
-    const deduplicatedArray = Array.from(set);
-    return deduplicatedArray;
-  };
+export const Deduplicate = (array: any[]) => {
+  const set = new Set(array);
+  const deduplicatedArray = Array.from(set);
+  return deduplicatedArray;
 };
 
 export const Normalize = (text: string): string => {

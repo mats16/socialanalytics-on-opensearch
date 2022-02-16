@@ -24,6 +24,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@aws-sdk/protocol-http',
     '@aws-sdk/signature-v4',
     '@aws-crypto/sha256-js',
+    '@aws-lambda-powertools/commons',
     '@aws-lambda-powertools/logger',
     '@aws-lambda-powertools/metrics',
     '@aws-lambda-powertools/tracer',

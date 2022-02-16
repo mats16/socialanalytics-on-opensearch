@@ -101,7 +101,7 @@ export class Dashboard extends Construct {
           tenant_permissions: [{
             tenant_patterns: ['global_tenant'],
             allowed_actions: ['kibana_all_write'],
-          }]
+          }],
         },
       });
       this.Domain.addRoleMapping('DashboardsUserRoleMapping', {
@@ -180,11 +180,11 @@ export class Dashboard extends Construct {
                   coordinates: {
                     properties: {
                       type: {
-                        type: 'keyword'
+                        type: 'keyword',
                       },
                       coordinates: {
-                        type: 'geo_point'
-                      }
+                        type: 'geo_point',
+                      },
                     },
                   },
                   place_id: {
@@ -314,7 +314,7 @@ export class Dashboard extends Construct {
                     type: 'object',
                     enabled: false,
                   },
-                }
+                },
               },
             },
           },

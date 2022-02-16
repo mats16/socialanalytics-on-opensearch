@@ -115,6 +115,13 @@
   dependencies:
     "@types/aws-lambda" "^8.10.72"
 
+"@aws-lambda-powertools/commons@^0.5.1":
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/@aws-lambda-powertools/commons/-/commons-0.5.1.tgz#ca27daee866be991d9cc8840f5c3c0e4a29c5e98"
+  integrity sha512-FvBjXVuQ5/CmeQkNJqCLvebWMQrKpw6WIRk1PY/Q9evmftEQtLuWg5EnYSlnHNnUCDlAlvRnseysXueCp7kMrQ==
+  dependencies:
+    "@types/aws-lambda" "^8.10.72"
+
 "@aws-lambda-powertools/logger@^0.5.1":
   version "0.5.1"
   resolved "https://registry.yarnpkg.com/@aws-lambda-powertools/logger/-/logger-0.5.1.tgz#be2c8719bad8a1981b7946e370ac8c01cc50713c"
