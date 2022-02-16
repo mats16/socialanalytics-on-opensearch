@@ -8,7 +8,7 @@ import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpRequest, HttpResponse } from '@aws-sdk/protocol-http';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
-import { KinesisStreamHandler, KinesisStreamEvent, KinesisStreamRecord, Context } from 'aws-lambda';
+import { KinesisStreamHandler, KinesisStreamEvent, Context } from 'aws-lambda';
 import { TweetV2, UserV2, TweetPublicMetricsV2, TTweetReplySettingsV2 } from 'twitter-api-v2';
 import { TweetStreamParse, TweetStreamRecord, Deduplicate, Normalize, Analysis } from '../utils';
 

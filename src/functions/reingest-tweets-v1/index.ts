@@ -24,8 +24,8 @@ const twitterParameterPrefix = process.env.TWITTER_PARAMETER_PREFIX!;
 
 const logger = new Logger();
 const metrics = new Metrics();
-const twitterMetrics = new Metrics({ serviceName: 'twitter-api-v2' });
-twitterMetrics.addDimension('api', 'lookup');
+const twitterMetrics = new Metrics({ serviceName: 'api.twitter.com' });
+twitterMetrics.addDimension('path', '/2/tweets');
 const tracer = new Tracer();
 
 const ssm = tracer.captureAWSv3Client(new SSMClient({ region }));
