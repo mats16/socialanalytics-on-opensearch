@@ -12,6 +12,8 @@ import { TweetV2 } from 'twitter-api-v2';
 import { TweetStreamParse, TweetStreamRecord, Deduplicate, Normalize, Analysis } from '../utils';
 
 const entityScoreThreshold = 0.8;
+let twitterFilterSourceLabels: string[];
+let twitterFilterContextDomains: string[];
 
 const region = process.env.AWS_REGION || 'us-west-2';
 const destStreamName = process.env.DEST_STREAM_NAME!;
@@ -120,25 +122,17 @@ const analyzeRecord = async (record: TweetStreamRecord): Promise<TweetStreamReco
 
 const sourceLabelFilter = (tweet: TweetV2): boolean => {
   const sourceLabel = tweet.source || '';
-  const isFiltered = myFunction.twitterFilterSourceLabels.includes(sourceLabel);
+  const isFiltered = twitterFilterSourceLabels.includes(sourceLabel);
   return (isFiltered) ? false: true;
 };
 
 const contextDomainFilter = (tweet: TweetV2): boolean => {
   const contextAnnotationsDomains = tweet.context_annotations?.map(a => a.domain.name) || [];
-  const isFiltered = contextAnnotationsDomains.some(domain => myFunction.twitterFilterContextDomains.includes(domain));
+  const isFiltered = contextAnnotationsDomains.some(domain => twitterFilterContextDomains.includes(domain));
   return (isFiltered) ? false: true;
 };
 
 class Lambda implements LambdaInterface {
-
-  public twitterFilterSourceLabels: string[];
-  public twitterFilterContextDomains: string[];
-
-  constructor() {
-    this.twitterFilterSourceLabels = [];
-    this.twitterFilterContextDomains = [];
-  }
 
   private transformRecords(kinesisStreamRecords: KinesisStreamRecord[]): TweetStreamRecord[] {
     const records = kinesisStreamRecords.map(record => TweetStreamParse(record.kinesis.data));
@@ -151,8 +145,8 @@ class Lambda implements LambdaInterface {
   private async fetchParameter(): Promise<void> {
     const cmd = new GetParametersByPathCommand({ Path: twitterParameterPrefix, Recursive: true });
     const { Parameters } = await ssm.send(cmd);
-    this.twitterFilterContextDomains = Parameters!.find(param => param.Name?.endsWith('Filter/ContextDomains'))!.Value!.split(',');
-    this.twitterFilterSourceLabels = Parameters!.find(param => param.Name?.endsWith('Filter/SourceLabels'))!.Value!.split(',');
+    twitterFilterContextDomains = Parameters!.find(param => param.Name?.endsWith('Filter/ContextDomains'))!.Value!.split(',');
+    twitterFilterSourceLabels = Parameters!.find(param => param.Name?.endsWith('Filter/SourceLabels'))!.Value!.split(',');
     logger.info({ message: 'Get palameters from parameter store successfully' });
     return;
   };
