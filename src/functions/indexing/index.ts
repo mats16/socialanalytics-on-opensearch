@@ -37,6 +37,7 @@ interface Metadata {
   _index: string;
   _id?: string;
 };
+
 // https://developer.twitter.com/en/docs/twitter-api/data-dictionary/object-model/tweet
 interface Document {
   id: string;
@@ -123,46 +124,97 @@ const responseParse = async (response: HttpResponse) => {
   return JSON.parse(bufferString);
 };
 
-const toDocument = (stream: TweetStreamRecord): Document => {
-  const tweet = stream.data;
-  const author = stream.includes?.users?.find(x => x.id == tweet.author_id);
-  delete tweet.author_id; // author.id と被るので削除
-  const doc: Document = {
-    ...tweet,
-    text: stream.analysis?.normalized_text || Normalize(tweet.text),
-    url: `https://twitter.com/${tweet.author_id}/status/${tweet.id}`,
-    author,
-    context_annotations: {
+const author = (record: TweetStreamRecord) => {
+  const tweet = record.data;
+  if (typeof tweet.author_id == 'undefined') {
+    return undefined;
+  } else {
+    return record.includes?.users?.find(user => user.id == tweet.author_id);
+  };
+};
+
+const context_annotations = (tweet: TweetV2) => {
+  if (typeof tweet.context_annotations == 'undefined') {
+    return undefined;
+  } else {
+    return {
       domain: Deduplicate(tweet.context_annotations?.map(x => x.domain.name) || []),
       entity: Deduplicate(tweet.context_annotations?.map(x => x.entity.name) || []),
-    },
-    entities: {
+    };
+  };
+};
+
+const entities = (tweet: TweetV2) => {
+  if (typeof tweet.entities == 'undefined') {
+    return undefined;
+  } else {
+    return {
       annotation: tweet.entities?.annotations?.map(x => x.normalized_text.toLowerCase()),
       cashtag: tweet.entities?.cashtags?.map(x => x.tag?.toLowerCase()),
       hashtag: tweet.entities?.hashtags?.map(x => x.tag?.toLowerCase()),
       mention: tweet.entities?.mentions?.map(x => x.username?.toLowerCase()),
       url: tweet.entities?.urls?.map(x => x.expanded_url),
-    },
-    geo: {
+    };
+  };
+};
+
+const geo = (tweet: TweetV2) => {
+  if (typeof tweet.geo?.coordinates == 'undefined' && typeof tweet.geo?.place_id == 'undefined') {
+    return undefined;
+  } else {
+    let geoPoint = undefined;
+    if (tweet.geo?.coordinates?.coordinates) {
+      geoPoint = {
+        lat: tweet.geo.coordinates.coordinates[0],
+        lon: tweet.geo.coordinates.coordinates[1],
+      };
+    };
+    return {
       coordinates: {
         type: tweet.geo?.coordinates?.type,
-        coordinates: {
-          lat: tweet.geo?.coordinates?.coordinates?.[0],
-          lon: tweet.geo?.coordinates?.coordinates?.[1],
-        },
+        coordinates: geoPoint,
       },
       place_id: tweet.geo?.place_id,
-    },
-    referenced_tweets: {
+    };
+  };
+};
+
+const referenced_tweets = (tweet: TweetV2) => {
+  if (typeof tweet.referenced_tweets == 'undefined') {
+    return undefined;
+  } else {
+    return {
       type: tweet.referenced_tweets?.map(x => x.type),
       id: tweet.referenced_tweets?.map(x => x.id),
-    },
-    matching_rules: {
-      id: stream.matching_rules?.map(rule => rule.id.toString()),
-      tag: Deduplicate(stream.matching_rules?.map(rule => rule.tag) || []),
-    },
-    includes: stream.includes,
-    analysis: stream.analysis,
+    };
+  };
+};
+
+const matching_rules = (record: TweetStreamRecord) => {
+  if (typeof record.matching_rules == 'undefined') {
+    return undefined;
+  } else {
+    return {
+      id: record.matching_rules?.map(rule => rule.id.toString()),
+      tag: Deduplicate(record.matching_rules?.map(rule => rule.tag) || []),
+    };
+  };
+};
+
+const toDocument = (record: TweetStreamRecord): Document => {
+  const tweet = record.data;
+  const doc: Document = {
+    ...tweet,
+    text: record.analysis?.normalized_text || Normalize(tweet.text),
+    url: `https://twitter.com/${tweet.author_id}/status/${tweet.id}`,
+    author: author(record),
+    context_annotations: context_annotations(tweet),
+    entities: entities(tweet),
+    geo: geo(tweet),
+    referenced_tweets: referenced_tweets(tweet),
+    matching_rules: matching_rules(record),
+    includes: record.includes,
+    analysis: record.analysis,
   };
   return doc;
 };
@@ -218,11 +270,14 @@ class Lambda implements LambdaInterface {
     const signedRequest = await signer.sign(request) as HttpRequest;
     const { response } = await httpClient.handle(signedRequest);
     const { took, items, errors }: BulkResponse = await responseParse(response);
+    const errorItems = items.filter(item => typeof item.update.error != 'undefined');
     metrics.addMetric('BulkApiLatency', MetricUnits.Milliseconds, took);
-    const errorItems: BulkResponseItem[] = [];
+    metrics.addMetric('BulkErrorRate', MetricUnits.Percent, errorItems.length/items.length*100);
     if (errors) {
-      errorItems.push(...items.filter(item => { item.update.error; }));
       searchMetrics.addMetric('ErrorCount', MetricUnits.Count, errorItems.length);
+      errorItems.map(item => {
+        logger.error({ message: item.update.error!.reason, item });
+      });
     };
     return { took, items, errors };
   };

@@ -126,8 +126,6 @@ const tweetsLoader = async (tweetIds: string[], inprogress: string[] = [], i: nu
     tracer.setSegment(subsegment);
     // segment start
     await myFunction.sleep(twitterApiLookupInterval);
-    //const twitterApi = new TwitterApi(twitterBearerToken);
-    //const lookupResult = await twitterApi.v2.tweets(inprogress, twitterFieldsParams);
     const lookupResult = await myFunction.lookupTweets(inprogress);
     twitterMetrics.addMetric('RequestCount', MetricUnits.Count, 1);
     const filteredTweets = lookupResult.data.filter(sourceLabelFilter).filter(contextDomainFilter);

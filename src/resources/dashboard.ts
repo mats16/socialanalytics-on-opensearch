@@ -228,6 +228,11 @@ export class Dashboard extends Construct {
               },
               url: {
                 type: 'keyword',
+                index: false,
+              },
+              author_id: {
+                type: 'keyword',
+                index: false,
               },
               author: {
                 properties: {
@@ -242,9 +247,10 @@ export class Dashboard extends Construct {
                   },
                   url: {
                     type: 'keyword',
+                    index: false,
                   },
                   verified: {
-                    type: 'keyword',
+                    type: 'boolean',
                   },
                   public_metrics: {
                     properties: {

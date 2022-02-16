@@ -97,7 +97,6 @@ const kinesisStreamLoader = async (tweetStreamRecords: TweetStreamRecord[], inpr
 };
 
 class Lambda implements LambdaInterface {
-  //private destStreamName: string = process.env.DEST_STREAM_NAME!;
 
   @tracer.captureMethod()
   private async getAllObjects(records: S3EventRecord[]): Promise<TweetStreamRecord[]> {
@@ -105,29 +104,6 @@ class Lambda implements LambdaInterface {
     const tweetStreamRecords = objectBodyArray.flatMap(body => bodyToLines(body));
     return tweetStreamRecords;
   };
-
-  //  private async kinesisStreamLoader(tweetStreamRecords: TweetStreamRecord[], inprogress: PutRecordsRequestEntry[] =[], i: number = 0) {
-  //    const record = tweetStreamRecords[i];
-  //    const entry: PutRecordsRequestEntry = {
-  //      PartitionKey: record.data.id,
-  //      Data: Buffer.from(JSON.stringify(record)),
-  //    };
-  //    inprogress.push(entry);
-  //    if (i+1 == tweetStreamRecords.length || inprogress.length == 500) {
-  //      const cmd = new PutRecordsCommand({
-  //        StreamName: destStreamName,
-  //        Records: inprogress,
-  //      });
-  //      const { FailedRecordCount, $metadata } = await kinesis.send(cmd);
-  //      if (i+1 == tweetStreamRecords.length) {
-  //        return;
-  //      } else {
-  //        inprogress.length = 0;
-  //      }
-  //    }
-  //    await this.kinesisStreamLoader(tweetStreamRecords, inprogress, i+1);
-  //    return;
-  //  };
 
   @tracer.captureMethod()
   private async putKinesis(tweetStreamRecords: TweetStreamRecord[]) {
