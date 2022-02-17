@@ -19,6 +19,7 @@ const region = process.env.AWS_REGION || 'us-west-2';
 const logger = new Logger();
 const metrics = new Metrics();
 const searchMetrics = new Metrics({ serviceName: 'OpenSearch' });
+searchMetrics.addDimension('resource', '/_bulk');
 const tracer = new Tracer();
 
 interface BulkUpdateHeader {
@@ -60,10 +61,7 @@ interface Document {
   geo?: {
     coordinates?: {
       type?: string;
-      coordinates?: {
-        lat?: number;
-        lon?: number;
-      };
+      coordinates?: [number, number];
     };
     place_id?: string;
   };
@@ -162,17 +160,10 @@ const geo = (tweet: TweetV2) => {
   if (typeof tweet.geo?.coordinates == 'undefined' && typeof tweet.geo?.place_id == 'undefined') {
     return undefined;
   } else {
-    let geoPoint = undefined;
-    if (tweet.geo?.coordinates?.coordinates) {
-      geoPoint = {
-        lat: tweet.geo.coordinates.coordinates[1],
-        lon: tweet.geo.coordinates.coordinates[0],
-      };
-    };
     return {
       coordinates: {
         type: tweet.geo?.coordinates?.type,
-        coordinates: geoPoint,
+        coordinates: tweet.geo?.coordinates?.coordinates || undefined,
       },
       place_id: tweet.geo?.place_id,
     };
@@ -270,19 +261,18 @@ class Lambda implements LambdaInterface {
     const signedRequest = await signer.sign(request) as HttpRequest;
     const { response } = await httpClient.handle(signedRequest);
     const { took, items, errors }: BulkResponse = await responseParse(response);
+    searchMetrics.addMetric('Latency', MetricUnits.Milliseconds, took);
+    searchMetrics.addMetric('RequestItemCount', MetricUnits.Count, items.length);
     const errorItems = items.filter(item => typeof item.update.error != 'undefined');
-    metrics.addMetric('BulkApiLatency', MetricUnits.Milliseconds, took);
-    metrics.addMetric('BulkErrorRate', MetricUnits.Percent, errorItems.length/items.length*100);
-    if (errors) {
-      searchMetrics.addMetric('ErrorCount', MetricUnits.Count, errorItems.length);
-      errorItems.map(item => {
-        logger.error({ message: item.update.error!.reason, item });
-      });
-    };
+    searchMetrics.addMetric('ResponseErrorItemCount', MetricUnits.Count, errorItems.length);
+    errorItems.map(item => {
+      logger.error({ message: item.update.error!.reason, item });
+    });
     return { took, items, errors };
   };
 
   @metrics.logMetrics()
+  @searchMetrics.logMetrics()
   @tracer.captureLambdaHandler()
   public async handler(event: KinesisStreamEvent, _context: Context): Promise<void> {
     const kinesisStreamRecords = event.Records;
