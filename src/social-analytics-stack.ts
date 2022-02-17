@@ -231,7 +231,7 @@ export class SocialAnalyticsStack extends Stack {
 
     const indexingFunction = new NodejsFunction(this, 'IndexingFunction', {
       ...lambdaCommonSettings,
-      description: 'Bulk load to OpenSearch',
+      description: 'Bulk operations to load data into OpenSearch',
       entry: './src/functions/indexing/index.ts',
       memorySize: 256,
       timeout: Duration.minutes(5),
@@ -252,7 +252,7 @@ export class SocialAnalyticsStack extends Stack {
       role: dashboard.BulkOperationRole,
     });
 
-    const reingestTweetsV1Function = new ManualRetryFunction(this, 'ReingestTweetsV1Function', {
+    const reingestTweetsV1Function = new S3QueueFunction(this, 'ReingestTweetsV1Function', {
       destStream: ingestionStream,
       event: {
         s3: { bucket, prefix: 'reingest/tweets/v1/' },
@@ -268,7 +268,7 @@ export class SocialAnalyticsStack extends Stack {
       reservedConcurrentExecutions: 1,
     });
 
-    const reingestTweetsV2Function = new ManualRetryFunction(this, 'ReingestTweetsV2Function', {
+    const reingestTweetsV2Function = new S3QueueFunction(this, 'ReingestTweetsV2Function', {
       destStream: ingestionStream,
       event: {
         s3: { bucket, prefix: 'reingest/tweets/v2/' },
@@ -283,7 +283,7 @@ export class SocialAnalyticsStack extends Stack {
       reservedConcurrentExecutions: 1,
     });
 
-    const reindexTweetsV2Function = new ManualRetryFunction(this, 'ReindexTweetsV2Function', {
+    const reindexTweetsV2Function = new S3QueueFunction(this, 'ReindexTweetsV2Function', {
       destStream: indexingStream,
       event: {
         s3: { bucket, prefix: 'reindex/tweets/v2/' },
@@ -302,7 +302,7 @@ export class SocialAnalyticsStack extends Stack {
   }
 };
 
-interface ManualRetryFunctionProps extends NodejsFunctionProps {
+interface S3QueueFunctionProps extends NodejsFunctionProps {
   event: {
     s3: {
       bucket: s3.IBucket;
@@ -313,9 +313,9 @@ interface ManualRetryFunctionProps extends NodejsFunctionProps {
   destStream?: kinesis.Stream;
 };
 
-class ManualRetryFunction extends NodejsFunction {
+class S3QueueFunction extends NodejsFunction {
 
-  constructor(scope: Construct, id: string, props: ManualRetryFunctionProps) {
+  constructor(scope: Stack, id: string, props: S3QueueFunctionProps) {
 
     const timeout = Duration.seconds(30); // default
     const maxBatchingWindow = Duration.seconds(10); // default
