@@ -329,26 +329,10 @@ class S3QueueFunction extends NodejsFunction {
     const key = new kms.Key(this, 'Key', {
       alias: `${scope.stackName}/sqs/${id}`,
       description: `Key that protects SQS messages for ${id}`,
-      policy: new iam.PolicyDocument({
-        statements: [
-          new iam.PolicyStatement({
-            sid: 'Enable S3 Event Notifications',
-            principals: [new iam.ServicePrincipal('s3.amazonaws.com')],
-            actions: [
-              'kms:GenerateDataKey',
-              'kms:Decrypt',
-            ],
-            resources: ['*']
-          }),
-          new iam.PolicyStatement({
-            sid: 'Enable IAM User Permissions',
-            principals: [new iam.AccountRootPrincipal()],
-            actions: ['kms:*'],
-            resources: ['*']
-          }),
-        ]
-      })
     });
+    key.grant(new iam.ServicePrincipal('s3.amazonaws.com'), 'kms:GenerateDataKey', 'kms:Decrypt');
+    key.grantDecrypt(this.role!);
+
 
     const queue = new sqs.Queue(this, 'Queue', { retentionPeriod: Duration.days(14), visibilityTimeout: this.timeout });
     this.addEventSource(new SqsEventSource(queue, { maxBatchingWindow, ...props.event.sqs }));
