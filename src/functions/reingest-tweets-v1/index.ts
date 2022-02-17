@@ -25,7 +25,7 @@ const twitterParameterPrefix = process.env.TWITTER_PARAMETER_PREFIX!;
 const logger = new Logger();
 const metrics = new Metrics();
 const twitterMetrics = new Metrics({ serviceName: 'api.twitter.com' });
-twitterMetrics.addDimension('path', '/2/tweets');
+twitterMetrics.addDimension('resource', '/2/tweets');
 const tracer = new Tracer();
 
 const ssm = tracer.captureAWSv3Client(new SSMClient({ region }));
@@ -128,6 +128,8 @@ const tweetsLoader = async (tweetIds: string[], inprogress: string[] = [], i: nu
     await myFunction.sleep(twitterApiLookupInterval);
     const lookupResult = await myFunction.lookupTweets(inprogress);
     twitterMetrics.addMetric('RequestCount', MetricUnits.Count, 1);
+    twitterMetrics.addMetric('ResponseRecordCount', MetricUnits.Count, lookupResult.data.length);
+    twitterMetrics.addMetric('ResponseErrorRecordCount', MetricUnits.Count, lookupResult.errors?.length||0);
     const filteredTweets = lookupResult.data.filter(sourceLabelFilter).filter(contextDomainFilter);
     lookupResult.data = filteredTweets;
     //metrics.addMetric('FilteredTweetsRate', MetricUnits.Percent, (lookupResult.data.length - filteredTweets.length) / lookupResult.data.length * 100);
