@@ -3,6 +3,7 @@ import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
 import { KinesisStream } from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { KinesisEventSource, SqsEventSource, SqsEventSourceProps } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -324,6 +325,30 @@ class S3QueueFunction extends NodejsFunction {
 
     const { bucket, prefix } = props.event.s3;
     const destStream = props.destStream;
+
+    const key = new kms.Key(this, 'Key', {
+      alias: `${scope.stackName}/sqs/${id}`,
+      description: `Key that protects SQS messages for ${id}`,
+      policy: new iam.PolicyDocument({
+        statements: [
+          new iam.PolicyStatement({
+            sid: 'Enable S3 Event Notifications',
+            principals: [new iam.ServicePrincipal('s3.amazonaws.com')],
+            actions: [
+              'kms:GenerateDataKey',
+              'kms:Decrypt',
+            ],
+            resources: ['*']
+          }),
+          new iam.PolicyStatement({
+            sid: 'Enable IAM User Permissions',
+            principals: [new iam.AccountRootPrincipal()],
+            actions: ['kms:*'],
+            resources: ['*']
+          }),
+        ]
+      })
+    });
 
     const queue = new sqs.Queue(this, 'Queue', { retentionPeriod: Duration.days(14), visibilityTimeout: this.timeout });
     this.addEventSource(new SqsEventSource(queue, { maxBatchingWindow, ...props.event.sqs }));
