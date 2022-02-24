@@ -16,12 +16,13 @@ interface IndexPermission {
 
 interface TenantPermission {
   tenant_patterns?: string[];
-  allowed_actions?: string[];
+  allowed_actions?: ('kibana_all_read'|'kibana_all_write')[];
 }
 
 interface RoleProps {
   name?: string;
   body: {
+    description?: string;
     cluster_permissions?: string[];
     index_permissions?: IndexPermission[];
     tenant_permissions?: TenantPermission[];
@@ -38,7 +39,7 @@ interface RoleMappingProps {
 };
 
 interface FieldProperty {
-  type?: 'boolean'|'byte'|'short'|'integer'|'long'|'float'|'half_float'|'scaled_float'|'double'|'keyword'|'text'|'date'|'ip'|'date'|'binary'|'object'|'nested';
+  type?: 'boolean'|'byte'|'short'|'integer'|'long'|'float'|'half_float'|'scaled_float'|'double'|'keyword'|'text'|'date'|'ip'|'date'|'binary'|'object'|'nested'|'geo_point';
   format?: string;
   index?: boolean;
   enabled?: boolean;
@@ -117,6 +118,7 @@ export class Domain extends opensearch.Domain {
     const consoleRole = this.addRole('ConsoleRole', {
       name: 'aws_console',
       body: {
+        description: 'Provide the minimum permissions for aws console user',
         cluster_permissions: [
           'cluster:monitor/health',
         ],

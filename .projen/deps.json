@@ -5,10 +5,6 @@
       "type": "build"
     },
     {
-      "name": "@types/cfn-response",
-      "type": "build"
-    },
-    {
       "name": "@types/jest",
       "type": "build"
     },
@@ -93,15 +89,11 @@
       "type": "build"
     },
     {
-      "name": "@aws-cdk/aws-kinesisfirehose-alpha",
-      "type": "runtime"
-    },
-    {
-      "name": "@aws-cdk/aws-kinesisfirehose-destinations-alpha",
-      "type": "runtime"
-    },
-    {
       "name": "@aws-crypto/sha256-js",
+      "type": "runtime"
+    },
+    {
+      "name": "@aws-lambda-powertools/commons",
       "type": "runtime"
     },
     {
@@ -174,11 +166,11 @@
       "type": "runtime"
     },
     {
-      "name": "axios",
+      "name": "bluebird",
       "type": "runtime"
     },
     {
-      "name": "bluebird",
+      "name": "cdk-ecr-deployment",
       "type": "runtime"
     },
     {

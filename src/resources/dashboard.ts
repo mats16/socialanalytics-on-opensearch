@@ -79,18 +79,37 @@ export class Dashboard extends Construct {
         actions: ['sts:AssumeRoleWithWebIdentity'],
       }));
 
+      const dashboardsUserRole = this.Domain.addRole('DashboardsUserRole', {
+        name: 'dashboards_user',
+        body: {
+          description: 'Provide the minimum permissions for a dashboards user',
+          cluster_permissions: ['cluster_composite_ops_ro'],
+          index_permissions: [
+            {
+              index_patterns: ['.kibana_*', '.opensearch_dashboards_*'],
+              allowed_actions: ['read', 'delete', 'manage', 'index'],
+            },
+            {
+              index_patterns: ['.tasks', '.management-beats'],
+              allowed_actions: ['indices_all'],
+            },
+            {
+              index_patterns: ['tweets-*'],
+              allowed_actions: ['read'],
+            },
+          ],
+          tenant_permissions: [{
+            tenant_patterns: ['global_tenant'],
+            allowed_actions: ['kibana_all_write'],
+          }],
+        },
+      });
       this.Domain.addRoleMapping('DashboardsUserRoleMapping', {
-        name: 'opensearch_dashboards_user',
+        name: dashboardsUserRole.getAttString('Name'),
         body: {
           backend_roles: [userPool.authenticatedRole.roleArn],
         },
       });
-      //this.Domain.addRoleMapping('ReadAllRoleMapping', {
-      //  name: 'readall',
-      //  body: {
-      //    backend_roles: [userPool.authenticatedRole.roleArn],
-      //  },
-      //});
     };
 
     this.BulkOperationRole = new iam.Role(this, 'BulkOperationRole', {
@@ -101,11 +120,12 @@ export class Dashboard extends Construct {
     const bulkOperationRole = this.Domain.addRole('BulkOperationRole', {
       name: 'bulk_operation',
       body: {
+        description: 'Provide the minimum permissions for a bulk operation user',
+        cluster_permissions: ['indices:data/write/bulk'],
         index_permissions: [{
           index_patterns: ['tweets-*'],
           allowed_actions: ['write', 'create_index'],
         }],
-        cluster_permissions: ['indices:data/write/bulk'],
       },
     });
     this.Domain.addRoleMapping('BulkOperationRoleMapping', {
@@ -156,8 +176,21 @@ export class Dashboard extends Construct {
                 },
               },
               geo: {
-                type: 'object',
-                enabled: false,
+                properties: {
+                  coordinates: {
+                    properties: {
+                      type: {
+                        type: 'keyword',
+                      },
+                      coordinates: {
+                        type: 'geo_point',
+                      },
+                    },
+                  },
+                  place_id: {
+                    type: 'keyword',
+                  },
+                },
               },
               id: {
                 type: 'keyword',
@@ -195,6 +228,11 @@ export class Dashboard extends Construct {
               },
               url: {
                 type: 'keyword',
+                index: false,
+              },
+              author_id: {
+                type: 'keyword',
+                index: false,
               },
               author: {
                 properties: {
@@ -206,6 +244,13 @@ export class Dashboard extends Construct {
                   },
                   username: {
                     type: 'keyword',
+                  },
+                  url: {
+                    type: 'keyword',
+                    index: false,
+                  },
+                  verified: {
+                    type: 'boolean',
                   },
                   public_metrics: {
                     properties: {
@@ -266,8 +311,16 @@ export class Dashboard extends Construct {
                 },
               },
               includes: {
-                type: 'object',
-                enabled: false,
+                properties: {
+                  tweets: {
+                    type: 'object',
+                    enabled: false,
+                  },
+                  users: {
+                    type: 'object',
+                    enabled: false,
+                  },
+                },
               },
             },
           },

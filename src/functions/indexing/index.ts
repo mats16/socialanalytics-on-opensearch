@@ -1,5 +1,6 @@
 import { Readable } from 'stream';
 import { Sha256 } from '@aws-crypto/sha256-js';
+import { LambdaInterface } from '@aws-lambda-powertools/commons';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
 import { Tracer } from '@aws-lambda-powertools/tracer';
@@ -7,19 +8,83 @@ import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpRequest, HttpResponse } from '@aws-sdk/protocol-http';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
-import { KinesisStreamHandler } from 'aws-lambda';
-import { TweetStreamParse, StreamResult, Deduplicate, Normalize } from '../utils';
+import { KinesisStreamHandler, KinesisStreamEvent, Context } from 'aws-lambda';
+import { TweetV2, UserV2, TweetPublicMetricsV2, TTweetReplySettingsV2 } from 'twitter-api-v2';
+import { TweetStreamParse, TweetStreamRecord, Deduplicate, Normalize, Analysis } from '../utils';
 
 const allowedTimeRange = 1000 * 60 * 60 * 24 * 365 * 2;
-const hostname = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
+const opensearchDomainEndpoint = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
 const region = process.env.AWS_REGION || 'us-west-2';
 
-const logger = new Logger({ logLevel: 'INFO', serviceName: 'IndexingFunction' });
-const metrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'IndexingFunction' });
-const searchMetrics = new Metrics({ namespace: 'SocialAnalytics', serviceName: 'OpenSearch' });
-const tracer = new Tracer({ serviceName: 'IndexingFunction' });
+const logger = new Logger();
+const metrics = new Metrics();
+const searchMetrics = new Metrics({ serviceName: 'OpenSearch' });
+searchMetrics.addDimension('resource', '/_bulk');
+const tracer = new Tracer();
 
-const client = new NodeHttpHandler();
+interface BulkUpdateHeader {
+  update: {
+    _index: string;
+    _id?: string;
+  };
+};;
+
+interface BulkUpdateDocument {
+  doc: Document;
+  doc_as_upsert?: boolean;
+}
+
+interface Metadata {
+  _index: string;
+  _id?: string;
+};
+
+// https://developer.twitter.com/en/docs/twitter-api/data-dictionary/object-model/tweet
+interface Document {
+  id: string;
+  text: string;
+  url: string;
+  author?: UserV2;
+  context_annotations?: {
+    domain?: string[];
+    entity?: string[];
+  };
+  conversation_id?: string;
+  created_at?: string;
+  entities?: {
+    annotation?: string[];
+    cashtag?: string[];
+    hashtag?: string[];
+    mention?: string[];
+    url?: string[];
+  };
+  geo?: {
+    coordinates?: {
+      type?: string;
+      coordinates?: [number, number];
+    };
+    place_id?: string;
+  };
+  in_reply_to_user_id?: string;
+  lang?: string;
+  possibly_sensitive?: boolean;
+  public_metrics?: TweetPublicMetricsV2;
+  referenced_tweets?: {
+    type?: ('retweeted'|'quoted'|'replied_to')[];
+    id?: string[];
+  };
+  reply_setting?: TTweetReplySettingsV2;
+  source?: string;
+  matching_rules?: {
+    id?: string[];
+    tag?: string[];
+  };
+  includes?: {
+    tweets?: TweetV2[];
+    users?: UserV2[];
+  };
+  analysis?: Analysis;
+};
 
 type BulkResponseItem = {
   [key in 'create'|'delete'|'index'|'update']: {
@@ -57,107 +122,172 @@ const responseParse = async (response: HttpResponse) => {
   return JSON.parse(bufferString);
 };
 
-const getSearchMetadata = (stream: StreamResult) => {
-  const tweet = stream.data;
-  const date = (tweet.created_at)
-    ? new Date(tweet.created_at)
-    : new Date();
-  const index = 'tweets-' + date.toISOString().substring(0, 7);
-  const metadata = {
-    _index: index,
-    _id: tweet.id,
+const author = (record: TweetStreamRecord) => {
+  const tweet = record.data;
+  if (typeof tweet.author_id == 'undefined') {
+    return undefined;
+  } else {
+    return record.includes?.users?.find(user => user.id == tweet.author_id);
   };
-  return metadata;
 };
 
-const getSearchDocument = (stream: StreamResult) => {
-  const tweet = stream.data;
-  const author = stream.includes?.users?.find(x => x.id == tweet.author_id);
-  delete tweet.author_id; // author.id と被るので削除
-  const doc = {
-    ...tweet,
-    text: stream.analysis?.normalized_text || Normalize(tweet.text),
-    url: `https://twitter.com/${tweet.author_id}/status/${tweet.id}`,
-    author,
-    context_annotations: {
-      domain: Deduplicate(tweet.context_annotations?.map(x => x.domain.name)),
-      entity: Deduplicate(tweet.context_annotations?.map(x => x.entity.name)),
-    },
-    entities: {
-      annotation: tweet.entities?.annotations?.map(x => x.normalized_text),
+const context_annotations = (tweet: TweetV2) => {
+  if (typeof tweet.context_annotations == 'undefined') {
+    return undefined;
+  } else {
+    return {
+      domain: Deduplicate(tweet.context_annotations?.map(x => x.domain.name) || []),
+      entity: Deduplicate(tweet.context_annotations?.map(x => x.entity.name) || []),
+    };
+  };
+};
+
+const entities = (tweet: TweetV2) => {
+  if (typeof tweet.entities == 'undefined') {
+    return undefined;
+  } else {
+    return {
+      annotation: tweet.entities?.annotations?.map(x => x.normalized_text.toLowerCase()),
       cashtag: tweet.entities?.cashtags?.map(x => x.tag?.toLowerCase()),
       hashtag: tweet.entities?.hashtags?.map(x => x.tag?.toLowerCase()),
       mention: tweet.entities?.mentions?.map(x => x.username?.toLowerCase()),
-    },
-    referenced_tweets: {
+      url: tweet.entities?.urls?.map(x => x.expanded_url),
+    };
+  };
+};
+
+const geo = (tweet: TweetV2) => {
+  if (typeof tweet.geo?.coordinates == 'undefined' && typeof tweet.geo?.place_id == 'undefined') {
+    return undefined;
+  } else {
+    return {
+      coordinates: {
+        type: tweet.geo?.coordinates?.type,
+        coordinates: tweet.geo?.coordinates?.coordinates || undefined,
+      },
+      place_id: tweet.geo?.place_id,
+    };
+  };
+};
+
+const referenced_tweets = (tweet: TweetV2) => {
+  if (typeof tweet.referenced_tweets == 'undefined') {
+    return undefined;
+  } else {
+    return {
       type: tweet.referenced_tweets?.map(x => x.type),
       id: tweet.referenced_tweets?.map(x => x.id),
-    },
-    matching_rules: {
-      id: stream.matching_rules?.map(rule => rule.id.toString()),
-      tag: Deduplicate(stream.matching_rules?.map(rule => rule.tag)),
-    },
-    analysis: stream.analysis,
-    includes: stream.includes,
+    };
+  };
+};
+
+const matching_rules = (record: TweetStreamRecord) => {
+  if (typeof record.matching_rules == 'undefined') {
+    return undefined;
+  } else {
+    return {
+      id: record.matching_rules?.map(rule => rule.id.toString()),
+      tag: Deduplicate(record.matching_rules?.map(rule => rule.tag) || []),
+    };
+  };
+};
+
+const toDocument = (record: TweetStreamRecord): Document => {
+  const tweet = record.data;
+  const doc: Document = {
+    ...tweet,
+    text: record.analysis?.normalized_text || Normalize(tweet.text),
+    url: `https://twitter.com/${tweet.author_id}/status/${tweet.id}`,
+    author: author(record),
+    context_annotations: context_annotations(tweet),
+    entities: entities(tweet),
+    geo: geo(tweet),
+    referenced_tweets: referenced_tweets(tweet),
+    matching_rules: matching_rules(record),
+    includes: record.includes,
+    analysis: record.analysis,
   };
   return doc;
 };
 
-const addBulkAction = (bulkActions: string[], stream: StreamResult) => {
-  const metadata = getSearchMetadata(stream);
-  const doc = getSearchDocument(stream);
-  const bulkHeader = JSON.stringify({ update: metadata });
-  const bulkBody = JSON.stringify({ doc, doc_as_upsert: true });
-  bulkActions.push(bulkHeader, bulkBody);
-};
-
-const genBulkActions = (stream: StreamResult): string[]=> {
-  const bulkActions: string[] = [];
-  addBulkAction(bulkActions, stream);
+const addOriginTweet = (record: TweetStreamRecord): TweetStreamRecord[] => {
+  const records = [record];
   const now = new Date();
-  stream.includes?.tweets?.map(x => {
-    // 元ツイートがN年以内だったらメトリクスも更新する
-    const date = new Date(x.created_at || 0);
+  record.includes?.tweets?.map(tweet => {
+    const date = new Date(tweet.created_at || 0);
     if (now.getTime() - date.getTime() < allowedTimeRange ) {
-      addBulkAction(bulkActions, { data: x });
+      // 元ツイートがN年以内だったらメトリクスも更新する
+      records.push({ data: tweet });
     };
   });
-  return bulkActions;
+  return records;
 };
 
-export const handler: KinesisStreamHandler = async (event) => {
-  metrics.addMetric('IncomingRecordCount', MetricUnits.Count, event.Records.length);
-  const bulkActions = event.Records.flatMap(record => {
-    const tweetStreamData = TweetStreamParse(record.kinesis.data);
-    return genBulkActions(tweetStreamData);
-  });
-  const request = new HttpRequest({
-    headers: {
-      'Content-Type': 'application/json',
-      'host': hostname,
+const toBulkAction = (record: TweetStreamRecord): [BulkUpdateHeader, BulkUpdateDocument] => {
+  const tweet = record.data;
+  const date = (tweet.created_at) ? new Date(tweet.created_at) : new Date();
+  const index = 'tweets-' + date.toISOString().substring(0, 7);
+  const header: BulkUpdateHeader = {
+    update: {
+      _index: index,
+      _id: tweet.id,
     },
-    hostname,
-    method: 'POST',
-    path: '_bulk',
-    body: bulkActions.join('\n') + '\n',
-  });
-  const signer = new SignatureV4({
-    credentials: defaultProvider(),
-    region: region,
-    service: 'es',
-    sha256: Sha256,
-  });
-  const signedRequest = await signer.sign(request) as HttpRequest;
-  const { response } = await client.handle(signedRequest);
-  const responseBody: BulkResponse = await responseParse(response);
-  searchMetrics.addDimension('API', 'Bulk');
-  searchMetrics.addMetric('TookTime', MetricUnits.Milliseconds, responseBody.took);
-  if (responseBody.errors) {
-    const errorCount = responseBody.items.filter(item => { item.update.error; }).length;
-    searchMetrics.addMetric('ErrorCount', MetricUnits.Count, errorCount);
   };
-  searchMetrics.clearDimensions();
-  metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, bulkActions.length/2);
-  metrics.publishStoredMetrics();
-  return;
+  const updateDoc: BulkUpdateDocument = {
+    doc: toDocument(record),
+    doc_as_upsert: true,
+  };
+  return [header, updateDoc];
 };
+
+class Lambda implements LambdaInterface {
+
+  @tracer.captureMethod()
+  public async bulkRequest(host: string, body: string): Promise<BulkResponse> {
+    const httpClient = new NodeHttpHandler();
+    const request = new HttpRequest({
+      headers: { 'Content-Type': 'application/json', host },
+      hostname: host,
+      method: 'POST',
+      path: '_bulk',
+      body: body,
+    });
+    const signer = new SignatureV4({
+      credentials: defaultProvider(),
+      region: region,
+      service: 'es',
+      sha256: Sha256,
+    });
+    const signedRequest = await signer.sign(request) as HttpRequest;
+    const { response } = await httpClient.handle(signedRequest);
+    const { took, items, errors }: BulkResponse = await responseParse(response);
+    searchMetrics.addMetric('Latency', MetricUnits.Milliseconds, took);
+    searchMetrics.addMetric('RequestItemCount', MetricUnits.Count, items.length);
+    const errorItems = items.filter(item => typeof item.update.error != 'undefined');
+    searchMetrics.addMetric('ResponseErrorItemCount', MetricUnits.Count, errorItems.length);
+    errorItems.map(item => {
+      logger.error({ message: item.update.error!.reason, item });
+    });
+    return { took, items, errors };
+  };
+
+  @metrics.logMetrics()
+  @searchMetrics.logMetrics()
+  @tracer.captureLambdaHandler()
+  public async handler(event: KinesisStreamEvent, _context: Context): Promise<void> {
+    const kinesisStreamRecords = event.Records;
+    metrics.addMetric('IncomingRecordCount', MetricUnits.Count, kinesisStreamRecords.length);
+    const tweetStreamRecords = kinesisStreamRecords.map(record => TweetStreamParse(record.kinesis.data));
+    const originTweetStreamRecords = tweetStreamRecords.flatMap(addOriginTweet);
+    const bulkActions = originTweetStreamRecords.flatMap(toBulkAction);
+    const stringBulkActions = bulkActions.map(item => JSON.stringify(item));
+    const body = stringBulkActions.join('\n') + '\n';
+    const { took, items, errors } = await this.bulkRequest(opensearchDomainEndpoint, body);
+    metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, items.length);
+    return;
+  };
+
+};
+
+export const myFunction = new Lambda();
+export const handler: KinesisStreamHandler = myFunction.handler;

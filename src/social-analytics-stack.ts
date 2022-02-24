@@ -1,18 +1,19 @@
-import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy } from 'aws-cdk-lib';
+import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy, Aws } from 'aws-cdk-lib';
 import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
+import { KinesisStream } from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { KinesisEventSource, SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { KinesisEventSource, SqsEventSource, SqsEventSourceProps } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { SqsDestination } from 'aws-cdk-lib/aws-s3-notifications';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { Tweetv2FieldsParams } from 'twitter-api-v2';
-import { Application, ExtensionLayerVersion } from './resources/appconfig';
 import { UserPool } from './resources/cognito-for-opensearch';
 import { ContainerInsights } from './resources/container-insights';
 import { Dashboard } from './resources/dashboard';
@@ -23,18 +24,32 @@ interface SocialAnalyticsStackProps extends StackProps {
   defaultTwitterBearerToken?: string | undefined;
 };
 
+const lambdaCommonSettings: NodejsFunctionProps = {
+  handler: 'handler',
+  runtime: lambda.Runtime.NODEJS_14_X,
+  architecture: lambda.Architecture.ARM_64,
+  insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
+  logRetention: logs.RetentionDays.TWO_WEEKS,
+  tracing: lambda.Tracing.ACTIVE,
+};
+
 export class SocialAnalyticsStack extends Stack {
   constructor(scope: Construct, id: string, props: SocialAnalyticsStackProps = {}) {
     super(scope, id, props);
 
-    const twitterBearerTokenParameter = new CfnParameter(this, 'TwitterBearerTokenParameter', { type: 'String', default: props.defaultTwitterBearerToken, noEcho: true });
+    const twitterBearerTokenParameter = new CfnParameter(this, 'TwitterBearerTokenParameter', {
+      type: 'String',
+      default: props.defaultTwitterBearerToken,
+      noEcho: true,
+    });
     const twitterBearerToken = new StringParameter(this, 'TwitterBearerToken', {
-      description: 'Social Analytics - Twitter Bearer Token',
+      description: 'Twitter Bearer Token',
       parameterName: `/${this.stackName}/Twitter/BearerToken`,
       stringValue: twitterBearerTokenParameter.valueAsString,
     });
     const twitterFieldsParams = new StringParameter(this, 'TwitterFieldsParams', {
-      description: 'Social Analytics - Twitter Fields Params',
+      // https://developer.twitter.com/en/docs/twitter-api/data-dictionary/introduction
+      description: 'Tweet fields params for API calls',
       parameterName: `/${this.stackName}/Twitter/FieldsParams`,
       stringValue: JSON.stringify({
         'tweet.fields': [
@@ -60,21 +75,46 @@ export class SocialAnalyticsStack extends Stack {
         ],
         'user.fields': [
           'id', 'name', 'username', // default
+          'url',
+          'verified',
           'public_metrics',
         ],
         'place.fields': [
-          'contained_within', 'country', 'country_code', 'full_name', 'geo', 'id', 'name', 'place_type',
+          'id', 'full_name', // default
+          'contained_within',
+          'country',
+          'country_code',
+          'geo',
+          'name',
+          'place_type',
         ],
-        'expansions': ['author_id', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'],
+        'expansions': [
+          //https://developer.twitter.com/en/docs/twitter-api/expansions
+          'author_id',
+          'entities.mentions.username',
+          'in_reply_to_user_id',
+          'referenced_tweets.id',
+          'referenced_tweets.id.author_id',
+        ],
       } as Partial<Tweetv2FieldsParams>),
     });
+    const twitterFilterContextDomains = new StringListParameter(this, 'twitterFilterContextDomains', {
+      // https://developer.twitter.com/en/docs/twitter-api/annotations/overview
+      description: 'Context domains for filtering',
+      parameterName: `/${this.stackName}/Twitter/Filter/ContextDomains`,
+      stringListValue: ['Musician', 'Music Genre', 'Actor', 'TV Shows', 'Multimedia Franchise', 'Fictional Character', 'Entertainment Personality'],
+    });
+    const twitterFilterSourceLabels = new StringListParameter(this, 'twitterFilterSourceLabels', {
+      // https://help.twitter.com/en/using-twitter/how-to-tweet#source-labels
+      description: 'Tweet source labels for filtering',
+      parameterName: `/${this.stackName}/Twitter/Filter/SourceLabels`,
+      stringListValue: ['twittbot.net', 'Mk00JapanBot', 'Gakeppu Tweet', 'BelugaCampaignSEA', 'rare_zaiko', 'Wn32ShimaneBot', 'uhiiman_bot', 'atulsbots'],
+    });
 
-    const lambdaCommonSettings: NodejsFunctionProps = {
-      runtime: lambda.Runtime.NODEJS_14_X,
-      architecture: lambda.Architecture.ARM_64,
-      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
-      logRetention: logs.RetentionDays.TWO_WEEKS,
-    };
+    const twitterParameterPolicyStatement = new iam.PolicyStatement({
+      actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
+      resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/${this.stackName}/Twitter/*`],
+    });
 
     const bucket = new s3.Bucket(this, 'Bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -96,13 +136,16 @@ export class SocialAnalyticsStack extends Stack {
 
     const analysisFunction = new NodejsFunction(this, 'AnalysisFunction', {
       ...lambdaCommonSettings,
-      description: 'Social Analytics processor - Analysis by Amazon Comprehend',
+      description: 'Analysis with Amazon Comprehend',
       entry: './src/functions/analysis/index.ts',
-      handler: 'handler',
       memorySize: 256,
       timeout: Duration.minutes(5),
       environment: {
-        INDEXING_STREAM_NAME: indexingStream.streamName,
+        POWERTOOLS_SERVICE_NAME: 'AnalysisFunction',
+        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
+        POWERTOOLS_TRACER_CAPTURE_RESPONSE: 'false',
+        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/Filter/`,
+        DEST_STREAM_NAME: indexingStream.streamName,
       },
       events: [
         new KinesisEventSource(ingestionStream, {
@@ -112,22 +155,28 @@ export class SocialAnalyticsStack extends Stack {
           maxRecordAge: Duration.days(1),
         }),
       ],
-      initialPolicy: [new iam.PolicyStatement({
-        actions: [
-          'comprehend:Detect*',
-          'translate:TranslateText',
-        ],
-        resources: ['*'],
-      })],
+      initialPolicy: [
+        twitterParameterPolicyStatement,
+        new iam.PolicyStatement({
+          actions: [
+            'comprehend:Detect*',
+            'translate:TranslateText',
+          ],
+          resources: ['*'],
+        }),
+      ],
     });
     indexingStream.grantWrite(analysisFunction);
 
     const archiveFilterFunction = new NodejsFunction(this, 'ArchiveFilterFunction', {
       ...lambdaCommonSettings,
-      description: 'Social Analytics filter - Filtering with baclup flag',
+      description: 'Filtering with backup flag',
       entry: './src/functions/archive-filter/index.ts',
-      handler: 'handler',
       timeout: Duration.minutes(5),
+      environment: {
+        POWERTOOLS_SERVICE_NAME: 'ArchiveFilterFunction',
+        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
+      },
     });
 
     const ingestionArchiveStream = new DeliveryStream(this, 'IngestionArchiveStream', {
@@ -183,12 +232,14 @@ export class SocialAnalyticsStack extends Stack {
 
     const indexingFunction = new NodejsFunction(this, 'IndexingFunction', {
       ...lambdaCommonSettings,
-      description: 'Social Analytics processor - Bulk load to OpenSearch',
+      description: 'Bulk operations to load data into OpenSearch',
       entry: './src/functions/indexing/index.ts',
-      handler: 'handler',
       memorySize: 256,
       timeout: Duration.minutes(5),
       environment: {
+        POWERTOOLS_SERVICE_NAME: 'IndexingFunction',
+        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
+        POWERTOOLS_TRACER_CAPTURE_RESPONSE: 'false',
         OPENSEARCH_DOMAIN_ENDPOINT: dashboard.Domain.domainEndpoint,
       },
       events: [
@@ -202,52 +253,101 @@ export class SocialAnalyticsStack extends Stack {
       role: dashboard.BulkOperationRole,
     });
 
-    const appconfigApp = new Application(this, 'AppConfig', { name: this.stackName });
-    const appconfigEnv = appconfigApp.addEnvironment('Production');
-    const appconfigConfigTwitterBearerToken = appconfigApp.addSSMParameterConfigProfile('TwitterBearerToken', twitterBearerToken);
-    appconfigEnv.deploy('TwitterBearerTokenDeploy', appconfigConfigTwitterBearerToken.configurationProfileId);
-    const appconfigConfigTwitterFieldsParams = appconfigApp.addSSMParameterConfigProfile('TwitterFieldsParams', twitterFieldsParams);
-    appconfigEnv.deploy('TwitterFieldsParamsDeploy', appconfigConfigTwitterFieldsParams.configurationProfileId);
-
-    const reprocessTweetsV1BucketPrefix = 'reprocess/tweets/v1/';
-    const reprocessTweetsV1Queue = new sqs.Queue(this, 'ReprocessTweetsV1Queue', { retentionPeriod: Duration.days(14), visibilityTimeout: Duration.seconds(180) });
-    bucket.addEventNotification(s3.EventType.OBJECT_CREATED, new SqsDestination(reprocessTweetsV1Queue), { prefix: reprocessTweetsV1BucketPrefix });
-    const reprocessTweetsV1Function = new NodejsFunction(this, 'ReprocessTweetsV1Function', {
-      ...lambdaCommonSettings,
-      description: 'Social Analytics processor - Processing with lookup API for TweetsV1',
-      entry: './src/functions/reprocess-tweets-v1/index.ts',
-      handler: 'handler',
-      architecture: lambda.Architecture.X86_64,
-      layers: [ExtensionLayerVersion(this, 'AppConfigLambdaExtension', this.region)],
+    const reingestTweetsV1Function = new S3QueueFunction(this, 'ReingestTweetsV1Function', {
+      destStream: ingestionStream,
+      event: {
+        s3: { bucket, prefix: 'reingest/tweets/v1/' },
+      },
+      description: 'Re-ingest for TweetsV1',
+      entry: './src/functions/reingest-tweets-v1/index.ts',
       memorySize: 512,
-      timeout: Duration.seconds(180),
-      events: [
-        new SqsEventSource(reprocessTweetsV1Queue, {
-          batchSize: 12,
-          maxBatchingWindow: Duration.seconds(1),
-        }),
-      ],
-      initialPolicy: [
-        new iam.PolicyStatement({
-          actions: [
-            'appconfig:StartConfigurationSession',
-            'appconfig:GetLatestConfiguration',
-          ],
-          resources: ['*'],
-        }),
-      ],
+      timeout: Duration.seconds(300),
+      initialPolicy: [twitterParameterPolicyStatement],
       environment: {
-        APPCONFIG_APPLICATION: appconfigApp.applicationName,
-        APPCONFIG_ENVIRONMENT: appconfigEnv.environmentName,
-        APPCONFIG_CONFIG_TWITTER_BEARER_TOKEN: appconfigConfigTwitterBearerToken.configurationProfileName,
-        APPCONFIG_CONFIG_TWITTER_FIELDS_PARAMS: appconfigConfigTwitterFieldsParams.configurationProfileName,
-        STREAM_NAME: ingestionStream.streamName,
+        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
       },
       reservedConcurrentExecutions: 1,
     });
-    bucket.grantRead(reprocessTweetsV1Function, `${reprocessTweetsV1BucketPrefix}*`);
-    bucket.grantDelete(reprocessTweetsV1Function, `${reprocessTweetsV1BucketPrefix}*`);
-    ingestionStream.grantWrite(reprocessTweetsV1Function);
 
+    const reingestTweetsV2Function = new S3QueueFunction(this, 'ReingestTweetsV2Function', {
+      destStream: ingestionStream,
+      event: {
+        s3: { bucket, prefix: 'reingest/tweets/v2/' },
+      },
+      description: 'Re-ingest for TweetsV2',
+      entry: './src/functions/reingest-tweets-v2/index.ts',
+      memorySize: 512,
+      initialPolicy: [twitterParameterPolicyStatement],
+      environment: {
+        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
+      },
+      reservedConcurrentExecutions: 1,
+    });
+
+    const reindexTweetsV2Function = new S3QueueFunction(this, 'ReindexTweetsV2Function', {
+      destStream: indexingStream,
+      event: {
+        s3: { bucket, prefix: 'reindex/tweets/v2/' },
+      },
+      description: 'Re-index for TweetsV2',
+      entry: './src/functions/reingest-tweets-v2/index.ts',
+      memorySize: 512,
+      initialPolicy: [twitterParameterPolicyStatement],
+      environment: {
+        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
+      },
+      reservedConcurrentExecutions: 1,
+    });
+    indexingStream.grantWrite(reindexTweetsV2Function);
+
+  }
+};
+
+interface S3QueueFunctionProps extends NodejsFunctionProps {
+  event: {
+    s3: {
+      bucket: s3.IBucket;
+      prefix: string;
+    };
+    sqs?: SqsEventSourceProps;
+  };
+  destStream?: kinesis.Stream;
+};
+
+class S3QueueFunction extends NodejsFunction {
+
+  constructor(scope: Stack, id: string, props: S3QueueFunctionProps) {
+
+    const timeout = Duration.seconds(30); // default
+    const maxBatchingWindow = Duration.seconds(10); // default
+
+    super(scope, id, { ...lambdaCommonSettings, timeout, ...props });
+
+    const { bucket, prefix } = props.event.s3;
+    const destStream = props.destStream;
+
+    const encryptionMasterKey = new kms.Key(this, 'Key', {
+      alias: `${scope.stackName}/sqs/${id}`,
+      description: `Key that protects SQS messages for ${id}`,
+    });
+
+    const queue = new sqs.Queue(this, 'Queue', {
+      retentionPeriod: Duration.days(14),
+      visibilityTimeout: this.timeout,
+      encryptionMasterKey,
+    });
+    this.addEventSource(new SqsEventSource(queue, { maxBatchingWindow, ...props.event.sqs }));
+
+    bucket.addObjectCreatedNotification(new SqsDestination(queue), { prefix });
+    bucket.grantRead(this, `${prefix}*`);
+    bucket.grantDelete(this, `${prefix}*`);
+
+    if (destStream) {
+      destStream.grantWrite(this);
+      this.addEnvironment('DEST_STREAM_NAME', destStream.streamName);
+    };
+    this.addEnvironment('POWERTOOLS_SERVICE_NAME', id);
+    this.addEnvironment('POWERTOOLS_METRICS_NAMESPACE', Aws.STACK_NAME);
+    this.addEnvironment('POWERTOOLS_TRACER_CAPTURE_RESPONSE', 'false');
   }
 }

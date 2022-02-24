@@ -10,8 +10,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   // packageName: undefined,      /* The "name" in package.json. */
   // release: undefined,          /* Add release management to this project. */
   deps: [
-    '@aws-cdk/aws-kinesisfirehose-alpha',
-    '@aws-cdk/aws-kinesisfirehose-destinations-alpha',
+    'cdk-ecr-deployment',
     '@aws-sdk/client-cognito-identity',
     '@aws-sdk/client-cognito-identity-provider',
     '@aws-sdk/client-comprehend',
@@ -25,11 +24,11 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@aws-sdk/protocol-http',
     '@aws-sdk/signature-v4',
     '@aws-crypto/sha256-js',
+    '@aws-lambda-powertools/commons',
     '@aws-lambda-powertools/logger',
     '@aws-lambda-powertools/metrics',
     '@aws-lambda-powertools/tracer',
     '@types/aws-lambda',
-    'axios',
     'bluebird',
     'node-html-parser',
     'twitter-api-v2',
@@ -37,7 +36,6 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   ],
   devDeps: [
     '@types/bluebird',
-    '@types/cfn-response',
     '@types/log4js',
   ],
   tsconfig: {
@@ -46,5 +44,8 @@ const project = new awscdk.AwsCdkTypeScriptApp({
       //strictPropertyInitialization: false,
     },
   },
+  gitignore: [
+    'cdk.context.json',
+  ]
 });
 project.synth();

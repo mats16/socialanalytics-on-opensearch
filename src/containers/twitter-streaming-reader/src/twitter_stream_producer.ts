@@ -12,7 +12,7 @@ const client = new TwitterApi(twitterBearerToken);
 
 export const twitterStreamProducer = async () => {
 
-  logger.info({ message: 'Connect to twitter...' });
+  logger.info({ message: 'Connect to twitter api v2...' });
   const stream = await client.v2.searchStream({ ...twitterFieldsParams, autoConnect: true });
 
   stream.on(
@@ -44,7 +44,7 @@ export const twitterStreamProducer = async () => {
   );
 
   process.on('SIGTERM', () => {
+    logger.info({ message: 'SIGTERM received. Try to close the connection...' });
     stream.close();
-    logger.info({ message: 'SIGTERM received.' });
   });
 };
