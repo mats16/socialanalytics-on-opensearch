@@ -108,7 +108,7 @@ export class SocialAnalyticsStack extends Stack {
       // https://help.twitter.com/en/using-twitter/how-to-tweet#source-labels
       description: 'Tweet source labels for filtering',
       parameterName: `/${this.stackName}/Twitter/Filter/SourceLabels`,
-      stringListValue: ['twittbot.net', 'Mk00JapanBot', 'Gakeppu Tweet', 'BelugaCampaignSEA', 'rare_zaiko'],
+      stringListValue: ['twittbot.net', 'Mk00JapanBot', 'Gakeppu Tweet', 'BelugaCampaignSEA', 'rare_zaiko', 'Wn32ShimaneBot', 'uhiiman_bot', 'atulsbots'],
     });
 
     const twitterParameterPolicyStatement = new iam.PolicyStatement({
@@ -326,15 +326,16 @@ class S3QueueFunction extends NodejsFunction {
     const { bucket, prefix } = props.event.s3;
     const destStream = props.destStream;
 
-    const key = new kms.Key(this, 'Key', {
+    const encryptionMasterKey = new kms.Key(this, 'Key', {
       alias: `${scope.stackName}/sqs/${id}`,
       description: `Key that protects SQS messages for ${id}`,
     });
-    key.grant(new iam.ServicePrincipal('s3.amazonaws.com'), 'kms:GenerateDataKey', 'kms:Decrypt');
-    key.grantDecrypt(this.role!);
 
-
-    const queue = new sqs.Queue(this, 'Queue', { retentionPeriod: Duration.days(14), visibilityTimeout: this.timeout });
+    const queue = new sqs.Queue(this, 'Queue', {
+      retentionPeriod: Duration.days(14),
+      visibilityTimeout: this.timeout,
+      encryptionMasterKey,
+    });
     this.addEventSource(new SqsEventSource(queue, { maxBatchingWindow, ...props.event.sqs }));
 
     bucket.addObjectCreatedNotification(new SqsDestination(queue), { prefix });

@@ -31,6 +31,7 @@ jspm_packages/
 *.tgz
 .yarn-integrity
 .cache
+cdk.context.json
 !/.projenrc.js
 /test-reports/
 junit.xml
@@ -46,7 +47,6 @@ junit.xml
 /dist/
 !/.eslintrc.json
 /assets/
-cdk.context.json
 !/cdk.json
 /cdk.out/
 .cdk.staging/
