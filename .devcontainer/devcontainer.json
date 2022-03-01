@@ -1,5 +1,8 @@
 {
-    "image": "public.ecr.aws/mats/devcontainer-for-aws:latest",
+    "image": "ghcr.io/mats16/devcontainer-for-aws:latest-alpine",
+    "mounts": [
+        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+    ],
     "extensions": [
         "dbaeumer.vscode-eslint"
     ]

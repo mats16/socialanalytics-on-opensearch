@@ -1,6 +1,6 @@
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
-  cdkVersion: '2.12.0',
+  cdkVersion: '2.14.0',
   defaultReleaseBranch: 'main',
   name: 'social-analytics',
   // cdkDependencies: undefined,  /* Which AWS CDK modules (those that start with "@aws-cdk/") this app uses. */
@@ -46,6 +46,6 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   },
   gitignore: [
     'cdk.context.json',
-  ]
+  ],
 });
 project.synth();
