@@ -22,15 +22,15 @@ npx projen build
 
 ### How to deploy
 
-#### Create service-linked IAM Role for Amazon ECS
+```bash
+export TWITTER_BEARER_TOKEN=xxxxxxxxxxxxxxxxxxxx
+npj projen deploy
+```
+
+#### Create service-linked IAM Role for Amazon ECS before first deployment
 
 If you use AWS ECS first time, you need to create service-linked roles.
 
 ```bash
 aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
-```
-
-```bash
-export TWITTER_BEARER_TOKEN=xxxxxxxxxxxxxxxxxxxx
-npj projen deploy
 ```
