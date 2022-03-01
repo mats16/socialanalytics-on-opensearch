@@ -111,7 +111,7 @@ const toTweetStreamRecords = (lookupResult: TweetV2LookupResult): TweetStreamRec
         users: author,
         tweets: referencedTweets,
       },
-      backup: false, // ###########################
+      backup: true,
     };
     return stream;
   });

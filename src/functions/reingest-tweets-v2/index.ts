@@ -66,8 +66,15 @@ const deleteObject = async(record: S3EventRecord)=> {
 const bodyToLines = (objectBody: string|undefined): TweetStreamRecord[] => {
   if (objectBody) {
     const lines = objectBody.trimEnd().split('\n');
-    const streamArray: TweetStreamRecord[] = lines.map(line => JSON.parse(line));
-    return streamArray;
+    const records: TweetStreamRecord[] = lines.map(line => JSON.parse(line));
+    const newRecords = records.map(record => {
+      const newRecord: TweetStreamRecord = {
+        ...record,
+        backup: true,
+      };
+      return newRecord;
+    });
+    return newRecords;
   } else {
     return [];
   }
