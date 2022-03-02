@@ -24,7 +24,7 @@ npx projen build
 
 ```bash
 export TWITTER_BEARER_TOKEN=xxxxxxxxxxxxxxxxxxxx
-npj projen deploy
+npx projen deploy
 ```
 
 #### Create service-linked IAM Role for Amazon ECS before first deployment
