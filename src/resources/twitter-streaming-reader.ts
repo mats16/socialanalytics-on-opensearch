@@ -41,7 +41,6 @@ export class TwitterStreamingReader extends Construct {
     });
     const twitterStreamingReaderImageAsset = new DockerImageAsset(this, 'TwitterStreamingReaderImageAsset', {
       directory: './src/containers/twitter-streaming-reader',
-      buildArgs: { '--platform': 'linux/arm64' },
     });
     new ecrDeploy.ECRDeployment(this, 'twitterStreamingReaderImageAssetDeploy', {
       src: new ecrDeploy.DockerImageName(twitterStreamingReaderImageAsset.imageUri),
@@ -54,7 +53,6 @@ export class TwitterStreamingReader extends Construct {
     });
     const logRouterImageAsset = new DockerImageAsset(this, 'LogRouterImageAsset', {
       directory: './src/containers/log-router',
-      buildArgs: { '--platform': 'linux/arm64' },
     });
     new ecrDeploy.ECRDeployment(this, 'LogRouterImageAssetDeploy', {
       src: new ecrDeploy.DockerImageName(logRouterImageAsset.imageUri),
