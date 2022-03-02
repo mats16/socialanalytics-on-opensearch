@@ -1,4 +1,4 @@
-FROM --platform=linux/arm64 public.ecr.aws/docker/library/node:16-alpine as builder
+FROM --platform=linux/amd64 public.ecr.aws/docker/library/node:16-alpine as builder
 
 WORKDIR /home/node
 
@@ -12,7 +12,7 @@ COPY src src
 
 RUN npm run build
 
-FROM --platform=linux/arm64 public.ecr.aws/docker/library/node:16-alpine
+FROM --platform=linux/amd64 public.ecr.aws/docker/library/node:16-alpine
 
 RUN apk add --no-cache tini
 ENTRYPOINT ["/sbin/tini", "--"]

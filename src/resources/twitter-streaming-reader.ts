@@ -64,7 +64,7 @@ export class TwitterStreamingReader extends Construct {
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDefinition', {
       runtimePlatform: {
         operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
-        cpuArchitecture: ecs.CpuArchitecture.ARM64,
+        cpuArchitecture: ecs.CpuArchitecture.X86_64,
       },
     });
     logGroup.grantWrite(taskDefinition.taskRole);
