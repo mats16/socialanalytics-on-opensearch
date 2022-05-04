@@ -37,7 +37,7 @@ export class Dashboard extends Construct {
 
     this.Domain = new Domain(this, 'Domain', {
       removalPolicy,
-      version: { version: 'OpenSearch_1.1' },
+      version: opensearch.EngineVersion.OPENSEARCH_1_2,
       enableVersionUpgrade: true,
       zoneAwareness: { availabilityZoneCount: 3 },
       capacity: {
