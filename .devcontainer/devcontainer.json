@@ -1,5 +1,5 @@
 {
-    "image": "ghcr.io/mats16/devcontainer-for-aws:latest-alpine",
+    "image": "ghcr.io/mats16/devcontainer-for-aws:latest",
     "extensions": [
         "dbaeumer.vscode-eslint",
         "mhutchie.git-graph"
