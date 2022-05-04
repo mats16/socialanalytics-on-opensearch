@@ -35,26 +35,22 @@ export class TwitterStreamingReader extends Construct {
       retention: logs.RetentionDays.TWO_WEEKS,
     });
 
-    const twitterStreamingReaderRepo = new ecr.Repository(this, 'TwitterStreamingReaderRepo', {
-      repositoryName: scope.stackName.toLowerCase() + '/twitter-streaming-reader',
+    const appRepo = new ecr.Repository(this, 'AppRepo', {
       imageScanOnPush: true,
     });
     const twitterStreamingReaderImageAsset = new DockerImageAsset(this, 'TwitterStreamingReaderImageAsset', {
       directory: './src/containers/twitter-streaming-reader',
-      buildArgs: { '--platform': 'linux/arm64' },
     });
     new ecrDeploy.ECRDeployment(this, 'twitterStreamingReaderImageAssetDeploy', {
       src: new ecrDeploy.DockerImageName(twitterStreamingReaderImageAsset.imageUri),
-      dest: new ecrDeploy.DockerImageName(twitterStreamingReaderRepo.repositoryUri),
+      dest: new ecrDeploy.DockerImageName(appRepo.repositoryUri),
     });
 
     const logRouterRepo = new ecr.Repository(this, 'LogRouterRepo', {
-      repositoryName: scope.stackName.toLowerCase() + '/log-router',
       imageScanOnPush: true,
     });
     const logRouterImageAsset = new DockerImageAsset(this, 'LogRouterImageAsset', {
       directory: './src/containers/log-router',
-      buildArgs: { '--platform': 'linux/arm64' },
     });
     new ecrDeploy.ECRDeployment(this, 'LogRouterImageAssetDeploy', {
       src: new ecrDeploy.DockerImageName(logRouterImageAsset.imageUri),
@@ -66,7 +62,7 @@ export class TwitterStreamingReader extends Construct {
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDefinition', {
       runtimePlatform: {
         operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
-        cpuArchitecture: ecs.CpuArchitecture.ARM64,
+        cpuArchitecture: ecs.CpuArchitecture.X86_64,
       },
     });
     logGroup.grantWrite(taskDefinition.taskRole);
@@ -74,7 +70,7 @@ export class TwitterStreamingReader extends Construct {
 
     const appContainer = taskDefinition.addContainer('App', {
       containerName: 'app',
-      image: ecs.ContainerImage.fromEcrRepository(twitterStreamingReaderRepo),
+      image: ecs.ContainerImage.fromEcrRepository(appRepo),
       cpu: 128,
       memoryReservationMiB: 256,
       essential: true,
