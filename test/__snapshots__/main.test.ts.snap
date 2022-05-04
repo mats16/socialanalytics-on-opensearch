@@ -23,7 +23,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "4a575666d1c2c6412590d2a56f328e040a81ad1ef59aecee31ae9b393d05f659.zip",
+          "S3Key": "68b4ffa1c39cb3733535725f85311791c09eab53b7ab8efa5152e68f8abdb005.zip",
         },
         "Handler": "index.handler",
         "Role": Object {
@@ -81,9 +81,9 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "462d001abd2d636a08e74ec282eacea5ebaa4a5ff9d0fbc501550762f9fd3229.zip",
+          "S3Key": "c4ee6fcb7c684ef8789ffb6ce6d677b25b74f648a044e9b5aeb2a979598ae12a.zip",
         },
-        "Description": "Analysis by Amazon Comprehend",
+        "Description": "Analysis with Amazon Comprehend",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
@@ -322,7 +322,7 @@ Object {
           },
           "S3Key": "ae66470e7570f2fa69b2a79b989e0e51a8f0fd43061be69b1129a2f20b0c3a2d.zip",
         },
-        "Description": "Filtering with baclup flag",
+        "Description": "Filtering with backup flag",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
@@ -582,45 +582,42 @@ import urllib.request
 
 s3 = boto3.client(\\"s3\\")
 
+EVENTBRIDGE_CONFIGURATION = 'EventBridgeConfiguration'
+
 CONFIGURATION_TYPES = [\\"TopicConfigurations\\", \\"QueueConfigurations\\", \\"LambdaFunctionConfigurations\\"]
 
 def handler(event: dict, context):
-    response_status = \\"SUCCESS\\"
-    error_message = \\"\\"
-    try:
-        props = event[\\"ResourceProperties\\"]
-        bucket = props[\\"BucketName\\"]
-        notification_configuration = props[\\"NotificationConfiguration\\"]
-        request_type = event[\\"RequestType\\"]
-        managed = props.get('Managed', 'true').lower() == 'true'
-        stack_id = event['StackId']
+  response_status = \\"SUCCESS\\"
+  error_message = \\"\\"
+  try:
+    props = event[\\"ResourceProperties\\"]
+    bucket = props[\\"BucketName\\"]
+    notification_configuration = props[\\"NotificationConfiguration\\"]
+    request_type = event[\\"RequestType\\"]
+    managed = props.get('Managed', 'true').lower() == 'true'
+    stack_id = event['StackId']
 
-        if managed:
-          config = handle_managed(request_type, notification_configuration)
-        else:
-          config = handle_unmanaged(bucket, stack_id, request_type, notification_configuration)
+    if managed:
+      config = handle_managed(request_type, notification_configuration)
+    else:
+      config = handle_unmanaged(bucket, stack_id, request_type, notification_configuration)
 
-        put_bucket_notification_configuration(bucket, config)
-    except Exception as e:
-        logging.exception(\\"Failed to put bucket notification configuration\\")
-        response_status = \\"FAILED\\"
-        error_message = f\\"Error: {str(e)}. \\"
-    finally:
-        submit_response(event, context, response_status, error_message)
-
+    put_bucket_notification_configuration(bucket, config)
+  except Exception as e:
+    logging.exception(\\"Failed to put bucket notification configuration\\")
+    response_status = \\"FAILED\\"
+    error_message = f\\"Error: {str(e)}. \\"
+  finally:
+    submit_response(event, context, response_status, error_message)
 
 def handle_managed(request_type, notification_configuration):
   if request_type == 'Delete':
     return {}
   return notification_configuration
 
-
 def handle_unmanaged(bucket, stack_id, request_type, notification_configuration):
-
-  # find external notifications
   external_notifications = find_external_notifications(bucket, stack_id)
 
-  # if delete, that's all we need
   if request_type == 'Delete':
     return external_notifications
 
@@ -628,54 +625,56 @@ def handle_unmanaged(bucket, stack_id, request_type, notification_configuration)
     notification['Id'] = f\\"{stack_id}-{hash(json.dumps(notification, sort_keys=True))}\\"
     return notification
 
-  # otherwise, merge external with incoming config and augment with id
   notifications = {}
   for t in CONFIGURATION_TYPES:
     external = external_notifications.get(t, [])
     incoming = [with_id(n) for n in notification_configuration.get(t, [])]
     notifications[t] = external + incoming
-  return notifications
 
+  if EVENTBRIDGE_CONFIGURATION in notification_configuration:
+    notifications[EVENTBRIDGE_CONFIGURATION] = notification_configuration[EVENTBRIDGE_CONFIGURATION]
+  elif EVENTBRIDGE_CONFIGURATION in external_notifications:
+    notifications[EVENTBRIDGE_CONFIGURATION] = external_notifications[EVENTBRIDGE_CONFIGURATION]
+
+  return notifications
 
 def find_external_notifications(bucket, stack_id):
   existing_notifications = get_bucket_notification_configuration(bucket)
   external_notifications = {}
   for t in CONFIGURATION_TYPES:
-    # if the notification was created by us, we know what id to expect
-    # so we can filter by it.
     external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\\"{stack_id}-\\")]
 
-  return external_notifications
+  if EVENTBRIDGE_CONFIGURATION in existing_notifications:
+    external_notifications[EVENTBRIDGE_CONFIGURATION] = existing_notifications[EVENTBRIDGE_CONFIGURATION]
 
+  return external_notifications
 
 def get_bucket_notification_configuration(bucket):
   return s3.get_bucket_notification_configuration(Bucket=bucket)
 
-
 def put_bucket_notification_configuration(bucket, notification_configuration):
   s3.put_bucket_notification_configuration(Bucket=bucket, NotificationConfiguration=notification_configuration)
 
-
 def submit_response(event: dict, context, response_status: str, error_message: str):
-    response_body = json.dumps(
-        {
-            \\"Status\\": response_status,
-            \\"Reason\\": f\\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\\",
-            \\"PhysicalResourceId\\": event.get(\\"PhysicalResourceId\\") or event[\\"LogicalResourceId\\"],
-            \\"StackId\\": event[\\"StackId\\"],
-            \\"RequestId\\": event[\\"RequestId\\"],
-            \\"LogicalResourceId\\": event[\\"LogicalResourceId\\"],
-            \\"NoEcho\\": False,
-        }
-    ).encode(\\"utf-8\\")
-    headers = {\\"content-type\\": \\"\\", \\"content-length\\": str(len(response_body))}
-    try:
-        req = urllib.request.Request(url=event[\\"ResponseURL\\"], headers=headers, data=response_body, method=\\"PUT\\")
-        with urllib.request.urlopen(req) as response:
-            print(response.read().decode(\\"utf-8\\"))
-        print(\\"Status code: \\" + response.reason)
-    except Exception as e:
-        print(\\"send(..) failed executing request.urlopen(..): \\" + str(e))
+  response_body = json.dumps(
+    {
+      \\"Status\\": response_status,
+      \\"Reason\\": f\\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\\",
+      \\"PhysicalResourceId\\": event.get(\\"PhysicalResourceId\\") or event[\\"LogicalResourceId\\"],
+      \\"StackId\\": event[\\"StackId\\"],
+      \\"RequestId\\": event[\\"RequestId\\"],
+      \\"LogicalResourceId\\": event[\\"LogicalResourceId\\"],
+      \\"NoEcho\\": False,
+    }
+  ).encode(\\"utf-8\\")
+  headers = {\\"content-type\\": \\"\\", \\"content-length\\": str(len(response_body))}
+  try:
+    req = urllib.request.Request(url=event[\\"ResponseURL\\"], headers=headers, data=response_body, method=\\"PUT\\")
+    with urllib.request.urlopen(req) as response:
+      print(response.read().decode(\\"utf-8\\"))
+    print(\\"Status code: \\" + response.reason)
+  except Exception as e:
+      print(\\"send(..) failed executing request.urlopen(..): \\" + str(e))
 ",
         },
         "Description": "AWS CloudFormation handler for \\"Custom::S3BucketNotifications\\" resources (@aws-cdk/aws-s3)",
@@ -1368,11 +1367,36 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Role",
     },
-    "DashboardDomainAccessPolicy9A5DFD90": Object {
+    "DashboardDomainAccessPolicyCustomResourcePolicy63DD89EF": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "es:UpdateDomainConfig",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "DashboardDomainED696CAB",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "DashboardDomainAccessPolicyCustomResourcePolicy63DD89EF",
+        "Roles": Array [
+          Object {
+            "Ref": "AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "DashboardDomainAccessPolicyD0E20C1B": Object {
       "DeletionPolicy": "Delete",
       "DependsOn": Array [
-        "DashboardDomainAccessPolicyCustomResourcePolicy0FB3EA41",
-        "DashboardDomainED696CAB",
+        "DashboardDomainAccessPolicyCustomResourcePolicy63DD89EF",
       ],
       "Properties": Object {
         "Create": Object {
@@ -1417,35 +1441,6 @@ scrape_configs:
       },
       "Type": "Custom::OpenSearchAccessPolicy",
       "UpdateReplacePolicy": "Delete",
-    },
-    "DashboardDomainAccessPolicyCustomResourcePolicy0FB3EA41": Object {
-      "DependsOn": Array [
-        "DashboardDomainED696CAB",
-      ],
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "es:UpdateDomainConfig",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "DashboardDomainED696CAB",
-                  "Arn",
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "DashboardDomainAccessPolicyCustomResourcePolicy0FB3EA41",
-        "Roles": Array [
-          Object {
-            "Ref": "AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
     },
     "DashboardDomainBulkOperationRole5DCB8F6B": Object {
       "DeletionPolicy": "Delete",
@@ -2016,7 +2011,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "598fb6cff8e638be6d00a6a4d728d795cc8f563ff24122bb1ab518c1530e24d8.zip",
+          "S3Key": "a25ad9c0d11729e2a901249c21b3095a071174c6fc98296269154dcebbb42a08.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (test/Dashboard/Domain/Provider)",
         "Environment": Object {
@@ -2079,12 +2074,28 @@ scrape_configs:
             Object {
               "Action": "lambda:InvokeFunction",
               "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "DashboardDomainOpenSearchResourceFunction6FC3C0C1",
-                  "Arn",
-                ],
-              },
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "DashboardDomainOpenSearchResourceFunction6FC3C0C1",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "DashboardDomainOpenSearchResourceFunction6FC3C0C1",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
             },
           ],
           "Version": "2012-10-17",
@@ -2172,15 +2183,20 @@ scrape_configs:
                       },
                     },
                     "url": Object {
+                      "index": false,
                       "type": "keyword",
                     },
                     "username": Object {
                       "type": "keyword",
                     },
                     "verified": Object {
-                      "type": "keyword",
+                      "type": "boolean",
                     },
                   },
+                },
+                "author_id": Object {
+                  "index": false,
+                  "type": "keyword",
                 },
                 "context_annotations": Object {
                   "properties": Object {
@@ -2282,6 +2298,7 @@ scrape_configs:
                   "type": "text",
                 },
                 "url": Object {
+                  "index": false,
                   "type": "keyword",
                 },
               },
@@ -2596,9 +2613,9 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "7b817596a47496972e0a102d61b9055b4b394acc1bc44c87852c7313566426a2.zip",
+          "S3Key": "5bd93496b87b94240e27da75962af94168926bca1cee53a11320725354093b25.zip",
         },
-        "Description": "Bulk load to OpenSearch",
+        "Description": "Bulk operations to load data into OpenSearch",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
@@ -2969,7 +2986,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "6c0316fef24d0df8a9a705c77052001217d864f49af386539d01df54618cd131.zip",
+          "S3Key": "558dc75fbdc793c8e2f64f85d2d7ed2cb820c727ec7e9b08666ad1af0103992e.zip",
         },
         "Handler": "index.handler",
         "Role": Object {
@@ -3050,7 +3067,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "b0ffb6feeb51e14ecd9a62c7781c94d3be229fa8e18eb69f77c0981d22343b40.zip",
+          "S3Key": "6463f1ce05fab2fbf823b6218676bc3ce813533a3b074a36081277c6a07c7b09.zip",
         },
         "Description": "Re-index for TweetsV2",
         "Environment": Object {
@@ -3098,6 +3115,88 @@ scrape_configs:
       },
       "Type": "AWS::Lambda::Function",
     },
+    "ReindexTweetsV2FunctionKey130466AD": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "Description": "Key that protects SQS messages for ReindexTweetsV2Function",
+        "KeyPolicy": Object {
+          "Statement": Array [
+            Object {
+              "Action": "kms:*",
+              "Effect": "Allow",
+              "Principal": Object {
+                "AWS": Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":iam::",
+                      Object {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":root",
+                    ],
+                  ],
+                },
+              },
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+              ],
+              "Condition": Object {
+                "ArnLike": Object {
+                  "aws:SourceArn": Object {
+                    "Fn::GetAtt": Array [
+                      "Bucket83908E77",
+                      "Arn",
+                    ],
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "s3.amazonaws.com",
+              },
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "kms:GenerateDataKey*",
+                "kms:Decrypt",
+              ],
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "s3.amazonaws.com",
+              },
+              "Resource": "*",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::KMS::Key",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "ReindexTweetsV2FunctionKeyAliasD298DE62": Object {
+      "Properties": Object {
+        "AliasName": "alias/test/sqs/ReindexTweetsV2Function",
+        "TargetKeyId": Object {
+          "Fn::GetAtt": Array [
+            "ReindexTweetsV2FunctionKey130466AD",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::KMS::Alias",
+    },
     "ReindexTweetsV2FunctionLogRetention43E127C4": Object {
       "Properties": Object {
         "LogGroupName": Object {
@@ -3124,6 +3223,12 @@ scrape_configs:
     "ReindexTweetsV2FunctionQueue24CDEFA4": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
+        "KmsMasterKeyId": Object {
+          "Fn::GetAtt": Array [
+            "ReindexTweetsV2FunctionKey130466AD",
+            "Arn",
+          ],
+        },
         "MessageRetentionPeriod": 1209600,
         "VisibilityTimeout": 30,
       },
@@ -3267,6 +3372,16 @@ scrape_configs:
               },
             },
             Object {
+              "Action": "kms:Decrypt",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "ReindexTweetsV2FunctionKey130466AD",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
               "Action": Array [
                 "s3:GetObject*",
                 "s3:GetBucket*",
@@ -3368,7 +3483,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "fb01d7598a06fbbf331c06dec381380074a13d3306ff51289b978d398022bb4d.zip",
+          "S3Key": "ec9a6b4267d71fd325e379f69f63f65a61955814ef51fca07f0b4e8ab2ad1cdd.zip",
         },
         "Description": "Re-ingest for TweetsV1",
         "Environment": Object {
@@ -3416,6 +3531,88 @@ scrape_configs:
       },
       "Type": "AWS::Lambda::Function",
     },
+    "ReingestTweetsV1FunctionKeyAlias4D7FDEC5": Object {
+      "Properties": Object {
+        "AliasName": "alias/test/sqs/ReingestTweetsV1Function",
+        "TargetKeyId": Object {
+          "Fn::GetAtt": Array [
+            "ReingestTweetsV1FunctionKeyB55D745A",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::KMS::Alias",
+    },
+    "ReingestTweetsV1FunctionKeyB55D745A": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "Description": "Key that protects SQS messages for ReingestTweetsV1Function",
+        "KeyPolicy": Object {
+          "Statement": Array [
+            Object {
+              "Action": "kms:*",
+              "Effect": "Allow",
+              "Principal": Object {
+                "AWS": Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":iam::",
+                      Object {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":root",
+                    ],
+                  ],
+                },
+              },
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+              ],
+              "Condition": Object {
+                "ArnLike": Object {
+                  "aws:SourceArn": Object {
+                    "Fn::GetAtt": Array [
+                      "Bucket83908E77",
+                      "Arn",
+                    ],
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "s3.amazonaws.com",
+              },
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "kms:GenerateDataKey*",
+                "kms:Decrypt",
+              ],
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "s3.amazonaws.com",
+              },
+              "Resource": "*",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::KMS::Key",
+      "UpdateReplacePolicy": "Retain",
+    },
     "ReingestTweetsV1FunctionLogRetention33B281DC": Object {
       "Properties": Object {
         "LogGroupName": Object {
@@ -3442,6 +3639,12 @@ scrape_configs:
     "ReingestTweetsV1FunctionQueueBCFE63A8": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
+        "KmsMasterKeyId": Object {
+          "Fn::GetAtt": Array [
+            "ReingestTweetsV1FunctionKeyB55D745A",
+            "Arn",
+          ],
+        },
         "MessageRetentionPeriod": 1209600,
         "VisibilityTimeout": 300,
       },
@@ -3585,6 +3788,16 @@ scrape_configs:
               },
             },
             Object {
+              "Action": "kms:Decrypt",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "ReingestTweetsV1FunctionKeyB55D745A",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
               "Action": Array [
                 "s3:GetObject*",
                 "s3:GetBucket*",
@@ -3686,7 +3899,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "b0ffb6feeb51e14ecd9a62c7781c94d3be229fa8e18eb69f77c0981d22343b40.zip",
+          "S3Key": "6463f1ce05fab2fbf823b6218676bc3ce813533a3b074a36081277c6a07c7b09.zip",
         },
         "Description": "Re-ingest for TweetsV2",
         "Environment": Object {
@@ -3734,6 +3947,88 @@ scrape_configs:
       },
       "Type": "AWS::Lambda::Function",
     },
+    "ReingestTweetsV2FunctionKey0EBE29FB": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "Description": "Key that protects SQS messages for ReingestTweetsV2Function",
+        "KeyPolicy": Object {
+          "Statement": Array [
+            Object {
+              "Action": "kms:*",
+              "Effect": "Allow",
+              "Principal": Object {
+                "AWS": Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":iam::",
+                      Object {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":root",
+                    ],
+                  ],
+                },
+              },
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+              ],
+              "Condition": Object {
+                "ArnLike": Object {
+                  "aws:SourceArn": Object {
+                    "Fn::GetAtt": Array [
+                      "Bucket83908E77",
+                      "Arn",
+                    ],
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "s3.amazonaws.com",
+              },
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "kms:GenerateDataKey*",
+                "kms:Decrypt",
+              ],
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "s3.amazonaws.com",
+              },
+              "Resource": "*",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::KMS::Key",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "ReingestTweetsV2FunctionKeyAliasAAFBF023": Object {
+      "Properties": Object {
+        "AliasName": "alias/test/sqs/ReingestTweetsV2Function",
+        "TargetKeyId": Object {
+          "Fn::GetAtt": Array [
+            "ReingestTweetsV2FunctionKey0EBE29FB",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::KMS::Alias",
+    },
     "ReingestTweetsV2FunctionLogRetention579E3295": Object {
       "Properties": Object {
         "LogGroupName": Object {
@@ -3760,6 +4055,12 @@ scrape_configs:
     "ReingestTweetsV2FunctionQueue00EE7A69": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
+        "KmsMasterKeyId": Object {
+          "Fn::GetAtt": Array [
+            "ReingestTweetsV2FunctionKey0EBE29FB",
+            "Arn",
+          ],
+        },
         "MessageRetentionPeriod": 1209600,
         "VisibilityTimeout": 30,
       },
@@ -3898,6 +4199,16 @@ scrape_configs:
               "Resource": Object {
                 "Fn::GetAtt": Array [
                   "ReingestTweetsV2FunctionQueue00EE7A69",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": "kms:Decrypt",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "ReingestTweetsV2FunctionKey0EBE29FB",
                   "Arn",
                 ],
               },
@@ -4094,7 +4405,7 @@ scrape_configs:
             Array [
               "docker://",
               Object {
-                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:bf4d8dadfad1831a025ef8be294970e68f59a613caf844b1b20b84e173e76131",
+                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:3e4a379e7cf2fdbb142d6aa43232280ab36ef4446b38bae88c822515769b4850",
               },
             ],
           ],
@@ -4439,7 +4750,7 @@ scrape_configs:
           "FARGATE",
         ],
         "RuntimePlatform": Object {
-          "CpuArchitecture": "ARM64",
+          "CpuArchitecture": "X86_64",
           "OperatingSystemFamily": "LINUX",
         },
         "TaskRoleArn": Object {
@@ -4910,7 +5221,7 @@ scrape_configs:
             Array [
               "docker://",
               Object {
-                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:6f3acdd6ff5d02daac76843416ecb3da9d729ae27e35208c425fa9590f15a262",
+                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:67036a82663efbfa32c5014bd1003cde119044d8b64853a6b91b8038bbf20d3f",
               },
             ],
           ],
@@ -5178,7 +5489,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "598fb6cff8e638be6d00a6a4d728d795cc8f563ff24122bb1ab518c1530e24d8.zip",
+          "S3Key": "a25ad9c0d11729e2a901249c21b3095a071174c6fc98296269154dcebbb42a08.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (test/test-UserPool/IdentityPoolTokenEnableProvider)",
         "Environment": Object {
@@ -5210,12 +5521,28 @@ scrape_configs:
             Object {
               "Action": "lambda:InvokeFunction",
               "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "testUserPoolEnableRoleFromTokenFunctionBB76C189",
-                  "Arn",
-                ],
-              },
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "testUserPoolEnableRoleFromTokenFunctionBB76C189",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "testUserPoolEnableRoleFromTokenFunctionBB76C189",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
             },
           ],
           "Version": "2012-10-17",
