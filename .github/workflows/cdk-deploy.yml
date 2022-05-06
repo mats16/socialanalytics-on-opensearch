@@ -4,6 +4,8 @@ on:
     branches:
       - main
   workflow_dispatch: {}
+env:
+  AWS_REGION : us-west-2
 
 jobs:
   deploy:
@@ -12,6 +14,11 @@ jobs:
       id-token: write # needed to interact with GitHub's OIDC Token endpoint.
       contents: read
     steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
       - name: Checkout
         uses: actions/checkout@v2
       - name: node.js setup
@@ -22,13 +29,6 @@ jobs:
         run: yarn install --check-files
       - name: Build
         run: npx projen build
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: us-east-1
       - name: Deploy
         id: deploy
         run: $(npm bin)/cdk deploy --require-approval never
-        env:
-          AWS_REGION: us-west-2
