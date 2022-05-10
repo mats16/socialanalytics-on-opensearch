@@ -4,6 +4,7 @@
         "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
     ],
     "extensions": [
+        "ms-azuretools.vscode-docker",
         "dbaeumer.vscode-eslint",
         "mhutchie.git-graph"
     ]
