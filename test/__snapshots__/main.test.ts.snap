@@ -1755,7 +1755,7 @@ scrape_configs:
         "EncryptionAtRestOptions": Object {
           "Enabled": true,
         },
-        "EngineVersion": "OpenSearch_1.1",
+        "EngineVersion": "OpenSearch_1.2",
         "LogPublishingOptions": Object {
           "AUDIT_LOGS": Object {
             "CloudWatchLogsLogGroupArn": Object {
@@ -3483,7 +3483,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "ec9a6b4267d71fd325e379f69f63f65a61955814ef51fca07f0b4e8ab2ad1cdd.zip",
+          "S3Key": "efd52cc3f5937e35d2be4df8411d75c6ce6fbbbc438991f9f4677150dd9f4a1c.zip",
         },
         "Description": "Re-ingest for TweetsV1",
         "Environment": Object {
@@ -4322,6 +4322,16 @@ scrape_configs:
       },
       "Type": "AWS::SSM::Parameter",
     },
+    "TwitterStreamingReaderAppRepo84582A3E": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "ImageScanningConfiguration": Object {
+          "ScanOnPush": true,
+        },
+      },
+      "Type": "AWS::ECR::Repository",
+      "UpdateReplacePolicy": "Retain",
+    },
     "TwitterStreamingReaderCluster31726261": Object {
       "Properties": Object {
         "ClusterSettings": Array [
@@ -4405,7 +4415,7 @@ scrape_configs:
             Array [
               "docker://",
               Object {
-                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:3e4a379e7cf2fdbb142d6aa43232280ab36ef4446b38bae88c822515769b4850",
+                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:70d24a18f8ddaf023204fda41f3a225a0b1dc24574582bf2c19ad97979880e43",
               },
             ],
           ],
@@ -4420,7 +4430,6 @@ scrape_configs:
         "ImageScanningConfiguration": Object {
           "ScanOnPush": true,
         },
-        "RepositoryName": "test/log-router",
       },
       "Type": "AWS::ECR::Repository",
       "UpdateReplacePolicy": "Retain",
@@ -4524,7 +4533,7 @@ scrape_configs:
                           ":",
                           Object {
                             "Fn::GetAtt": Array [
-                              "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                              "TwitterStreamingReaderAppRepo84582A3E",
                               "Arn",
                             ],
                           },
@@ -4541,7 +4550,7 @@ scrape_configs:
                           ":",
                           Object {
                             "Fn::GetAtt": Array [
-                              "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                              "TwitterStreamingReaderAppRepo84582A3E",
                               "Arn",
                             ],
                           },
@@ -4555,7 +4564,7 @@ scrape_configs:
                   },
                   "/",
                   Object {
-                    "Ref": "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                    "Ref": "TwitterStreamingReaderAppRepo84582A3E",
                   },
                   ":latest",
                 ],
@@ -4792,7 +4801,7 @@ scrape_configs:
               "Effect": "Allow",
               "Resource": Object {
                 "Fn::GetAtt": Array [
-                  "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                  "TwitterStreamingReaderAppRepo84582A3E",
                   "Arn",
                 ],
               },
@@ -4964,17 +4973,6 @@ scrape_configs:
         ],
       },
       "Type": "AWS::IAM::Policy",
-    },
-    "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77": Object {
-      "DeletionPolicy": "Retain",
-      "Properties": Object {
-        "ImageScanningConfiguration": Object {
-          "ScanOnPush": true,
-        },
-        "RepositoryName": "test/twitter-streaming-reader",
-      },
-      "Type": "AWS::ECR::Repository",
-      "UpdateReplacePolicy": "Retain",
     },
     "TwitterStreamingReaderVPC17D0C89D": Object {
       "Properties": Object {
@@ -5173,7 +5171,7 @@ scrape_configs:
                       ":",
                       Object {
                         "Fn::GetAtt": Array [
-                          "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                          "TwitterStreamingReaderAppRepo84582A3E",
                           "Arn",
                         ],
                       },
@@ -5190,7 +5188,7 @@ scrape_configs:
                       ":",
                       Object {
                         "Fn::GetAtt": Array [
-                          "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                          "TwitterStreamingReaderAppRepo84582A3E",
                           "Arn",
                         ],
                       },
@@ -5204,7 +5202,7 @@ scrape_configs:
               },
               "/",
               Object {
-                "Ref": "TwitterStreamingReaderTwitterStreamingReaderRepo8DD74A77",
+                "Ref": "TwitterStreamingReaderAppRepo84582A3E",
               },
             ],
           ],
@@ -5221,7 +5219,7 @@ scrape_configs:
             Array [
               "docker://",
               Object {
-                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:67036a82663efbfa32c5014bd1003cde119044d8b64853a6b91b8038bbf20d3f",
+                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:c5a0eaf7886beb2d4f759bc9f72e9dc7f4b53e4feda69464a1d370e19de2b283",
               },
             ],
           ],
