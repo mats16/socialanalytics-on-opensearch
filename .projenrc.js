@@ -1,6 +1,6 @@
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
-  cdkVersion: '2.22.0',
+  cdkVersion: '2.23.0',
   defaultReleaseBranch: 'main',
   name: 'social-analytics',
   // cdkDependencies: undefined,  /* Which AWS CDK modules (those that start with "@aws-cdk/") this app uses. */
@@ -29,10 +29,10 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@aws-lambda-powertools/metrics',
     '@aws-lambda-powertools/tracer',
     '@types/aws-lambda',
-    'bluebird',
-    'node-html-parser',
-    'twitter-api-v2',
-    'yaml',
+    'bluebird@3.7.2',
+    'node-html-parser@5.3.3',
+    'twitter-api-v2@1.12.0',
+    'yaml@2.0.1',
   ],
   devDeps: [
     '@types/bluebird',

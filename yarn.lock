@@ -2233,10 +2233,10 @@ aws-cdk-lib@^2.0.0:
     semver "^7.3.5"
     yaml "1.10.2"
 
-aws-cdk-lib@^2.22.0:
-  version "2.22.0"
-  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.22.0.tgz#21b13764eff8c44cfe8ab03509a173ee8b661475"
-  integrity sha512-Orz+c746XGm1QBJKb3Wh6qH2rpmHdYMS5A4Wk91niYzrY4Q2kck/XLeQtEwOzscbW2Hqwc6vXTEpkldAI2pzGw==
+aws-cdk-lib@^2.23.0:
+  version "2.23.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.23.0.tgz#82983dd86d732096ee6e14ba43e2cd46a92d58c9"
+  integrity sha512-ewUgVRnXA31yZPz/X1BfyVgzCBlPfyjadmkYQsZgT3vRE+NbddTRG4O5r+k9O46xLC41YV8ZMCnhsfPfa5VRKA==
   dependencies:
     "@balena/dockerignore" "^1.0.2"
     case "1.6.3"
@@ -2248,10 +2248,10 @@ aws-cdk-lib@^2.22.0:
     semver "^7.3.6"
     yaml "1.10.2"
 
-aws-cdk@^2.22.0:
-  version "2.22.0"
-  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.22.0.tgz#3d0a3158f228f398faed49d73372f8aa351034bf"
-  integrity sha512-oF3VCv/rtuLk8eLb6CBEWvEobabG8q05ersawGEy9CBhKbKNjfY1FDz6gc3ssksTwfcJqyJms2l/BQlLMBjugw==
+aws-cdk@^2.23.0:
+  version "2.23.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.23.0.tgz#be805347cf97391c6cd3ea24cd3eb405125c7865"
+  integrity sha512-sfVrFImP+mRVdqCDsJcM63inAp9/XSmmeE2hlg8Bqwf7WUblRmj22xiD53VbL2dkc1la6UN05TkfNDAGT0skow==
   optionalDependencies:
     fsevents "2.3.2"
 
@@ -2333,7 +2333,7 @@ balanced-match@^1.0.0:
   resolved "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz"
   integrity sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==
 
-bluebird@^3.7.2:
+bluebird@3.7.2:
   version "3.7.2"
   resolved "https://registry.yarnpkg.com/bluebird/-/bluebird-3.7.2.tgz#9f229c15be272454ffa973ace0dbee79a1b0c36f"
   integrity sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==
@@ -2717,21 +2717,21 @@ crypto-random-string@^2.0.0:
   resolved "https://registry.npmjs.org/crypto-random-string/-/crypto-random-string-2.0.0.tgz"
   integrity sha512-v1plID3y9r/lPhviJ1wrXpLeyUIGAZ2SHNYTEapm7/8A9nLPoyvVp3RK/EPFqn5kEznyWgYZNsRtYYIWbuG8KA==
 
-css-select@^4.1.3:
-  version "4.2.1"
-  resolved "https://registry.npmjs.org/css-select/-/css-select-4.2.1.tgz"
-  integrity sha512-/aUslKhzkTNCQUB2qTX84lVmfia9NyjP3WpDGtj/WxhwBzWBYUV3DgUpurHTme8UTPcPlAD1DJ+b0nN/t50zDQ==
+css-select@^4.2.1:
+  version "4.3.0"
+  resolved "https://registry.yarnpkg.com/css-select/-/css-select-4.3.0.tgz#db7129b2846662fd8628cfc496abb2b59e41529b"
+  integrity sha512-wPpOYtnsVontu2mODhA19JrqWxNsfdatRKd64kmpRbQgh1KtItko5sTnEpPdpSaJszTOhEMlF/RPz28qj4HqhQ==
   dependencies:
     boolbase "^1.0.0"
-    css-what "^5.1.0"
-    domhandler "^4.3.0"
+    css-what "^6.0.1"
+    domhandler "^4.3.1"
     domutils "^2.8.0"
     nth-check "^2.0.1"
 
-css-what@^5.1.0:
-  version "5.1.0"
-  resolved "https://registry.npmjs.org/css-what/-/css-what-5.1.0.tgz"
-  integrity sha512-arSMRWIIFY0hV8pIxZMEfmMI47Wj3R/aWpZDDxWYCPEiOMv6tfOrnpDtgxBYPEQD4V0Y/958+1TdC3iWTFcUPw==
+css-what@^6.0.1:
+  version "6.1.0"
+  resolved "https://registry.yarnpkg.com/css-what/-/css-what-6.1.0.tgz#fb5effcf76f1ddea2c81bdfaa4de44e79bac70f4"
+  integrity sha512-HTUrgRJ7r4dsZKU6GjmpfRK1O76h97Z8MfS1G0FozR+oF2kG6Vfe8JE6zwrkbxigziPHinCJ+gCPjA9EaBDtRw==
 
 cssom@^0.4.4:
   version "0.4.4"
@@ -2913,10 +2913,17 @@ domexception@^2.0.1:
   dependencies:
     webidl-conversions "^5.0.0"
 
-domhandler@^4.2.0, domhandler@^4.3.0:
+domhandler@^4.2.0:
   version "4.3.0"
   resolved "https://registry.npmjs.org/domhandler/-/domhandler-4.3.0.tgz"
   integrity sha512-fC0aXNQXqKSFTr2wDNZDhsEYjCiYsDWl3D01kwt25hm1YIPyDGHvvi3rw+PLqHAl/m71MaiF7d5zvBr0p5UB2g==
+  dependencies:
+    domelementtype "^2.2.0"
+
+domhandler@^4.3.1:
+  version "4.3.1"
+  resolved "https://registry.yarnpkg.com/domhandler/-/domhandler-4.3.1.tgz#8d792033416f59d68bc03a5aa7b018c1ca89279c"
+  integrity sha512-GrwoxYN+uWlzO8uhUXRl0P+kHE4GtVPfYzVLcUxPL7KNdHKj66vvlhiweIHqYYXWlw+T8iLMp42Lm67ghw4WMQ==
   dependencies:
     domelementtype "^2.2.0"
 
@@ -5091,12 +5098,12 @@ node-gyp@^8.2.0:
     tar "^6.1.2"
     which "^2.0.2"
 
-node-html-parser@*:
-  version "5.2.0"
-  resolved "https://registry.npmjs.org/node-html-parser/-/node-html-parser-5.2.0.tgz"
-  integrity sha512-fmiwLfQu+J2A0zjwSEkztSHexAf5qq/WoiL/Hgo1K7JpfEP+OGWY5maG0kGaM+IFVdixF/1QbyXaQ3h4cGfeLw==
+node-html-parser@5.3.3:
+  version "5.3.3"
+  resolved "https://registry.yarnpkg.com/node-html-parser/-/node-html-parser-5.3.3.tgz#2845704f3a7331a610e0e551bf5fa02b266341b6"
+  integrity sha512-ncg1033CaX9UexbyA7e1N0aAoAYRDiV8jkTvzEnfd1GDvzFdrsXLzR4p4ik8mwLgnaKP/jyUFWDy9q3jvRT2Jw==
   dependencies:
-    css-select "^4.1.3"
+    css-select "^4.2.1"
     he "1.2.0"
 
 node-int64@^0.4.0:
@@ -6230,10 +6237,10 @@ tsutils@^3.21.0:
   dependencies:
     tslib "^1.8.1"
 
-twitter-api-v2@^1.10.3:
-  version "1.10.3"
-  resolved "https://registry.yarnpkg.com/twitter-api-v2/-/twitter-api-v2-1.10.3.tgz#07441bd9c4d27433aa0284d900cf60f6328b8239"
-  integrity sha512-AbCboiTOWv4DUPbAlF43Uyk4iK/QRk354pNdKgtOmv45+BWGB5Kdv6ls+C99pww/DyLBiXgQEnuyGv4d1HdRhw==
+twitter-api-v2@1.12.0:
+  version "1.12.0"
+  resolved "https://registry.yarnpkg.com/twitter-api-v2/-/twitter-api-v2-1.12.0.tgz#0c69fd9578a4e870404bb449cd3634275c152d2e"
+  integrity sha512-8Fv+sUYY0P1gloiBSgG1w/NSuGUIP32lDKMPVzIMX3jd4zDhiJFtCft41fKs+JqcD8m7s+4vkMO/XwyY2+NULQ==
 
 type-check@^0.4.0, type-check@~0.4.0:
   version "0.4.0"
@@ -6541,10 +6548,15 @@ yallist@^4.0.0:
   resolved "https://registry.npmjs.org/yallist/-/yallist-4.0.0.tgz"
   integrity sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==
 
-yaml@1.10.2, yaml@^1.10.2:
+yaml@1.10.2:
   version "1.10.2"
   resolved "https://registry.npmjs.org/yaml/-/yaml-1.10.2.tgz"
   integrity sha512-r3vXyErRCYJ7wg28yvBY5VSoAF8ZvlcW9/BwUzEtUsjvX/DKs24dIkuwjtuprwJJHsbyUbLApepYTR1BN4uHrg==
+
+yaml@2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/yaml/-/yaml-2.0.1.tgz#71886d6021f3da28169dbefde78d4dd0f8d83650"
+  integrity sha512-1NpAYQ3wjzIlMs0mgdBmYzLkFgWBIWrzYVDYfrixhoFNNgJ444/jT2kUT2sicRbJES3oQYRZugjB6Ro8SjKeFg==
 
 yaml@next:
   version "2.0.0-10"
