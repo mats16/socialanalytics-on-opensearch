@@ -1,5 +1,6 @@
 import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy, Aws } from 'aws-cdk-lib';
 import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
+import * as events from 'aws-cdk-lib/aws-events';
 import { KinesisStream } from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
@@ -21,7 +22,55 @@ import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
 
 interface SocialAnalyticsStackProps extends StackProps {
-  defaultTwitterBearerToken?: string | undefined;
+  defaultTwitterBearerToken?: string;
+};
+
+// https://developer.twitter.com/en/docs/twitter-api/data-dictionary/introduction
+const tweetFieldsParams: Partial<Tweetv2FieldsParams> = {
+  'tweet.fields': [
+    'id', 'text', // default
+    //'attachments',
+    'author_id',
+    'context_annotations',
+    'conversation_id',
+    'created_at',
+    'entities',
+    'geo',
+    'in_reply_to_user_id',
+    'lang',
+    //'non_public_metrics',
+    //'organic_metrics',
+    'possibly_sensitive',
+    //'promoted_metrics',
+    'public_metrics',
+    'referenced_tweets',
+    'reply_settings',
+    'source',
+    //'withheld'
+  ],
+  'user.fields': [
+    'id', 'name', 'username', // default
+    'url',
+    'verified',
+    'public_metrics',
+  ],
+  'place.fields': [
+    'id', 'full_name', // default
+    'contained_within',
+    'country',
+    'country_code',
+    'geo',
+    'name',
+    'place_type',
+  ],
+  'expansions': [
+    //https://developer.twitter.com/en/docs/twitter-api/expansions
+    'author_id',
+    'entities.mentions.username',
+    'in_reply_to_user_id',
+    'referenced_tweets.id',
+    'referenced_tweets.id.author_id',
+  ],
 };
 
 const lambdaCommonSettings: NodejsFunctionProps = {
@@ -42,68 +91,26 @@ export class SocialAnalyticsStack extends Stack {
       default: props.defaultTwitterBearerToken,
       noEcho: true,
     });
+
     const twitterBearerToken = new StringParameter(this, 'TwitterBearerToken', {
       description: 'Twitter Bearer Token',
       parameterName: `/${this.stackName}/Twitter/BearerToken`,
       stringValue: twitterBearerTokenParameter.valueAsString,
     });
+
     const twitterFieldsParams = new StringParameter(this, 'TwitterFieldsParams', {
-      // https://developer.twitter.com/en/docs/twitter-api/data-dictionary/introduction
       description: 'Tweet fields params for API calls',
       parameterName: `/${this.stackName}/Twitter/FieldsParams`,
-      stringValue: JSON.stringify({
-        'tweet.fields': [
-          'id', 'text', // default
-          //'attachments',
-          'author_id',
-          'context_annotations',
-          'conversation_id',
-          'created_at',
-          'entities',
-          'geo',
-          'in_reply_to_user_id',
-          'lang',
-          //'non_public_metrics',
-          //'organic_metrics',
-          'possibly_sensitive',
-          //'promoted_metrics',
-          'public_metrics',
-          'referenced_tweets',
-          'reply_settings',
-          'source',
-          //'withheld'
-        ],
-        'user.fields': [
-          'id', 'name', 'username', // default
-          'url',
-          'verified',
-          'public_metrics',
-        ],
-        'place.fields': [
-          'id', 'full_name', // default
-          'contained_within',
-          'country',
-          'country_code',
-          'geo',
-          'name',
-          'place_type',
-        ],
-        'expansions': [
-          //https://developer.twitter.com/en/docs/twitter-api/expansions
-          'author_id',
-          'entities.mentions.username',
-          'in_reply_to_user_id',
-          'referenced_tweets.id',
-          'referenced_tweets.id.author_id',
-        ],
-      } as Partial<Tweetv2FieldsParams>),
+      stringValue: JSON.stringify(tweetFieldsParams),
     });
+
     const twitterFilterContextDomains = new StringListParameter(this, 'twitterFilterContextDomains', {
       // https://developer.twitter.com/en/docs/twitter-api/annotations/overview
       description: 'Context domains for filtering',
       parameterName: `/${this.stackName}/Twitter/Filter/ContextDomains`,
       stringListValue: ['Musician', 'Music Genre', 'Actor', 'TV Shows', 'Multimedia Franchise', 'Fictional Character', 'Entertainment Personality'],
     });
+
     const twitterFilterSourceLabels = new StringListParameter(this, 'twitterFilterSourceLabels', {
       // https://help.twitter.com/en/using-twitter/how-to-tweet#source-labels
       description: 'Tweet source labels for filtering',
@@ -125,6 +132,8 @@ export class SocialAnalyticsStack extends Stack {
         }],
       }],
     });
+
+    const eventBus = new events.EventBus(this, 'EventBus');
 
     const ingestionStream = new kinesis.Stream(this, 'IngestionStream', {
       encryption: kinesis.StreamEncryption.MANAGED,
