@@ -29,7 +29,7 @@
     },
     {
       "name": "aws-cdk",
-      "version": "^2.23.0",
+      "version": "^2.24.1",
       "type": "build"
     },
     {
@@ -121,6 +121,10 @@
       "type": "runtime"
     },
     {
+      "name": "@aws-sdk/client-eventbridge",
+      "type": "runtime"
+    },
+    {
       "name": "@aws-sdk/client-kinesis",
       "type": "runtime"
     },
@@ -162,7 +166,7 @@
     },
     {
       "name": "aws-cdk-lib",
-      "version": "^2.23.0",
+      "version": "^2.24.1",
       "type": "runtime"
     },
     {

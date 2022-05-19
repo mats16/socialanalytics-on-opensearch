@@ -1,6 +1,6 @@
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
-  cdkVersion: '2.23.0',
+  cdkVersion: '2.24.1',
   defaultReleaseBranch: 'main',
   name: 'social-analytics',
   // cdkDependencies: undefined,  /* Which AWS CDK modules (those that start with "@aws-cdk/") this app uses. */
@@ -14,6 +14,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@aws-sdk/client-cognito-identity',
     '@aws-sdk/client-cognito-identity-provider',
     '@aws-sdk/client-comprehend',
+    '@aws-sdk/client-eventbridge',
     '@aws-sdk/client-kinesis',
     '@aws-sdk/client-s3',
     '@aws-sdk/client-ssm',
