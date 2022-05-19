@@ -75,7 +75,7 @@ const tweetFieldsParams: Partial<Tweetv2FieldsParams> = {
 
 const lambdaCommonSettings: NodejsFunctionProps = {
   handler: 'handler',
-  runtime: lambda.Runtime.NODEJS_14_X,
+  runtime: lambda.Runtime.NODEJS_16_X,
   architecture: lambda.Architecture.ARM_64,
   insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
   logRetention: logs.RetentionDays.TWO_WEEKS,
@@ -145,7 +145,7 @@ export class SocialAnalyticsStack extends Stack {
 
     const analysisFunction = new NodejsFunction(this, 'AnalysisFunction', {
       ...lambdaCommonSettings,
-      description: 'Analysis with Amazon Comprehend',
+      description: '[SocialAnalytics] Analysis with Amazon Comprehend',
       entry: './src/functions/analysis/index.ts',
       memorySize: 256,
       timeout: Duration.minutes(5),
@@ -179,7 +179,7 @@ export class SocialAnalyticsStack extends Stack {
 
     const archiveFilterFunction = new NodejsFunction(this, 'ArchiveFilterFunction', {
       ...lambdaCommonSettings,
-      description: 'Filtering with backup flag',
+      description: '[SocialAnalytics] Filtering with backup flag',
       entry: './src/functions/archive-filter/index.ts',
       timeout: Duration.minutes(5),
       environment: {
@@ -241,7 +241,7 @@ export class SocialAnalyticsStack extends Stack {
 
     const indexingFunction = new NodejsFunction(this, 'IndexingFunction', {
       ...lambdaCommonSettings,
-      description: 'Bulk operations to load data into OpenSearch',
+      description: '[SocialAnalytics] Bulk operations to load data into OpenSearch',
       entry: './src/functions/indexing/index.ts',
       memorySize: 256,
       timeout: Duration.minutes(5),
@@ -261,6 +261,25 @@ export class SocialAnalyticsStack extends Stack {
       ],
       role: dashboard.BulkOperationRole,
     });
+
+    const putEventsFunction = new NodejsFunction(this, 'PutEventsFunction', {
+      ...lambdaCommonSettings,
+      description: '[SocialAnalytics] Put events to EventBus',
+      entry: './src/functions/put-events/index.ts',
+      timeout: Duration.minutes(5),
+      environment: {
+        EVENT_BUS_NAME: eventBus.eventBusName,
+      },
+      events: [
+        new KinesisEventSource(indexingStream, {
+          startingPosition: lambda.StartingPosition.LATEST,
+          batchSize: 100,
+          maxBatchingWindow: Duration.seconds(15),
+          maxRecordAge: Duration.days(1),
+        }),
+      ],
+    });
+    eventBus.grantPutEventsTo(putEventsFunction);
 
     const reingestTweetsV1Function = new S3QueueFunction(this, 'ReingestTweetsV1Function', {
       destStream: ingestionStream,

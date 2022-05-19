@@ -83,7 +83,7 @@ Object {
           },
           "S3Key": "c4ee6fcb7c684ef8789ffb6ce6d677b25b74f648a044e9b5aeb2a979598ae12a.zip",
         },
-        "Description": "Analysis with Amazon Comprehend",
+        "Description": "[SocialAnalytics] Analysis with Amazon Comprehend",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
@@ -118,7 +118,7 @@ Object {
             "Arn",
           ],
         },
-        "Runtime": "nodejs14.x",
+        "Runtime": "nodejs16.x",
         "Timeout": 300,
         "TracingConfig": Object {
           "Mode": "Active",
@@ -322,7 +322,7 @@ Object {
           },
           "S3Key": "ae66470e7570f2fa69b2a79b989e0e51a8f0fd43061be69b1129a2f20b0c3a2d.zip",
         },
-        "Description": "Filtering with backup flag",
+        "Description": "[SocialAnalytics] Filtering with backup flag",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
@@ -351,7 +351,7 @@ Object {
             "Arn",
           ],
         },
-        "Runtime": "nodejs14.x",
+        "Runtime": "nodejs16.x",
         "Timeout": 300,
         "TracingConfig": Object {
           "Mode": "Active",
@@ -2353,6 +2353,12 @@ scrape_configs:
       "Type": "AWS::Logs::LogGroup",
       "UpdateReplacePolicy": "Delete",
     },
+    "EventBus7B8748AA": Object {
+      "Properties": Object {
+        "Name": "testEventBusD3C7AA2F",
+      },
+      "Type": "AWS::Events::EventBus",
+    },
     "IndexingArchiveStream105402AA": Object {
       "Properties": Object {
         "DeliveryStreamType": "KinesisStreamAsSource",
@@ -2615,7 +2621,7 @@ scrape_configs:
           },
           "S3Key": "5bd93496b87b94240e27da75962af94168926bca1cee53a11320725354093b25.zip",
         },
-        "Description": "Bulk operations to load data into OpenSearch",
+        "Description": "[SocialAnalytics] Bulk operations to load data into OpenSearch",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
@@ -2652,7 +2658,7 @@ scrape_configs:
             "Arn",
           ],
         },
-        "Runtime": "nodejs14.x",
+        "Runtime": "nodejs16.x",
         "Timeout": 300,
         "TracingConfig": Object {
           "Mode": "Active",
@@ -3054,6 +3060,205 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Policy",
     },
+    "PutEventsFunction630061C6": Object {
+      "DependsOn": Array [
+        "PutEventsFunctionServiceRoleDefaultPolicyA92037D7",
+        "PutEventsFunctionServiceRole5945BF82",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "81d69a9fd6ec09f52f0a0df57f459c454faa5f76a51712264b9f38a816382c8b.zip",
+        },
+        "Description": "[SocialAnalytics] Put events to EventBus",
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "EVENT_BUS_NAME": Object {
+              "Ref": "EventBus7B8748AA",
+            },
+          },
+        },
+        "Handler": "index.handler",
+        "Layers": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+              ],
+            ],
+          },
+        ],
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "PutEventsFunctionServiceRole5945BF82",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs16.x",
+        "Timeout": 300,
+        "TracingConfig": Object {
+          "Mode": "Active",
+        },
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "PutEventsFunctionKinesisEventSourcetestIndexingStream67143927F679BA5C": Object {
+      "Properties": Object {
+        "BatchSize": 100,
+        "EventSourceArn": Object {
+          "Fn::GetAtt": Array [
+            "IndexingStream9338356A",
+            "Arn",
+          ],
+        },
+        "FunctionName": Object {
+          "Ref": "PutEventsFunction630061C6",
+        },
+        "MaximumBatchingWindowInSeconds": 15,
+        "MaximumRecordAgeInSeconds": 86400,
+        "StartingPosition": "LATEST",
+      },
+      "Type": "AWS::Lambda::EventSourceMapping",
+    },
+    "PutEventsFunctionLogRetentionB3FCC020": Object {
+      "Properties": Object {
+        "LogGroupName": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/aws/lambda/",
+              Object {
+                "Ref": "PutEventsFunction630061C6",
+              },
+            ],
+          ],
+        },
+        "RetentionInDays": 14,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::LogRetention",
+    },
+    "PutEventsFunctionServiceRole5945BF82": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "PutEventsFunctionServiceRoleDefaultPolicyA92037D7": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "kinesis:DescribeStreamSummary",
+                "kinesis:GetRecords",
+                "kinesis:GetShardIterator",
+                "kinesis:ListShards",
+                "kinesis:SubscribeToShard",
+                "kinesis:DescribeStream",
+                "kinesis:ListStreams",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "IndexingStream9338356A",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": "kinesis:DescribeStream",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "IndexingStream9338356A",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": "events:PutEvents",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "EventBus7B8748AA",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "PutEventsFunctionServiceRoleDefaultPolicyA92037D7",
+        "Roles": Array [
+          Object {
+            "Ref": "PutEventsFunctionServiceRole5945BF82",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
     "ReindexTweetsV2Function1508A276": Object {
       "DependsOn": Array [
         "ReindexTweetsV2FunctionServiceRoleDefaultPolicyF70624C7",
@@ -3107,7 +3312,7 @@ scrape_configs:
             "Arn",
           ],
         },
-        "Runtime": "nodejs14.x",
+        "Runtime": "nodejs16.x",
         "Timeout": 30,
         "TracingConfig": Object {
           "Mode": "Active",
@@ -3523,7 +3728,7 @@ scrape_configs:
             "Arn",
           ],
         },
-        "Runtime": "nodejs14.x",
+        "Runtime": "nodejs16.x",
         "Timeout": 300,
         "TracingConfig": Object {
           "Mode": "Active",
@@ -3939,7 +4144,7 @@ scrape_configs:
             "Arn",
           ],
         },
-        "Runtime": "nodejs14.x",
+        "Runtime": "nodejs16.x",
         "Timeout": 30,
         "TracingConfig": Object {
           "Mode": "Active",
