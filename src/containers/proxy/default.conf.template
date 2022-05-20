@@ -1,0 +1,39 @@
+# https://gallery.ecr.aws/nginx/nginx
+# https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/dashboards.html#dashboards-access
+
+server {
+    listen 8080;
+    server_name $host;
+    rewrite ^/$ https://$host/_dashboards redirect;
+
+    location /_dashboards {
+        # Forward requests to Dashboards
+        proxy_pass https://${DOMAIN_ENDPOINT}/_dashboards;
+
+        # Handle redirects to Cognito
+        proxy_redirect https://${COGNITO_HOST} https://$host;
+
+        # Update cookie domain and path
+        proxy_cookie_domain ${DOMAIN_ENDPOINT} $host;
+        #proxy_cookie_path / /_dashboards/;
+
+        # Response buffer settings
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+    }
+
+    location ~ \/(log|sign|fav|forgot|change|saml|oauth2|confirm) {
+        # Forward requests to Cognito
+        proxy_pass https://${COGNITO_HOST};
+
+        # Handle redirects to Dashboards
+        proxy_redirect https://${DOMAIN_ENDPOINT} https://$host;
+
+        # Handle redirects to Cognito
+        proxy_redirect https://${COGNITO_HOST} https://$host;
+
+        # Update cookie domain
+        proxy_cookie_domain ${COGNITO_HOST} $host;
+    }
+}

@@ -11,6 +11,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   // release: undefined,          /* Add release management to this project. */
   deps: [
     'cdk-ecr-deployment',
+    '@aws-cdk/aws-apprunner-alpha',
     '@aws-sdk/client-cognito-identity',
     '@aws-sdk/client-cognito-identity-provider',
     '@aws-sdk/client-comprehend',

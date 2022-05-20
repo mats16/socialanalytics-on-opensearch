@@ -89,6 +89,10 @@
       "type": "build"
     },
     {
+      "name": "@aws-cdk/aws-apprunner-alpha",
+      "type": "runtime"
+    },
+    {
       "name": "@aws-crypto/sha256-js",
       "type": "runtime"
     },

@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@aws-cdk/aws-apprunner-alpha@^2.24.1-alpha.0":
+  version "2.24.1-alpha.0"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/aws-apprunner-alpha/-/aws-apprunner-alpha-2.24.1-alpha.0.tgz#ac87e2fe93a3aa32715736b887d385196fd791d7"
+  integrity sha512-7Afq4EnlTKLP6vmKadHqaPnKXQS2+EgNQphAttqOXSWx4xRYxHenYORfPjHvb7LNyIEj+LKDwHylX18QhY4YVA==
+
 "@aws-crypto/crc32@2.0.0":
   version "2.0.0"
   resolved "https://registry.npmjs.org/@aws-crypto/crc32/-/crc32-2.0.0.tgz"
