@@ -217,6 +217,16 @@ export class Dashboard extends Construct {
                   },
                 },
               },
+              referenced_tweets: {
+                properties: {
+                  type: {
+                    type: 'keyword',
+                  },
+                  id: {
+                    type: 'keyword',
+                  },
+                },
+              },
               reply_settings: {
                 type: 'keyword',
               },
