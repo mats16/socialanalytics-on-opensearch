@@ -248,10 +248,9 @@ export class SocialAnalyticsStack extends Stack {
     });
 
     const proxy = new Proxy(this, 'Proxy', {
-      domainEndpoint: dashboard.Domain.domainEndpoint,
+      dashboardsHost: dashboard.Domain.domainEndpoint,
       cognitoHost: `${cognitoDomainPrefix}.auth.${this.region}.amazoncognito.com`,
     });
-
     new CfnOutput(this, 'url', { value: `https://${proxy.domainName}` });
   }
 };

@@ -5,7 +5,7 @@ import * as ecrDeploy from 'cdk-ecr-deployment';
 import { Construct } from 'constructs';
 
 interface ProxyProps {
-  domainEndpoint: string;
+  dashboardsHost: string;
   cognitoHost: string;
 };
 
@@ -15,23 +15,16 @@ export class Proxy extends Construct {
   constructor(scope: Construct, id: string, props: ProxyProps) {
     super(scope, id);
 
-    const imageAsset = new DockerImageAsset(this, 'ImageAsset', {
+    const asset = new DockerImageAsset(this, 'ImageAsset', {
       directory: './src/containers/proxy',
     });
 
-    const repository = new ecr.Repository(this, 'Repo');
-
-    new ecrDeploy.ECRDeployment(this, 'ImageAssetDeploy', {
-      src: new ecrDeploy.DockerImageName(imageAsset.imageUri),
-      dest: new ecrDeploy.DockerImageName(repository.repositoryUri),
-    });
-
     const service = new apprunner.Service(this, 'Service', {
-      source: new apprunner.EcrSource({
-        repository,
+      source: new apprunner.AssetSource({
+        asset,
         imageConfiguration: {
           environment: {
-            DOMAIN_ENDPOINT: props.domainEndpoint,
+            DASHBOARDS_HOST: props.dashboardsHost,
             COGNITO_HOST: props.cognitoHost,
           },
         },
