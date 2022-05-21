@@ -21,7 +21,7 @@ export class Proxy extends Construct {
 
     const repository = new ecr.Repository(this, 'Repo');
 
-    new ecrDeploy.ECRDeployment(this, 'twitterStreamingReaderImageAssetDeploy', {
+    new ecrDeploy.ECRDeployment(this, 'ImageAssetDeploy', {
       src: new ecrDeploy.DockerImageName(imageAsset.imageUri),
       dest: new ecrDeploy.DockerImageName(repository.repositoryUri),
     });
