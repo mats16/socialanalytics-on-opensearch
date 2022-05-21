@@ -2,6 +2,24 @@
 
 exports[`Snapshot 1`] = `
 Object {
+  "Outputs": Object {
+    "url": Object {
+      "Value": Object {
+        "Fn::Join": Array [
+          "",
+          Array [
+            "https://",
+            Object {
+              "Fn::GetAtt": Array [
+                "ProxyService763FC4C9",
+                "ServiceUrl",
+              ],
+            },
+          ],
+        ],
+      },
+    },
+  },
   "Parameters": Object {
     "BootstrapVersion": Object {
       "Default": "/cdk-bootstrap/hnb659fds/version",
@@ -23,7 +41,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "68b4ffa1c39cb3733535725f85311791c09eab53b7ab8efa5152e68f8abdb005.zip",
+          "S3Key": "9ab58259097ac1249b4061ac6e823f78810b11c4c760a30324f6d012fe8e6440.zip",
         },
         "Handler": "index.handler",
         "Role": Object {
@@ -143,29 +161,6 @@ Object {
         "StartingPosition": "LATEST",
       },
       "Type": "AWS::Lambda::EventSourceMapping",
-    },
-    "AnalysisFunctionLogRetention410E0C4B": Object {
-      "Properties": Object {
-        "LogGroupName": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "/aws/lambda/",
-              Object {
-                "Ref": "AnalysisFunction3223EF84",
-              },
-            ],
-          ],
-        },
-        "RetentionInDays": 14,
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "Custom::LogRetention",
     },
     "AnalysisFunctionServiceRoleD6B6DBD6": Object {
       "Properties": Object {
@@ -358,29 +353,6 @@ Object {
         },
       },
       "Type": "AWS::Lambda::Function",
-    },
-    "ArchiveFilterFunctionLogRetentionC55E0B89": Object {
-      "Properties": Object {
-        "LogGroupName": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "/aws/lambda/",
-              Object {
-                "Ref": "ArchiveFilterFunction81E5C2D0",
-              },
-            ],
-          ],
-        },
-        "RetentionInDays": 14,
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "Custom::LogRetention",
     },
     "ArchiveFilterFunctionServiceRole67EDC4DF": Object {
       "Properties": Object {
@@ -1122,103 +1094,6 @@ scrape_configs:
         "Roles": Array [
           Object {
             "Ref": "ContainerInsightsTaskDefinitionTaskRole1CE4BE83",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiB28EAD8E4": Object {
-      "DependsOn": Array [
-        "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRoleDefaultPolicy280095F8",
-        "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRole8C8B0491",
-      ],
-      "Properties": Object {
-        "Code": Object {
-          "S3Bucket": Object {
-            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
-          },
-          "S3Key": "2b33097fab137d18505e51fe514bf094eb0f0a7c84dbeee3bdea164d616e29aa.zip",
-        },
-        "Handler": "main",
-        "MemorySize": 512,
-        "Role": Object {
-          "Fn::GetAtt": Array [
-            "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRole8C8B0491",
-            "Arn",
-          ],
-        },
-        "Runtime": "go1.x",
-        "Timeout": 900,
-      },
-      "Type": "AWS::Lambda::Function",
-    },
-    "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRole8C8B0491": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRoleDefaultPolicy280095F8": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "ecr:GetAuthorizationToken",
-                "ecr:BatchCheckLayerAvailability",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:GetRepositoryPolicy",
-                "ecr:DescribeRepositories",
-                "ecr:ListImages",
-                "ecr:DescribeImages",
-                "ecr:BatchGetImage",
-                "ecr:ListTagsForResource",
-                "ecr:DescribeImageScanFindings",
-                "ecr:InitiateLayerUpload",
-                "ecr:UploadLayerPart",
-                "ecr:CompleteLayerUpload",
-                "ecr:PutImage",
-              ],
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-            Object {
-              "Action": "s3:GetObject",
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRoleDefaultPolicy280095F8",
-        "Roles": Array [
-          Object {
-            "Ref": "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiBServiceRole8C8B0491",
           },
         ],
       },
@@ -2011,7 +1886,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "a25ad9c0d11729e2a901249c21b3095a071174c6fc98296269154dcebbb42a08.zip",
+          "S3Key": "eaeb69bc290b516fe3b049f89d6118b22249df682fbabf56af300cf345198574.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (test/Dashboard/Domain/Provider)",
         "Environment": Object {
@@ -2285,6 +2160,16 @@ scrape_configs:
                     },
                     "retweet_count": Object {
                       "type": "long",
+                    },
+                  },
+                },
+                "referenced_tweets": Object {
+                  "properties": Object {
+                    "id": Object {
+                      "type": "keyword",
+                    },
+                    "type": Object {
+                      "type": "keyword",
                     },
                   },
                 },
@@ -2684,29 +2569,6 @@ scrape_configs:
       },
       "Type": "AWS::Lambda::EventSourceMapping",
     },
-    "IndexingFunctionLogRetentionE66864C5": Object {
-      "Properties": Object {
-        "LogGroupName": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "/aws/lambda/",
-              Object {
-                "Ref": "IndexingFunctionE0FD8B44",
-              },
-            ],
-          ],
-        },
-        "RetentionInDays": 14,
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "Custom::LogRetention",
-    },
     "IndexingStream9338356A": Object {
       "Properties": Object {
         "RetentionPeriodHours": 24,
@@ -2982,30 +2844,61 @@ scrape_configs:
       },
       "Type": "AWS::Kinesis::Stream",
     },
-    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A": Object {
-      "DependsOn": Array [
-        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
-        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
-      ],
+    "ProxyService763FC4C9": Object {
       "Properties": Object {
-        "Code": Object {
-          "S3Bucket": Object {
-            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+        "InstanceConfiguration": Object {},
+        "SourceConfiguration": Object {
+          "AuthenticationConfiguration": Object {
+            "AccessRoleArn": Object {
+              "Fn::GetAtt": Array [
+                "ProxyServiceAccessRoleB56FA899",
+                "Arn",
+              ],
+            },
           },
-          "S3Key": "558dc75fbdc793c8e2f64f85d2d7ed2cb820c727ec7e9b08666ad1af0103992e.zip",
+          "ImageRepository": Object {
+            "ImageConfiguration": Object {
+              "RuntimeEnvironmentVariables": Array [
+                Object {
+                  "Name": "DASHBOARDS_HOST",
+                  "Value": Object {
+                    "Fn::GetAtt": Array [
+                      "DashboardDomainED696CAB",
+                      "DomainEndpoint",
+                    ],
+                  },
+                },
+                Object {
+                  "Name": "COGNITO_HOST",
+                  "Value": Object {
+                    "Fn::Join": Array [
+                      "",
+                      Array [
+                        "test-",
+                        Object {
+                          "Ref": "AWS::AccountId",
+                        },
+                        ".auth.",
+                        Object {
+                          "Ref": "AWS::Region",
+                        },
+                        ".amazoncognito.com",
+                      ],
+                    ],
+                  },
+                },
+              ],
+            },
+            "ImageIdentifier": Object {
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:d3a24da0786b5348912200b888308b96fc474589f7d7f2168d7badd230bd9fa7",
+            },
+            "ImageRepositoryType": "ECR",
+          },
         },
-        "Handler": "index.handler",
-        "Role": Object {
-          "Fn::GetAtt": Array [
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
-            "Arn",
-          ],
-        },
-        "Runtime": "nodejs14.x",
       },
-      "Type": "AWS::Lambda::Function",
+      "Type": "AWS::AppRunner::Service",
     },
-    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB": Object {
+    "ProxyServiceAccessRoleB56FA899": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
@@ -3013,48 +2906,62 @@ scrape_configs:
               "Action": "sts:AssumeRole",
               "Effect": "Allow",
               "Principal": Object {
-                "Service": "lambda.amazonaws.com",
+                "Service": "build.apprunner.amazonaws.com",
               },
             },
           ],
           "Version": "2012-10-17",
         },
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-        ],
       },
       "Type": "AWS::IAM::Role",
     },
-    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB": Object {
+    "ProxyServiceAccessRoleDefaultPolicyFBA86EBD": Object {
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
             Object {
-              "Action": Array [
-                "logs:PutRetentionPolicy",
-                "logs:DeleteRetentionPolicy",
-              ],
+              "Action": "ecr:GetAuthorizationToken",
               "Effect": "Allow",
               "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ecr:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":repository/",
+                    Object {
+                      "Fn::Sub": "cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}",
+                    },
+                  ],
+                ],
+              },
             },
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+        "PolicyName": "ProxyServiceAccessRoleDefaultPolicyFBA86EBD",
         "Roles": Array [
           Object {
-            "Ref": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
+            "Ref": "ProxyServiceAccessRoleB56FA899",
           },
         ],
       },
@@ -3130,29 +3037,6 @@ scrape_configs:
         "StartingPosition": "LATEST",
       },
       "Type": "AWS::Lambda::EventSourceMapping",
-    },
-    "PutEventsFunctionLogRetentionB3FCC020": Object {
-      "Properties": Object {
-        "LogGroupName": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "/aws/lambda/",
-              Object {
-                "Ref": "PutEventsFunction630061C6",
-              },
-            ],
-          ],
-        },
-        "RetentionInDays": 14,
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "Custom::LogRetention",
     },
     "PutEventsFunctionServiceRole5945BF82": Object {
       "Properties": Object {
@@ -3313,129 +3197,18 @@ scrape_configs:
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 30,
+        "Timeout": 300,
         "TracingConfig": Object {
           "Mode": "Active",
         },
       },
       "Type": "AWS::Lambda::Function",
     },
-    "ReindexTweetsV2FunctionKey130466AD": Object {
-      "DeletionPolicy": "Retain",
-      "Properties": Object {
-        "Description": "Key that protects SQS messages for ReindexTweetsV2Function",
-        "KeyPolicy": Object {
-          "Statement": Array [
-            Object {
-              "Action": "kms:*",
-              "Effect": "Allow",
-              "Principal": Object {
-                "AWS": Object {
-                  "Fn::Join": Array [
-                    "",
-                    Array [
-                      "arn:",
-                      Object {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":iam::",
-                      Object {
-                        "Ref": "AWS::AccountId",
-                      },
-                      ":root",
-                    ],
-                  ],
-                },
-              },
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "kms:Decrypt",
-                "kms:Encrypt",
-                "kms:ReEncrypt*",
-                "kms:GenerateDataKey*",
-              ],
-              "Condition": Object {
-                "ArnLike": Object {
-                  "aws:SourceArn": Object {
-                    "Fn::GetAtt": Array [
-                      "Bucket83908E77",
-                      "Arn",
-                    ],
-                  },
-                },
-              },
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "s3.amazonaws.com",
-              },
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "kms:GenerateDataKey*",
-                "kms:Decrypt",
-              ],
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "s3.amazonaws.com",
-              },
-              "Resource": "*",
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-      },
-      "Type": "AWS::KMS::Key",
-      "UpdateReplacePolicy": "Retain",
-    },
-    "ReindexTweetsV2FunctionKeyAliasD298DE62": Object {
-      "Properties": Object {
-        "AliasName": "alias/test/sqs/ReindexTweetsV2Function",
-        "TargetKeyId": Object {
-          "Fn::GetAtt": Array [
-            "ReindexTweetsV2FunctionKey130466AD",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::KMS::Alias",
-    },
-    "ReindexTweetsV2FunctionLogRetention43E127C4": Object {
-      "Properties": Object {
-        "LogGroupName": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "/aws/lambda/",
-              Object {
-                "Ref": "ReindexTweetsV2Function1508A276",
-              },
-            ],
-          ],
-        },
-        "RetentionInDays": 14,
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "Custom::LogRetention",
-    },
     "ReindexTweetsV2FunctionQueue24CDEFA4": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
-        "KmsMasterKeyId": Object {
-          "Fn::GetAtt": Array [
-            "ReindexTweetsV2FunctionKey130466AD",
-            "Arn",
-          ],
-        },
         "MessageRetentionPeriod": 1209600,
-        "VisibilityTimeout": 30,
+        "VisibilityTimeout": 300,
       },
       "Type": "AWS::SQS::Queue",
       "UpdateReplacePolicy": "Delete",
@@ -3572,16 +3345,6 @@ scrape_configs:
               "Resource": Object {
                 "Fn::GetAtt": Array [
                   "ReindexTweetsV2FunctionQueue24CDEFA4",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "kms:Decrypt",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "ReindexTweetsV2FunctionKey130466AD",
                   "Arn",
                 ],
               },
@@ -3736,120 +3499,9 @@ scrape_configs:
       },
       "Type": "AWS::Lambda::Function",
     },
-    "ReingestTweetsV1FunctionKeyAlias4D7FDEC5": Object {
-      "Properties": Object {
-        "AliasName": "alias/test/sqs/ReingestTweetsV1Function",
-        "TargetKeyId": Object {
-          "Fn::GetAtt": Array [
-            "ReingestTweetsV1FunctionKeyB55D745A",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::KMS::Alias",
-    },
-    "ReingestTweetsV1FunctionKeyB55D745A": Object {
-      "DeletionPolicy": "Retain",
-      "Properties": Object {
-        "Description": "Key that protects SQS messages for ReingestTweetsV1Function",
-        "KeyPolicy": Object {
-          "Statement": Array [
-            Object {
-              "Action": "kms:*",
-              "Effect": "Allow",
-              "Principal": Object {
-                "AWS": Object {
-                  "Fn::Join": Array [
-                    "",
-                    Array [
-                      "arn:",
-                      Object {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":iam::",
-                      Object {
-                        "Ref": "AWS::AccountId",
-                      },
-                      ":root",
-                    ],
-                  ],
-                },
-              },
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "kms:Decrypt",
-                "kms:Encrypt",
-                "kms:ReEncrypt*",
-                "kms:GenerateDataKey*",
-              ],
-              "Condition": Object {
-                "ArnLike": Object {
-                  "aws:SourceArn": Object {
-                    "Fn::GetAtt": Array [
-                      "Bucket83908E77",
-                      "Arn",
-                    ],
-                  },
-                },
-              },
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "s3.amazonaws.com",
-              },
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "kms:GenerateDataKey*",
-                "kms:Decrypt",
-              ],
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "s3.amazonaws.com",
-              },
-              "Resource": "*",
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-      },
-      "Type": "AWS::KMS::Key",
-      "UpdateReplacePolicy": "Retain",
-    },
-    "ReingestTweetsV1FunctionLogRetention33B281DC": Object {
-      "Properties": Object {
-        "LogGroupName": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "/aws/lambda/",
-              Object {
-                "Ref": "ReingestTweetsV1Function1B873B33",
-              },
-            ],
-          ],
-        },
-        "RetentionInDays": 14,
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "Custom::LogRetention",
-    },
     "ReingestTweetsV1FunctionQueueBCFE63A8": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
-        "KmsMasterKeyId": Object {
-          "Fn::GetAtt": Array [
-            "ReingestTweetsV1FunctionKeyB55D745A",
-            "Arn",
-          ],
-        },
         "MessageRetentionPeriod": 1209600,
         "VisibilityTimeout": 300,
       },
@@ -3988,16 +3640,6 @@ scrape_configs:
               "Resource": Object {
                 "Fn::GetAtt": Array [
                   "ReingestTweetsV1FunctionQueueBCFE63A8",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "kms:Decrypt",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "ReingestTweetsV1FunctionKeyB55D745A",
                   "Arn",
                 ],
               },
@@ -4145,129 +3787,18 @@ scrape_configs:
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 30,
+        "Timeout": 300,
         "TracingConfig": Object {
           "Mode": "Active",
         },
       },
       "Type": "AWS::Lambda::Function",
     },
-    "ReingestTweetsV2FunctionKey0EBE29FB": Object {
-      "DeletionPolicy": "Retain",
-      "Properties": Object {
-        "Description": "Key that protects SQS messages for ReingestTweetsV2Function",
-        "KeyPolicy": Object {
-          "Statement": Array [
-            Object {
-              "Action": "kms:*",
-              "Effect": "Allow",
-              "Principal": Object {
-                "AWS": Object {
-                  "Fn::Join": Array [
-                    "",
-                    Array [
-                      "arn:",
-                      Object {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":iam::",
-                      Object {
-                        "Ref": "AWS::AccountId",
-                      },
-                      ":root",
-                    ],
-                  ],
-                },
-              },
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "kms:Decrypt",
-                "kms:Encrypt",
-                "kms:ReEncrypt*",
-                "kms:GenerateDataKey*",
-              ],
-              "Condition": Object {
-                "ArnLike": Object {
-                  "aws:SourceArn": Object {
-                    "Fn::GetAtt": Array [
-                      "Bucket83908E77",
-                      "Arn",
-                    ],
-                  },
-                },
-              },
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "s3.amazonaws.com",
-              },
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "kms:GenerateDataKey*",
-                "kms:Decrypt",
-              ],
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "s3.amazonaws.com",
-              },
-              "Resource": "*",
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-      },
-      "Type": "AWS::KMS::Key",
-      "UpdateReplacePolicy": "Retain",
-    },
-    "ReingestTweetsV2FunctionKeyAliasAAFBF023": Object {
-      "Properties": Object {
-        "AliasName": "alias/test/sqs/ReingestTweetsV2Function",
-        "TargetKeyId": Object {
-          "Fn::GetAtt": Array [
-            "ReingestTweetsV2FunctionKey0EBE29FB",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::KMS::Alias",
-    },
-    "ReingestTweetsV2FunctionLogRetention579E3295": Object {
-      "Properties": Object {
-        "LogGroupName": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "/aws/lambda/",
-              Object {
-                "Ref": "ReingestTweetsV2Function867ADFC1",
-              },
-            ],
-          ],
-        },
-        "RetentionInDays": 14,
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "Custom::LogRetention",
-    },
     "ReingestTweetsV2FunctionQueue00EE7A69": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
-        "KmsMasterKeyId": Object {
-          "Fn::GetAtt": Array [
-            "ReingestTweetsV2FunctionKey0EBE29FB",
-            "Arn",
-          ],
-        },
         "MessageRetentionPeriod": 1209600,
-        "VisibilityTimeout": 30,
+        "VisibilityTimeout": 300,
       },
       "Type": "AWS::SQS::Queue",
       "UpdateReplacePolicy": "Delete",
@@ -4409,16 +3940,6 @@ scrape_configs:
               },
             },
             Object {
-              "Action": "kms:Decrypt",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "ReingestTweetsV2FunctionKey0EBE29FB",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
               "Action": Array [
                 "s3:GetObject*",
                 "s3:GetBucket*",
@@ -4527,16 +4048,6 @@ scrape_configs:
       },
       "Type": "AWS::SSM::Parameter",
     },
-    "TwitterStreamingReaderAppRepo84582A3E": Object {
-      "DeletionPolicy": "Retain",
-      "Properties": Object {
-        "ImageScanningConfiguration": Object {
-          "ScanOnPush": true,
-        },
-      },
-      "Type": "AWS::ECR::Repository",
-      "UpdateReplacePolicy": "Retain",
-    },
     "TwitterStreamingReaderCluster31726261": Object {
       "Properties": Object {
         "ClusterSettings": Array [
@@ -4554,89 +4065,6 @@ scrape_configs:
         "RetentionInDays": 14,
       },
       "Type": "AWS::Logs::LogGroup",
-      "UpdateReplacePolicy": "Retain",
-    },
-    "TwitterStreamingReaderLogRouterImageAssetDeployCustomResourceF90BB735": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "DestImage": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "docker://",
-              Object {
-                "Fn::Select": Array [
-                  4,
-                  Object {
-                    "Fn::Split": Array [
-                      ":",
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "TwitterStreamingReaderLogRouterRepoDF78D455",
-                          "Arn",
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-              ".dkr.ecr.",
-              Object {
-                "Fn::Select": Array [
-                  3,
-                  Object {
-                    "Fn::Split": Array [
-                      ":",
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "TwitterStreamingReaderLogRouterRepoDF78D455",
-                          "Arn",
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-              ".",
-              Object {
-                "Ref": "AWS::URLSuffix",
-              },
-              "/",
-              Object {
-                "Ref": "TwitterStreamingReaderLogRouterRepoDF78D455",
-              },
-            ],
-          ],
-        },
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiB28EAD8E4",
-            "Arn",
-          ],
-        },
-        "SrcImage": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "docker://",
-              Object {
-                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:70d24a18f8ddaf023204fda41f3a225a0b1dc24574582bf2c19ad97979880e43",
-              },
-            ],
-          ],
-        },
-      },
-      "Type": "Custom::CDKBucketDeployment",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "TwitterStreamingReaderLogRouterRepoDF78D455": Object {
-      "DeletionPolicy": "Retain",
-      "Properties": Object {
-        "ImageScanningConfiguration": Object {
-          "ScanOnPush": true,
-        },
-      },
-      "Type": "AWS::ECR::Repository",
       "UpdateReplacePolicy": "Retain",
     },
     "TwitterStreamingReaderServiceE64B9C32": Object {
@@ -4727,53 +4155,7 @@ scrape_configs:
             ],
             "Essential": true,
             "Image": Object {
-              "Fn::Join": Array [
-                "",
-                Array [
-                  Object {
-                    "Fn::Select": Array [
-                      4,
-                      Object {
-                        "Fn::Split": Array [
-                          ":",
-                          Object {
-                            "Fn::GetAtt": Array [
-                              "TwitterStreamingReaderAppRepo84582A3E",
-                              "Arn",
-                            ],
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                  ".dkr.ecr.",
-                  Object {
-                    "Fn::Select": Array [
-                      3,
-                      Object {
-                        "Fn::Split": Array [
-                          ":",
-                          Object {
-                            "Fn::GetAtt": Array [
-                              "TwitterStreamingReaderAppRepo84582A3E",
-                              "Arn",
-                            ],
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                  ".",
-                  Object {
-                    "Ref": "AWS::URLSuffix",
-                  },
-                  "/",
-                  Object {
-                    "Ref": "TwitterStreamingReaderAppRepo84582A3E",
-                  },
-                  ":latest",
-                ],
-              ],
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:c5a0eaf7886beb2d4f759bc9f72e9dc7f4b53e4feda69464a1d370e19de2b283",
             },
             "LogConfiguration": Object {
               "LogDriver": "awsfirelens",
@@ -4879,53 +4261,7 @@ scrape_configs:
               "Timeout": 5,
             },
             "Image": Object {
-              "Fn::Join": Array [
-                "",
-                Array [
-                  Object {
-                    "Fn::Select": Array [
-                      4,
-                      Object {
-                        "Fn::Split": Array [
-                          ":",
-                          Object {
-                            "Fn::GetAtt": Array [
-                              "TwitterStreamingReaderLogRouterRepoDF78D455",
-                              "Arn",
-                            ],
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                  ".dkr.ecr.",
-                  Object {
-                    "Fn::Select": Array [
-                      3,
-                      Object {
-                        "Fn::Split": Array [
-                          ":",
-                          Object {
-                            "Fn::GetAtt": Array [
-                              "TwitterStreamingReaderLogRouterRepoDF78D455",
-                              "Arn",
-                            ],
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                  ".",
-                  Object {
-                    "Ref": "AWS::URLSuffix",
-                  },
-                  "/",
-                  Object {
-                    "Ref": "TwitterStreamingReaderLogRouterRepoDF78D455",
-                  },
-                  ":latest",
-                ],
-              ],
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:70d24a18f8ddaf023204fda41f3a225a0b1dc24574582bf2c19ad97979880e43",
             },
             "LogConfiguration": Object {
               "LogDriver": "awslogs",
@@ -5005,9 +4341,26 @@ scrape_configs:
               ],
               "Effect": "Allow",
               "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterStreamingReaderAppRepo84582A3E",
-                  "Arn",
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ecr:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":repository/",
+                    Object {
+                      "Fn::Sub": "cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}",
+                    },
+                  ],
                 ],
               },
             },
@@ -5077,20 +4430,6 @@ scrape_configs:
                       "Ref": "TwitterFieldsParamsDD9504EE",
                     },
                   ],
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "ecr:BatchCheckLayerAvailability",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:BatchGetImage",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterStreamingReaderLogRouterRepoDF78D455",
-                  "Arn",
                 ],
               },
             },
@@ -5360,79 +4699,6 @@ scrape_configs:
       },
       "Type": "AWS::EC2::VPCGatewayAttachment",
     },
-    "TwitterStreamingReadertwitterStreamingReaderImageAssetDeployCustomResource6F37CCBB": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "DestImage": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "docker://",
-              Object {
-                "Fn::Select": Array [
-                  4,
-                  Object {
-                    "Fn::Split": Array [
-                      ":",
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "TwitterStreamingReaderAppRepo84582A3E",
-                          "Arn",
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-              ".dkr.ecr.",
-              Object {
-                "Fn::Select": Array [
-                  3,
-                  Object {
-                    "Fn::Split": Array [
-                      ":",
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "TwitterStreamingReaderAppRepo84582A3E",
-                          "Arn",
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-              ".",
-              Object {
-                "Ref": "AWS::URLSuffix",
-              },
-              "/",
-              Object {
-                "Ref": "TwitterStreamingReaderAppRepo84582A3E",
-              },
-            ],
-          ],
-        },
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "CustomCDKECRDeploymentbd07c930edb94112a20f03f096f53666512MiB28EAD8E4",
-            "Arn",
-          ],
-        },
-        "SrcImage": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "docker://",
-              Object {
-                "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:c5a0eaf7886beb2d4f759bc9f72e9dc7f4b53e4feda69464a1d370e19de2b283",
-              },
-            ],
-          ],
-        },
-      },
-      "Type": "Custom::CDKBucketDeployment",
-      "UpdateReplacePolicy": "Delete",
-    },
     "testUserPool38F3A57B": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
@@ -5692,7 +4958,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "a25ad9c0d11729e2a901249c21b3095a071174c6fc98296269154dcebbb42a08.zip",
+          "S3Key": "eaeb69bc290b516fe3b049f89d6118b22249df682fbabf56af300cf345198574.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (test/test-UserPool/IdentityPoolTokenEnableProvider)",
         "Environment": Object {

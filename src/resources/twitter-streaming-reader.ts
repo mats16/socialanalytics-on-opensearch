@@ -1,12 +1,9 @@
 import { Stack } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as ecr from 'aws-cdk-lib/aws-ecr';
-import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { IStringParameter } from 'aws-cdk-lib/aws-ssm';
-import * as ecrDeploy from 'cdk-ecr-deployment';
 import { Construct } from 'constructs';
 
 interface TwitterStreamingReaderProps {
@@ -35,28 +32,6 @@ export class TwitterStreamingReader extends Construct {
       retention: logs.RetentionDays.TWO_WEEKS,
     });
 
-    const appRepo = new ecr.Repository(this, 'AppRepo', {
-      imageScanOnPush: true,
-    });
-    const twitterStreamingReaderImageAsset = new DockerImageAsset(this, 'TwitterStreamingReaderImageAsset', {
-      directory: './src/containers/twitter-streaming-reader',
-    });
-    new ecrDeploy.ECRDeployment(this, 'twitterStreamingReaderImageAssetDeploy', {
-      src: new ecrDeploy.DockerImageName(twitterStreamingReaderImageAsset.imageUri),
-      dest: new ecrDeploy.DockerImageName(appRepo.repositoryUri),
-    });
-
-    const logRouterRepo = new ecr.Repository(this, 'LogRouterRepo', {
-      imageScanOnPush: true,
-    });
-    const logRouterImageAsset = new DockerImageAsset(this, 'LogRouterImageAsset', {
-      directory: './src/containers/log-router',
-    });
-    new ecrDeploy.ECRDeployment(this, 'LogRouterImageAssetDeploy', {
-      src: new ecrDeploy.DockerImageName(logRouterImageAsset.imageUri),
-      dest: new ecrDeploy.DockerImageName(logRouterRepo.repositoryUri),
-    });
-
     const cluster = new ecs.Cluster(this, 'Cluster', { vpc, containerInsights: true });
 
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDefinition', {
@@ -70,7 +45,7 @@ export class TwitterStreamingReader extends Construct {
 
     const appContainer = taskDefinition.addContainer('App', {
       containerName: 'app',
-      image: ecs.ContainerImage.fromEcrRepository(appRepo),
+      image: ecs.ContainerImage.fromAsset('./src/containers/twitter-streaming-reader'),
       cpu: 128,
       memoryReservationMiB: 256,
       essential: true,
@@ -92,7 +67,7 @@ export class TwitterStreamingReader extends Construct {
         },
       },
       containerName: 'log-router',
-      image: ecs.ContainerImage.fromEcrRepository(logRouterRepo),
+      image: ecs.ContainerImage.fromAsset('./src/containers/log-router'),
       cpu: 64,
       memoryReservationMiB: 128,
       portMappings: [{

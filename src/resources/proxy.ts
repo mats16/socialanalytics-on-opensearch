@@ -1,7 +1,5 @@
 import * as apprunner from '@aws-cdk/aws-apprunner-alpha';
-import * as ecr from 'aws-cdk-lib/aws-ecr';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
-import * as ecrDeploy from 'cdk-ecr-deployment';
 import { Construct } from 'constructs';
 
 interface ProxyProps {
