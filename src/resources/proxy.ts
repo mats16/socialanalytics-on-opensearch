@@ -10,7 +10,7 @@ interface ProxyProps {
 };
 
 export class Proxy extends Construct {
-  url: string;
+  domainName: string;
 
   constructor(scope: Construct, id: string, props: ProxyProps) {
     super(scope, id);
@@ -38,6 +38,6 @@ export class Proxy extends Construct {
       }),
     });
 
-    this.url = service.serviceUrl;
+    this.domainName = service.serviceUrl;
   }
 }

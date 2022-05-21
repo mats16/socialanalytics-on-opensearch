@@ -1,21 +1,26 @@
 # https://gallery.ecr.aws/nginx/nginx
 # https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/dashboards.html#dashboards-access
 
+resolver 1.1.1.1 1.0.0.1 valid=10s;
+
 server {
     listen 8080;
     server_name $host;
     rewrite ^/$ https://$host/_dashboards redirect;
 
+    set $domain_endpoint ${DOMAIN_ENDPOINT};
+    set $cognito_host ${COGNITO_HOST};
+
     location /_dashboards {
         # Forward requests to Dashboards
-        proxy_pass https://${DOMAIN_ENDPOINT}/_dashboards;
+        proxy_pass https://$domain_endpoint/_dashboards;
 
         # Handle redirects to Cognito
-        proxy_redirect https://${COGNITO_HOST} https://$host;
+        proxy_redirect https://$cognito_host https://$host;
 
         # Update cookie domain and path
-        proxy_cookie_domain ${DOMAIN_ENDPOINT} $host;
-        #proxy_cookie_path / /_dashboards/;
+        proxy_cookie_domain $domain_endpoint $host;
+        proxy_cookie_path / /_dashboards/;
 
         # Response buffer settings
         proxy_buffer_size 128k;
@@ -25,15 +30,15 @@ server {
 
     location ~ \/(log|sign|fav|forgot|change|saml|oauth2|confirm) {
         # Forward requests to Cognito
-        proxy_pass https://${COGNITO_HOST};
+        proxy_pass https://$cognito_host;
 
         # Handle redirects to Dashboards
-        proxy_redirect https://${DOMAIN_ENDPOINT} https://$host;
+        proxy_redirect https://$domain_endpoint https://$host;
 
         # Handle redirects to Cognito
-        proxy_redirect https://${COGNITO_HOST} https://$host;
+        proxy_redirect https://$cognito_host https://$host;
 
         # Update cookie domain
-        proxy_cookie_domain ${COGNITO_HOST} $host;
+        proxy_cookie_domain $cognito_host $host;
     }
 }

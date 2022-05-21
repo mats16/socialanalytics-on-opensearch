@@ -252,6 +252,6 @@ export class SocialAnalyticsStack extends Stack {
       cognitoHost: `${cognitoDomainPrefix}.auth.${this.region}.amazoncognito.com`,
     });
 
-    new CfnOutput(this, 'url', { value: proxy.url });
+    new CfnOutput(this, 'url', { value: `https://${proxy.domainName}` });
   }
 };
