@@ -1,5 +1,6 @@
 import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy, CfnOutput } from 'aws-cdk-lib';
 import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
@@ -31,35 +32,37 @@ export class SocialAnalyticsStack extends Stack {
       noEcho: true,
     });
 
+    const twitterParameterPath = `/${this.stackName}/Twitter`;
+
     const twitterBearerToken = new StringParameter(this, 'TwitterBearerToken', {
       description: 'Twitter Bearer Token',
-      parameterName: `/${this.stackName}/Twitter/BearerToken`,
+      parameterName: `${twitterParameterPath}/BearerToken`,
       stringValue: twitterBearerTokenParameter.valueAsString,
     });
 
     const twitterFieldsParams = new StringParameter(this, 'TwitterFieldsParams', {
       description: 'Tweet fields params for API calls',
-      parameterName: `/${this.stackName}/Twitter/FieldsParams`,
+      parameterName: `${twitterParameterPath}/FieldsParams`,
       stringValue: JSON.stringify(tweetFieldsParams),
     });
 
     new StringListParameter(this, 'twitterFilterContextDomains', {
       // https://developer.twitter.com/en/docs/twitter-api/annotations/overview
       description: 'Context domains for filtering',
-      parameterName: `/${this.stackName}/Twitter/Filter/ContextDomains`,
+      parameterName: `${twitterParameterPath}/Filter/ContextDomains`,
       stringListValue: ['Musician', 'Music Genre', 'Actor', 'TV Shows', 'Multimedia Franchise', 'Fictional Character', 'Entertainment Personality'],
     });
 
     new StringListParameter(this, 'twitterFilterSourceLabels', {
       // https://help.twitter.com/en/using-twitter/how-to-tweet#source-labels
       description: 'Tweet source labels for filtering',
-      parameterName: `/${this.stackName}/Twitter/Filter/SourceLabels`,
+      parameterName: `${twitterParameterPath}/Filter/SourceLabels`,
       stringListValue: ['twittbot.net', 'Mk00JapanBot', 'Gakeppu Tweet', 'BelugaCampaignSEA', 'rare_zaiko', 'Wn32ShimaneBot', 'uhiiman_bot', 'atulsbots'],
     });
 
     const twitterParameterPolicyStatement = new iam.PolicyStatement({
       actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
-      resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/${this.stackName}/Twitter/*`],
+      resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter${twitterParameterPath}/*`],
     });
 
     const comprehendPolicyStatement = new iam.PolicyStatement({
@@ -75,6 +78,22 @@ export class SocialAnalyticsStack extends Stack {
           transitionAfter: Duration.days(0),
         }],
       }],
+    });
+
+    const vpc = new ec2.Vpc(this, 'VPC', {
+      natGateways: 1,
+      subnetConfiguration: [
+        {
+          cidrMask: 24,
+          name: 'Public',
+          subnetType: ec2.SubnetType.PUBLIC,
+        },
+        {
+          cidrMask: 24,
+          name: 'Private',
+          subnetType: ec2.SubnetType.PRIVATE_WITH_NAT,
+        },
+      ],
     });
 
     const eventBus = new events.EventBus(this, 'EventBus');
@@ -140,6 +159,7 @@ export class SocialAnalyticsStack extends Stack {
     });
 
     const twitterStreamingReader = new TwitterStreamingReader(this, 'TwitterStreamingReader', {
+      vpc,
       twitterBearerToken,
       twitterFieldsParams,
       ingestionStream,

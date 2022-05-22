@@ -7,6 +7,7 @@ import { IStringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
 interface TwitterStreamingReaderProps {
+  vpc: ec2.IVpc;
   twitterBearerToken: IStringParameter;
   twitterFieldsParams: IStringParameter;
   ingestionStream: kinesis.IStream;
@@ -18,15 +19,7 @@ export class TwitterStreamingReader extends Construct {
   constructor(scope: Stack, id: string, props: TwitterStreamingReaderProps) {
     super(scope, id);
 
-    const ingestionStream = props.ingestionStream;
-
-    const vpc = new ec2.Vpc(this, 'VPC', {
-      subnetConfiguration: [{
-        cidrMask: 24,
-        name: 'PublicSubnet',
-        subnetType: ec2.SubnetType.PUBLIC,
-      }],
-    });
+    const { vpc, twitterBearerToken, twitterFieldsParams, ingestionStream } = props;
 
     const logGroup = new logs.LogGroup(this, 'LogGroup', {
       retention: logs.RetentionDays.TWO_WEEKS,
@@ -50,8 +43,8 @@ export class TwitterStreamingReader extends Construct {
       memoryReservationMiB: 256,
       essential: true,
       secrets: {
-        TWITTER_BEARER_TOKEN: ecs.Secret.fromSsmParameter(props.twitterBearerToken),
-        TWITTER_FIELDS_PARAMS: ecs.Secret.fromSsmParameter(props.twitterFieldsParams),
+        TWITTER_BEARER_TOKEN: ecs.Secret.fromSsmParameter(twitterBearerToken),
+        TWITTER_FIELDS_PARAMS: ecs.Secret.fromSsmParameter(twitterFieldsParams),
       },
       readonlyRootFilesystem: true,
       logging: new ecs.FireLensLogDriver({}),
