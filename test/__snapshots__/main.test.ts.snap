@@ -11,7 +11,7 @@ Object {
             "https://",
             Object {
               "Fn::GetAtt": Array [
-                "ProxyService763FC4C9",
+                "ProxyServiceDE4C54BC",
                 "ServiceUrl",
               ],
             },
@@ -810,10 +810,10 @@ scrape_configs:
             ],
             "Subnets": Array [
               Object {
-                "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet1SubnetC7CA6E9B",
+                "Ref": "VPCPublicSubnet1SubnetB4246D30",
               },
               Object {
-                "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet2Subnet8CD83DEB",
+                "Ref": "VPCPublicSubnet2Subnet74179F39",
               },
             ],
           },
@@ -835,7 +835,7 @@ scrape_configs:
           },
         ],
         "VpcId": Object {
-          "Ref": "TwitterStreamingReaderVPC17D0C89D",
+          "Ref": "VPCB9E5F0B4",
         },
       },
       "Type": "AWS::EC2::SecurityGroup",
@@ -2844,14 +2844,103 @@ scrape_configs:
       },
       "Type": "AWS::Kinesis::Stream",
     },
-    "ProxyService763FC4C9": Object {
+    "ProxyAccessRole5EE336D1": Object {
       "Properties": Object {
-        "InstanceConfiguration": Object {},
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "build.apprunner.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "Policies": Array [
+          Object {
+            "PolicyDocument": Object {
+              "Statement": Array [
+                Object {
+                  "Action": "ecr:GetAuthorizationToken",
+                  "Effect": "Allow",
+                  "Resource": "*",
+                },
+                Object {
+                  "Action": Array [
+                    "ecr:BatchCheckLayerAvailability",
+                    "ecr:GetDownloadUrlForLayer",
+                    "ecr:BatchGetImage",
+                  ],
+                  "Effect": "Allow",
+                  "Resource": Object {
+                    "Fn::Join": Array [
+                      "",
+                      Array [
+                        "arn:",
+                        Object {
+                          "Ref": "AWS::Partition",
+                        },
+                        ":ecr:",
+                        Object {
+                          "Ref": "AWS::Region",
+                        },
+                        ":",
+                        Object {
+                          "Ref": "AWS::AccountId",
+                        },
+                        ":repository/",
+                        Object {
+                          "Fn::Sub": "cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}",
+                        },
+                      ],
+                    ],
+                  },
+                },
+              ],
+              "Version": "2012-10-17",
+            },
+            "PolicyName": "PullImagePolicy",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ProxySecurityGroup31CCABE3": Object {
+      "Properties": Object {
+        "GroupDescription": "test/Proxy/SecurityGroup",
+        "SecurityGroupEgress": Array [
+          Object {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "VPCB9E5F0B4",
+        },
+      },
+      "Type": "AWS::EC2::SecurityGroup",
+    },
+    "ProxyServiceDE4C54BC": Object {
+      "Properties": Object {
+        "NetworkConfiguration": Object {
+          "EgressConfiguration": Object {
+            "EgressType": "VPC",
+            "VpcConnectorArn": Object {
+              "Fn::GetAtt": Array [
+                "ProxyVpcConnector7827835A",
+                "VpcConnectorArn",
+              ],
+            },
+          },
+        },
         "SourceConfiguration": Object {
           "AuthenticationConfiguration": Object {
             "AccessRoleArn": Object {
               "Fn::GetAtt": Array [
-                "ProxyServiceAccessRoleB56FA899",
+                "ProxyAccessRole5EE336D1",
                 "Arn",
               ],
             },
@@ -2874,9 +2963,8 @@ scrape_configs:
                     "Fn::Join": Array [
                       "",
                       Array [
-                        "test-",
                         Object {
-                          "Ref": "AWS::AccountId",
+                          "Ref": "testUserPoolUserPoolDomainA261789D",
                         },
                         ".auth.",
                         Object {
@@ -2887,10 +2975,14 @@ scrape_configs:
                     ],
                   },
                 },
+                Object {
+                  "Name": "NAME_SERVER",
+                  "Value": "1.1.1.1 1.0.0.1",
+                },
               ],
             },
             "ImageIdentifier": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:d3a24da0786b5348912200b888308b96fc474589f7d7f2168d7badd230bd9fa7",
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:eaa219d4db0681295261c2cd14c7d7eb0262af22bf139598d7e5e6ebb010bd98",
             },
             "ImageRepositoryType": "ECR",
           },
@@ -2898,74 +2990,26 @@ scrape_configs:
       },
       "Type": "AWS::AppRunner::Service",
     },
-    "ProxyServiceAccessRoleB56FA899": Object {
+    "ProxyVpcConnector7827835A": Object {
       "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "build.apprunner.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "ProxyServiceAccessRoleDefaultPolicyFBA86EBD": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "ecr:GetAuthorizationToken",
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "ecr:BatchCheckLayerAvailability",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:BatchGetImage",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:",
-                    Object {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":ecr:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":repository/",
-                    Object {
-                      "Fn::Sub": "cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}",
-                    },
-                  ],
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "ProxyServiceAccessRoleDefaultPolicyFBA86EBD",
-        "Roles": Array [
+        "SecurityGroups": Array [
           Object {
-            "Ref": "ProxyServiceAccessRoleB56FA899",
+            "Fn::GetAtt": Array [
+              "ProxySecurityGroup31CCABE3",
+              "GroupId",
+            ],
+          },
+        ],
+        "Subnets": Array [
+          Object {
+            "Ref": "VPCPrivateSubnet1Subnet8BCA10E0",
+          },
+          Object {
+            "Ref": "VPCPrivateSubnet2SubnetCFCDAA7A",
           },
         ],
       },
-      "Type": "AWS::IAM::Policy",
+      "Type": "AWS::AppRunner::VpcConnector",
     },
     "PutEventsFunction630061C6": Object {
       "DependsOn": Array [
@@ -4091,10 +4135,10 @@ scrape_configs:
             ],
             "Subnets": Array [
               Object {
-                "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet1SubnetC7CA6E9B",
+                "Ref": "VPCPublicSubnet1SubnetB4246D30",
               },
               Object {
-                "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet2Subnet8CD83DEB",
+                "Ref": "VPCPublicSubnet2Subnet74179F39",
               },
             ],
           },
@@ -4116,7 +4160,7 @@ scrape_configs:
           },
         ],
         "VpcId": Object {
-          "Ref": "TwitterStreamingReaderVPC17D0C89D",
+          "Ref": "VPCB9E5F0B4",
         },
       },
       "Type": "AWS::EC2::SecurityGroup",
@@ -4518,7 +4562,7 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Policy",
     },
-    "TwitterStreamingReaderVPC17D0C89D": Object {
+    "VPCB9E5F0B4": Object {
       "Properties": Object {
         "CidrBlock": "10.0.0.0/16",
         "EnableDnsHostnames": true,
@@ -4527,64 +4571,234 @@ scrape_configs:
         "Tags": Array [
           Object {
             "Key": "Name",
-            "Value": "test/TwitterStreamingReader/VPC",
+            "Value": "test/VPC",
           },
         ],
       },
       "Type": "AWS::EC2::VPC",
     },
-    "TwitterStreamingReaderVPCIGWE7C14BD5": Object {
+    "VPCIGWB7E252D3": Object {
       "Properties": Object {
         "Tags": Array [
           Object {
             "Key": "Name",
-            "Value": "test/TwitterStreamingReader/VPC",
+            "Value": "test/VPC",
           },
         ],
       },
       "Type": "AWS::EC2::InternetGateway",
     },
-    "TwitterStreamingReaderVPCPublicSubnetSubnet1DefaultRoute586979FC": Object {
-      "DependsOn": Array [
-        "TwitterStreamingReaderVPCVPCGWB84CF5D5",
-      ],
+    "VPCPrivateSubnet1DefaultRouteAE1D6490": Object {
       "Properties": Object {
         "DestinationCidrBlock": "0.0.0.0/0",
-        "GatewayId": Object {
-          "Ref": "TwitterStreamingReaderVPCIGWE7C14BD5",
+        "NatGatewayId": Object {
+          "Ref": "VPCPublicSubnet1NATGatewayE0556630",
         },
         "RouteTableId": Object {
-          "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet1RouteTable416C9AED",
+          "Ref": "VPCPrivateSubnet1RouteTableBE8A6027",
         },
       },
       "Type": "AWS::EC2::Route",
     },
-    "TwitterStreamingReaderVPCPublicSubnetSubnet1RouteTable416C9AED": Object {
-      "Properties": Object {
-        "Tags": Array [
-          Object {
-            "Key": "Name",
-            "Value": "test/TwitterStreamingReader/VPC/PublicSubnetSubnet1",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "TwitterStreamingReaderVPC17D0C89D",
-        },
-      },
-      "Type": "AWS::EC2::RouteTable",
-    },
-    "TwitterStreamingReaderVPCPublicSubnetSubnet1RouteTableAssociation34BA401C": Object {
+    "VPCPrivateSubnet1RouteTableAssociation347902D1": Object {
       "Properties": Object {
         "RouteTableId": Object {
-          "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet1RouteTable416C9AED",
+          "Ref": "VPCPrivateSubnet1RouteTableBE8A6027",
         },
         "SubnetId": Object {
-          "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet1SubnetC7CA6E9B",
+          "Ref": "VPCPrivateSubnet1Subnet8BCA10E0",
         },
       },
       "Type": "AWS::EC2::SubnetRouteTableAssociation",
     },
-    "TwitterStreamingReaderVPCPublicSubnetSubnet1SubnetC7CA6E9B": Object {
+    "VPCPrivateSubnet1RouteTableBE8A6027": Object {
+      "Properties": Object {
+        "Tags": Array [
+          Object {
+            "Key": "Name",
+            "Value": "test/VPC/PrivateSubnet1",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "VPCB9E5F0B4",
+        },
+      },
+      "Type": "AWS::EC2::RouteTable",
+    },
+    "VPCPrivateSubnet1Subnet8BCA10E0": Object {
+      "Properties": Object {
+        "AvailabilityZone": Object {
+          "Fn::Select": Array [
+            0,
+            Object {
+              "Fn::GetAZs": "",
+            },
+          ],
+        },
+        "CidrBlock": "10.0.2.0/24",
+        "MapPublicIpOnLaunch": false,
+        "Tags": Array [
+          Object {
+            "Key": "aws-cdk:subnet-name",
+            "Value": "Private",
+          },
+          Object {
+            "Key": "aws-cdk:subnet-type",
+            "Value": "Private",
+          },
+          Object {
+            "Key": "Name",
+            "Value": "test/VPC/PrivateSubnet1",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "VPCB9E5F0B4",
+        },
+      },
+      "Type": "AWS::EC2::Subnet",
+    },
+    "VPCPrivateSubnet2DefaultRouteF4F5CFD2": Object {
+      "Properties": Object {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": Object {
+          "Ref": "VPCPublicSubnet1NATGatewayE0556630",
+        },
+        "RouteTableId": Object {
+          "Ref": "VPCPrivateSubnet2RouteTable0A19E10E",
+        },
+      },
+      "Type": "AWS::EC2::Route",
+    },
+    "VPCPrivateSubnet2RouteTable0A19E10E": Object {
+      "Properties": Object {
+        "Tags": Array [
+          Object {
+            "Key": "Name",
+            "Value": "test/VPC/PrivateSubnet2",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "VPCB9E5F0B4",
+        },
+      },
+      "Type": "AWS::EC2::RouteTable",
+    },
+    "VPCPrivateSubnet2RouteTableAssociation0C73D413": Object {
+      "Properties": Object {
+        "RouteTableId": Object {
+          "Ref": "VPCPrivateSubnet2RouteTable0A19E10E",
+        },
+        "SubnetId": Object {
+          "Ref": "VPCPrivateSubnet2SubnetCFCDAA7A",
+        },
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+    },
+    "VPCPrivateSubnet2SubnetCFCDAA7A": Object {
+      "Properties": Object {
+        "AvailabilityZone": Object {
+          "Fn::Select": Array [
+            1,
+            Object {
+              "Fn::GetAZs": "",
+            },
+          ],
+        },
+        "CidrBlock": "10.0.3.0/24",
+        "MapPublicIpOnLaunch": false,
+        "Tags": Array [
+          Object {
+            "Key": "aws-cdk:subnet-name",
+            "Value": "Private",
+          },
+          Object {
+            "Key": "aws-cdk:subnet-type",
+            "Value": "Private",
+          },
+          Object {
+            "Key": "Name",
+            "Value": "test/VPC/PrivateSubnet2",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "VPCB9E5F0B4",
+        },
+      },
+      "Type": "AWS::EC2::Subnet",
+    },
+    "VPCPublicSubnet1DefaultRoute91CEF279": Object {
+      "DependsOn": Array [
+        "VPCVPCGW99B986DC",
+      ],
+      "Properties": Object {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": Object {
+          "Ref": "VPCIGWB7E252D3",
+        },
+        "RouteTableId": Object {
+          "Ref": "VPCPublicSubnet1RouteTableFEE4B781",
+        },
+      },
+      "Type": "AWS::EC2::Route",
+    },
+    "VPCPublicSubnet1EIP6AD938E8": Object {
+      "Properties": Object {
+        "Domain": "vpc",
+        "Tags": Array [
+          Object {
+            "Key": "Name",
+            "Value": "test/VPC/PublicSubnet1",
+          },
+        ],
+      },
+      "Type": "AWS::EC2::EIP",
+    },
+    "VPCPublicSubnet1NATGatewayE0556630": Object {
+      "Properties": Object {
+        "AllocationId": Object {
+          "Fn::GetAtt": Array [
+            "VPCPublicSubnet1EIP6AD938E8",
+            "AllocationId",
+          ],
+        },
+        "SubnetId": Object {
+          "Ref": "VPCPublicSubnet1SubnetB4246D30",
+        },
+        "Tags": Array [
+          Object {
+            "Key": "Name",
+            "Value": "test/VPC/PublicSubnet1",
+          },
+        ],
+      },
+      "Type": "AWS::EC2::NatGateway",
+    },
+    "VPCPublicSubnet1RouteTableAssociation0B0896DC": Object {
+      "Properties": Object {
+        "RouteTableId": Object {
+          "Ref": "VPCPublicSubnet1RouteTableFEE4B781",
+        },
+        "SubnetId": Object {
+          "Ref": "VPCPublicSubnet1SubnetB4246D30",
+        },
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+    },
+    "VPCPublicSubnet1RouteTableFEE4B781": Object {
+      "Properties": Object {
+        "Tags": Array [
+          Object {
+            "Key": "Name",
+            "Value": "test/VPC/PublicSubnet1",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "VPCB9E5F0B4",
+        },
+      },
+      "Type": "AWS::EC2::RouteTable",
+    },
+    "VPCPublicSubnet1SubnetB4246D30": Object {
       "Properties": Object {
         "AvailabilityZone": Object {
           "Fn::Select": Array [
@@ -4599,7 +4813,7 @@ scrape_configs:
         "Tags": Array [
           Object {
             "Key": "aws-cdk:subnet-name",
-            "Value": "PublicSubnet",
+            "Value": "Public",
           },
           Object {
             "Key": "aws-cdk:subnet-type",
@@ -4607,56 +4821,56 @@ scrape_configs:
           },
           Object {
             "Key": "Name",
-            "Value": "test/TwitterStreamingReader/VPC/PublicSubnetSubnet1",
+            "Value": "test/VPC/PublicSubnet1",
           },
         ],
         "VpcId": Object {
-          "Ref": "TwitterStreamingReaderVPC17D0C89D",
+          "Ref": "VPCB9E5F0B4",
         },
       },
       "Type": "AWS::EC2::Subnet",
     },
-    "TwitterStreamingReaderVPCPublicSubnetSubnet2DefaultRouteBEDCFF3D": Object {
+    "VPCPublicSubnet2DefaultRouteB7481BBA": Object {
       "DependsOn": Array [
-        "TwitterStreamingReaderVPCVPCGWB84CF5D5",
+        "VPCVPCGW99B986DC",
       ],
       "Properties": Object {
         "DestinationCidrBlock": "0.0.0.0/0",
         "GatewayId": Object {
-          "Ref": "TwitterStreamingReaderVPCIGWE7C14BD5",
+          "Ref": "VPCIGWB7E252D3",
         },
         "RouteTableId": Object {
-          "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet2RouteTable50E3B79C",
+          "Ref": "VPCPublicSubnet2RouteTable6F1A15F1",
         },
       },
       "Type": "AWS::EC2::Route",
     },
-    "TwitterStreamingReaderVPCPublicSubnetSubnet2RouteTable50E3B79C": Object {
+    "VPCPublicSubnet2RouteTable6F1A15F1": Object {
       "Properties": Object {
         "Tags": Array [
           Object {
             "Key": "Name",
-            "Value": "test/TwitterStreamingReader/VPC/PublicSubnetSubnet2",
+            "Value": "test/VPC/PublicSubnet2",
           },
         ],
         "VpcId": Object {
-          "Ref": "TwitterStreamingReaderVPC17D0C89D",
+          "Ref": "VPCB9E5F0B4",
         },
       },
       "Type": "AWS::EC2::RouteTable",
     },
-    "TwitterStreamingReaderVPCPublicSubnetSubnet2RouteTableAssociationDCD57024": Object {
+    "VPCPublicSubnet2RouteTableAssociation5A808732": Object {
       "Properties": Object {
         "RouteTableId": Object {
-          "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet2RouteTable50E3B79C",
+          "Ref": "VPCPublicSubnet2RouteTable6F1A15F1",
         },
         "SubnetId": Object {
-          "Ref": "TwitterStreamingReaderVPCPublicSubnetSubnet2Subnet8CD83DEB",
+          "Ref": "VPCPublicSubnet2Subnet74179F39",
         },
       },
       "Type": "AWS::EC2::SubnetRouteTableAssociation",
     },
-    "TwitterStreamingReaderVPCPublicSubnetSubnet2Subnet8CD83DEB": Object {
+    "VPCPublicSubnet2Subnet74179F39": Object {
       "Properties": Object {
         "AvailabilityZone": Object {
           "Fn::Select": Array [
@@ -4671,7 +4885,7 @@ scrape_configs:
         "Tags": Array [
           Object {
             "Key": "aws-cdk:subnet-name",
-            "Value": "PublicSubnet",
+            "Value": "Public",
           },
           Object {
             "Key": "aws-cdk:subnet-type",
@@ -4679,22 +4893,22 @@ scrape_configs:
           },
           Object {
             "Key": "Name",
-            "Value": "test/TwitterStreamingReader/VPC/PublicSubnetSubnet2",
+            "Value": "test/VPC/PublicSubnet2",
           },
         ],
         "VpcId": Object {
-          "Ref": "TwitterStreamingReaderVPC17D0C89D",
+          "Ref": "VPCB9E5F0B4",
         },
       },
       "Type": "AWS::EC2::Subnet",
     },
-    "TwitterStreamingReaderVPCVPCGWB84CF5D5": Object {
+    "VPCVPCGW99B986DC": Object {
       "Properties": Object {
         "InternetGatewayId": Object {
-          "Ref": "TwitterStreamingReaderVPCIGWE7C14BD5",
+          "Ref": "VPCIGWB7E252D3",
         },
         "VpcId": Object {
-          "Ref": "TwitterStreamingReaderVPC17D0C89D",
+          "Ref": "VPCB9E5F0B4",
         },
       },
       "Type": "AWS::EC2::VPCGatewayAttachment",
