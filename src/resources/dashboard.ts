@@ -20,8 +20,9 @@ export class Dashboard extends Construct {
 
     const userPool = props.userPool;
 
-    const cognitoOptions: opensearch.CognitoOptions|undefined = (userPool)
-      ? {
+    let cognitoOptions: opensearch.CognitoOptions|undefined = undefined;
+    if (typeof userPool != 'undefined') {
+      cognitoOptions = {
         userPoolId: userPool?.userPoolId,
         identityPoolId: userPool.identityPoolId,
         role: new iam.Role(this, 'CognitoAccessForAmazonOpenSearch', {
@@ -29,8 +30,8 @@ export class Dashboard extends Construct {
           assumedBy: new iam.ServicePrincipal('es.amazonaws.com'),
           managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonOpenSearchServiceCognitoAccess')],
         }),
-      }
-      : undefined;
+      };
+    }
 
     const removalPolicy = RemovalPolicy.DESTROY;
     const retention = logs.RetentionDays.ONE_MONTH;
@@ -60,7 +61,7 @@ export class Dashboard extends Construct {
       },
     });
 
-    if (userPool) {
+    if (typeof userPool != 'undefined') {
       new cognito.CfnUserPoolGroup(this, 'MasterUserGroup', {
         groupName: 'MasterUser',
         description: 'Master user for OpenSearch / fine-grained access control',
