@@ -2,7 +2,7 @@
 # https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/dashboards.html#dashboards-access
 
 server_tokens off;
-resolver ${NAME_SERVERS};
+resolver ${NAME_SERVER};
 
 server {
     listen 8080;
