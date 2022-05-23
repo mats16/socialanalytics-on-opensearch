@@ -79,7 +79,6 @@ export class Proxy extends Construct {
             ],
           },
         },
-        autoDeploymentsEnabled: true,
       },
       networkConfiguration,
     });
