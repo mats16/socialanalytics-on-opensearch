@@ -10,7 +10,6 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   // packageName: undefined,      /* The "name" in package.json. */
   // release: undefined,          /* Add release management to this project. */
   deps: [
-    '@aws-cdk/aws-apprunner-alpha',
     '@aws-sdk/client-cognito-identity',
     '@aws-sdk/client-cognito-identity-provider',
     '@aws-sdk/client-comprehend',

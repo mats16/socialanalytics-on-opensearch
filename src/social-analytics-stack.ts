@@ -169,8 +169,6 @@ export class SocialAnalyticsStack extends Stack {
       targetService: twitterStreamingReader.service,
     });
 
-    const cognitoDomainPrefix = `${this.stackName.toLowerCase()}-${this.account}`;
-
     const userPool = new UserPool(this, `${id}-UserPool`, {
       removalPolicy: RemovalPolicy.DESTROY,
       signInAliases: {
@@ -188,7 +186,7 @@ export class SocialAnalyticsStack extends Stack {
         'amazon.com',
         'amazon.co.jp',
       ],
-      cognitoDomainPrefix,
+      cognitoDomainPrefix: `${this.stackName.toLowerCase()}-${this.account}`,
     });
 
     const dashboard = new Dashboard(this, 'Dashboard', {
@@ -268,8 +266,9 @@ export class SocialAnalyticsStack extends Stack {
     });
 
     const proxy = new Proxy(this, 'Proxy', {
-      dashboardsHost: dashboard.Domain.domainEndpoint,
-      cognitoHost: `${cognitoDomainPrefix}.auth.${this.region}.amazoncognito.com`,
+      vpc,
+      openSearchDomain: dashboard.Domain,
+      cognitoHost: userPool.domainName,
     });
     new CfnOutput(this, 'url', { value: `https://${proxy.domainName}` });
   }

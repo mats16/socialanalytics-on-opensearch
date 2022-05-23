@@ -12,6 +12,7 @@ interface UserPoolProps extends cognito.UserPoolProps {
 }
 
 export class UserPool extends cognito.UserPool {
+  domainName: string;
   identityPoolId: string;
   authenticatedRole: iam.Role;
   crServiceToken: string;
@@ -33,9 +34,10 @@ export class UserPool extends cognito.UserPool {
 
     const domainPrefix = props.cognitoDomainPrefix;
 
-    this.addDomain('UserPoolDomain', {
+    const userPoolDomain = this.addDomain('UserPoolDomain', {
       cognitoDomain: { domainPrefix },
     });
+    this.domainName = `${userPoolDomain.domainName}.auth.${userPoolDomain.env.region}.amazoncognito.com`;
 
     this.identityPoolId = new cognito.CfnIdentityPool(this, 'IdentityPool', {
       allowUnauthenticatedIdentities: false,
