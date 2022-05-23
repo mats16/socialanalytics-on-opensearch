@@ -194,10 +194,11 @@ const matching_rules = (record: TweetStreamRecord) => {
 
 const toDocument = (record: TweetStreamRecord): Document => {
   const tweet = record.data;
+  const username = author(record)?.username;
   const doc: Document = {
     ...tweet,
     text: record.analysis?.normalized_text || Normalize(tweet.text),
-    url: `https://twitter.com/${tweet.author_id}/status/${tweet.id}`,
+    url: `https://twitter.com/${username||0}/status/${tweet.id}`,
     author: author(record),
     context_annotations: context_annotations(tweet),
     entities: entities(tweet),
@@ -207,6 +208,14 @@ const toDocument = (record: TweetStreamRecord): Document => {
     includes: record.includes,
     analysis: record.analysis,
   };
+  if (doc.referenced_tweets?.type?.includes('retweeted')) {
+    doc.public_metrics = {
+      like_count: 0,
+      quote_count: 0,
+      reply_count: 0,
+      retweet_count: 0,
+    };
+  }
   return doc;
 };
 
