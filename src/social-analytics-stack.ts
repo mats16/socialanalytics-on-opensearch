@@ -1,6 +1,6 @@
 import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy, CfnOutput } from 'aws-cdk-lib';
 import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import { Vpc, SubnetType, Port } from 'aws-cdk-lib/aws-ec2';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
@@ -80,18 +80,18 @@ export class SocialAnalyticsStack extends Stack {
       }],
     });
 
-    const vpc = new ec2.Vpc(this, 'VPC', {
+    const vpc = new Vpc(this, 'VPC', {
       natGateways: 1,
       subnetConfiguration: [
         {
           cidrMask: 24,
           name: 'Public',
-          subnetType: ec2.SubnetType.PUBLIC,
+          subnetType: SubnetType.PUBLIC,
         },
         {
           cidrMask: 24,
           name: 'Private',
-          subnetType: ec2.SubnetType.PRIVATE_WITH_NAT,
+          subnetType: SubnetType.PRIVATE_WITH_NAT,
         },
       ],
     });
@@ -190,6 +190,7 @@ export class SocialAnalyticsStack extends Stack {
     });
 
     const dashboard = new Dashboard(this, 'Dashboard', {
+      vpc,
       userPool,
     });
     userPool.enableRoleFromToken(`AmazonOpenSearchService-${dashboard.Domain.domainName}-`);
@@ -197,7 +198,7 @@ export class SocialAnalyticsStack extends Stack {
     const indexingFunction = new Function(this, 'IndexingFunction', {
       description: '[SocialAnalytics] Bulk operations to load data into OpenSearch',
       entry: './src/functions/indexing/index.ts',
-      memorySize: 256,
+      memorySize: 512,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'IndexingFunction',
         POWERTOOLS_METRICS_NAMESPACE: this.stackName,
@@ -212,7 +213,26 @@ export class SocialAnalyticsStack extends Stack {
           maxRecordAge: Duration.days(1),
         }),
       ],
-      role: dashboard.BulkOperationRole,
+      vpc,
+    });
+    dashboard.Domain.connections.allowFrom(indexingFunction, Port.tcp(443));
+
+    const bulkOperationRole = dashboard.Domain.addRole('BulkOperationRole', {
+      name: 'bulk_operation',
+      body: {
+        description: 'Provide the minimum permissions for a bulk operation user',
+        cluster_permissions: ['indices:data/write/bulk'],
+        index_permissions: [{
+          index_patterns: ['tweets-*'],
+          allowed_actions: ['write', 'create_index'],
+        }],
+      },
+    });
+    dashboard.Domain.addRoleMapping('BulkOperationRoleMapping', {
+      name: bulkOperationRole.getAttString('Name'),
+      body: {
+        backend_roles: [`${indexingFunction.role?.roleArn}`],
+      },
     });
 
     const putEventsFunction = new Function(this, 'PutEventsFunction', {

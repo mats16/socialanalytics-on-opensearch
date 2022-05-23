@@ -2,12 +2,12 @@ import * as apprunner from 'aws-cdk-lib/aws-apprunner';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { IDomain } from 'aws-cdk-lib/aws-opensearchservice';
+import { Domain } from 'aws-cdk-lib/aws-opensearchservice';
 import { Construct } from 'constructs';
 
 interface ProxyProps {
   vpc?: ec2.IVpc;
-  openSearchDomain: IDomain;
+  openSearchDomain: Domain;
   cognitoHost: string;
 };
 
@@ -28,6 +28,7 @@ export class Proxy extends Construct {
     let networkConfiguration: apprunner.CfnService.NetworkConfigurationProperty = { egressConfiguration: { egressType: 'DEFAULT' } };
     if (typeof vpc != 'undefined') {
       this.securityGroup = new ec2.SecurityGroup(this, 'SecurityGroup', { vpc });
+      openSearchDomain.connections.allowFrom(this.securityGroup, ec2.Port.tcp(443));
       const vpcConnector = new apprunner.CfnVpcConnector(this, 'VpcConnector', {
         subnets: vpc.privateSubnets.map(subnet => subnet.subnetId),
         securityGroups: [this.securityGroup.securityGroupId],

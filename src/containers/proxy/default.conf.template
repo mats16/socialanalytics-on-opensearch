@@ -12,6 +12,13 @@ server {
     set $dashboards_host ${DASHBOARDS_HOST};
     set $cognito_host ${COGNITO_HOST};
 
+    location = /favicon.ico {
+        proxy_pass https://$dashboards_host/_dashboards/ui/favicons/favicon.ico;
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+    }
+
     location ~ ^/_dashboards/ {
         # Forward requests to Dashboards
         proxy_pass https://$dashboards_host;

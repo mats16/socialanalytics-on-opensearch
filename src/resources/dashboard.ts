@@ -1,5 +1,6 @@
 import { RemovalPolicy } from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import { IVpc } from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
@@ -8,17 +9,17 @@ import { UserPool } from './cognito-for-opensearch';
 import { Domain } from './opensearch-fgac';
 
 interface DashboardProps {
+  vpc?: IVpc;
   userPool?: UserPool;
 };
 
 export class Dashboard extends Construct {
   Domain: Domain;
-  BulkOperationRole: iam.Role;
 
   constructor(scope: Construct, id: string, props: DashboardProps) {
     super(scope, id);
 
-    const userPool = props.userPool;
+    const { vpc, userPool } = props;
 
     let cognitoOptions: opensearch.CognitoOptions|undefined = undefined;
     if (typeof userPool != 'undefined') {
@@ -41,6 +42,7 @@ export class Dashboard extends Construct {
       version: opensearch.EngineVersion.OPENSEARCH_1_2,
       enableVersionUpgrade: true,
       zoneAwareness: { availabilityZoneCount: 3 },
+      vpc,
       capacity: {
         dataNodeInstanceType: 'r6gd.large.search',
         dataNodes: 3,
@@ -51,13 +53,13 @@ export class Dashboard extends Construct {
       cognitoDashboardsAuth: cognitoOptions,
       logging: {
         slowSearchLogEnabled: true,
-        slowSearchLogGroup: new logs.LogGroup(this, 'SlowSearchLogGroup', { removalPolicy, retention }),
+        slowSearchLogGroup: new logs.LogGroup(this, 'SlowSearchLogs', { removalPolicy, retention }),
         slowIndexLogEnabled: true,
-        slowIndexLogGroup: new logs.LogGroup(this, 'SlowIndexLogEnabled', { removalPolicy, retention }),
+        slowIndexLogGroup: new logs.LogGroup(this, 'SlowIndexLogs', { removalPolicy, retention }),
         appLogEnabled: true,
-        appLogGroup: new logs.LogGroup(this, 'AppLogEnabled', { removalPolicy, retention }),
+        appLogGroup: new logs.LogGroup(this, 'AppLogs', { removalPolicy, retention }),
         auditLogEnabled: true,
-        auditLogGroup: new logs.LogGroup(this, 'AuditLogGroup', { removalPolicy, retention }),
+        auditLogGroup: new logs.LogGroup(this, 'AuditLogs', { removalPolicy, retention }),
       },
     });
 
@@ -112,29 +114,6 @@ export class Dashboard extends Construct {
         },
       });
     };
-
-    this.BulkOperationRole = new iam.Role(this, 'BulkOperationRole', {
-      description: 'Bulk operator for OpenSearch / fine-grained access control',
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')],
-    });
-    const bulkOperationRole = this.Domain.addRole('BulkOperationRole', {
-      name: 'bulk_operation',
-      body: {
-        description: 'Provide the minimum permissions for a bulk operation user',
-        cluster_permissions: ['indices:data/write/bulk'],
-        index_permissions: [{
-          index_patterns: ['tweets-*'],
-          allowed_actions: ['write', 'create_index'],
-        }],
-      },
-    });
-    this.Domain.addRoleMapping('BulkOperationRoleMapping', {
-      name: bulkOperationRole.getAttString('Name'),
-      body: {
-        backend_roles: [this.BulkOperationRole.roleArn],
-      },
-    });
 
     this.Domain.addTemplate('TweetsTemplate', {
       name: 'tweets',

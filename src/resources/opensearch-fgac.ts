@@ -1,4 +1,5 @@
 import { CustomResource, Duration } from 'aws-cdk-lib';
+import { Port } from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -83,7 +84,7 @@ export class Domain extends opensearch.Domain {
     const masterUserRole = new iam.Role(scope, `${id}-MasterUserRole`, {
       description: 'Master user for OpenSearch / fine-grained access control',
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')],
+      managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole')],
     });
 
     const accessPolicy = new iam.PolicyStatement({
@@ -92,14 +93,15 @@ export class Domain extends opensearch.Domain {
       resources: ['*'],
     });
 
-    super(scope, id, {
-      ...props,
+    const defaultProps: Partial<opensearch.DomainProps> = {
       fineGrainedAccessControl: { masterUserArn: masterUserRole.roleArn },
       enforceHttps: true,
       nodeToNodeEncryption: true,
       encryptionAtRest: { enabled: true },
       accessPolicies: [accessPolicy],
-    });
+    };
+
+    super(scope, id, { ...defaultProps, ...props });
 
     this.masterUserRole = masterUserRole;
 
@@ -111,32 +113,37 @@ export class Domain extends opensearch.Domain {
       architecture: lambda.Architecture.ARM_64,
       timeout: Duration.seconds(300),
       role: masterUserRole,
+      vpc: props.vpc,
     });
     const provider = new cr.Provider(this, 'Provider', { onEventHandler });
     this.crServiceToken = provider.serviceToken;
 
-    const consoleRole = this.addRole('ConsoleRole', {
-      name: 'aws_console',
-      body: {
-        description: 'Provide the minimum permissions for aws console user',
-        cluster_permissions: [
-          'cluster:monitor/health',
-        ],
-        index_permissions: [{
-          index_patterns: ['*'],
-          allowed_actions: [
-            'indices:monitor/stats',
-            'indices:admin/mappings/get',
+    if (typeof props.vpc != 'undefined') {
+      this.connections.allowFrom(onEventHandler, Port.tcp(443));
+    } else {
+      const consoleRole = this.addRole('ConsoleRole', {
+        name: 'aws_console',
+        body: {
+          description: 'Provide the minimum permissions for aws console user',
+          cluster_permissions: [
+            'cluster:monitor/health',
           ],
-        }],
-      },
-    });
-    this.addRoleMapping('ConsoleRoleMapping', {
-      name: consoleRole.getAttString('Name'),
-      body: {
-        backend_roles: [`arn:aws:iam::${this.stack.account}:role/*`],
-      },
-    });
+          index_permissions: [{
+            index_patterns: ['*'],
+            allowed_actions: [
+              'indices:monitor/stats',
+              'indices:admin/mappings/get',
+            ],
+          }],
+        },
+      });
+      this.addRoleMapping('ConsoleRoleMapping', {
+        name: consoleRole.getAttString('Name'),
+        body: {
+          backend_roles: [`arn:aws:iam::${this.stack.account}:role/*`],
+        },
+      });
+    }
 
   };
   addRole(id: string, props: RoleProps) {
