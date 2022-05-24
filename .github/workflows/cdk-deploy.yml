@@ -27,8 +27,10 @@ jobs:
           node-version: '16'
       - name: Install dependencies
         run: yarn install --check-files
-      - name: Build
-        run: npx projen build
+      #- name: Build
+      #  run: npx projen build
+      - name: Diff
+        run: npx projen diff
       - name: Deploy
         id: deploy
         run: $(npm bin)/cdk deploy --require-approval never

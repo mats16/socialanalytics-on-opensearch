@@ -198,7 +198,7 @@ export class SocialAnalyticsStack extends Stack {
     const indexingFunction = new Function(this, 'IndexingFunction', {
       description: '[SocialAnalytics] Bulk operations to load data into OpenSearch',
       entry: './src/functions/indexing/index.ts',
-      memorySize: 512,
+      memorySize: 768,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'IndexingFunction',
         POWERTOOLS_METRICS_NAMESPACE: this.stackName,

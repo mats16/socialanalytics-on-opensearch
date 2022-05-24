@@ -194,11 +194,10 @@ const matching_rules = (record: TweetStreamRecord) => {
 
 const toDocument = (record: TweetStreamRecord): Document => {
   const tweet = record.data;
-  const username = author(record)?.username;
   const doc: Document = {
     ...tweet,
     text: record.analysis?.normalized_text || Normalize(tweet.text),
-    url: `https://twitter.com/${username||0}/status/${tweet.id}`,
+    url: `https://twitter.com/0/status/${tweet.id}`,
     author: author(record),
     context_annotations: context_annotations(tweet),
     entities: entities(tweet),
