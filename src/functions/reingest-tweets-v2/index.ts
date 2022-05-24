@@ -70,7 +70,7 @@ const bodyToLines = (objectBody: string|undefined): TweetStreamRecord[] => {
     const newRecords = records.map(record => {
       const newRecord: TweetStreamRecord = {
         ...record,
-        backup: true,
+        backup: false,
       };
       return newRecord;
     });

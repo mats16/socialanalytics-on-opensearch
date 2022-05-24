@@ -254,7 +254,7 @@ export class SocialAnalyticsStack extends Stack {
 
     const reingestTweetsV1Function = new RetryFunction(this, 'ReingestTweetsV1Function', {
       source: { bucket, prefix: 'reingest/tweets/v1/' },
-      destination: { kinesisStream: ingestionStream },
+      //destination: { kinesisStream: ingestionStream },
       description: 'Re-ingest for TweetsV1',
       entry: './src/functions/reingest-tweets-v1/index.ts',
       initialPolicy: [twitterParameterPolicyStatement],
@@ -265,7 +265,7 @@ export class SocialAnalyticsStack extends Stack {
 
     const reingestTweetsV2Function = new RetryFunction(this, 'ReingestTweetsV2Function', {
       source: { bucket, prefix: 'reingest/tweets/v2/' },
-      destination: { kinesisStream: ingestionStream },
+      //destination: { kinesisStream: ingestionStream },
       description: 'Re-ingest for TweetsV2',
       entry: './src/functions/reingest-tweets-v2/index.ts',
       initialPolicy: [twitterParameterPolicyStatement],
@@ -276,14 +276,18 @@ export class SocialAnalyticsStack extends Stack {
 
     const reindexTweetsV2Function = new RetryFunction(this, 'ReindexTweetsV2Function', {
       source: { bucket, prefix: 'reindex/tweets/v2/' },
-      destination: { kinesisStream: indexingStream },
+      //destination: { kinesisStream: indexingStream },
       description: 'Re-index for TweetsV2',
-      entry: './src/functions/reingest-tweets-v2/index.ts',
+      entry: './src/functions/reindex-tweets-v2/index.ts',
+      memorySize: 768,
       initialPolicy: [twitterParameterPolicyStatement],
       environment: {
         TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
+        INDEXING_FUNCTION_ARN: indexingFunction.functionArn,
       },
+      reservedConcurrentExecutions: 6,
     });
+    indexingFunction.grantInvoke(reindexTweetsV2Function);
 
     const proxy = new Proxy(this, 'Proxy', {
       vpc,

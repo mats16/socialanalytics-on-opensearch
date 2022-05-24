@@ -1,5 +1,15 @@
 import { TweetV2SingleStreamResult } from 'twitter-api-v2';
 
+export interface KinesisEmulatedRecord {
+  kinesis: {
+    data: string;
+  };
+}
+
+export interface KinesisEmulatedEvent {
+  Records: KinesisEmulatedRecord[];
+}
+
 export interface Analysis {
   normalized_text?: string;
   sentiment?: string;
@@ -10,13 +20,13 @@ export interface Analysis {
     mixed?: number;
   };
   entities?: string[];
-};
+}
 
 export interface TweetStreamRecord extends Partial<TweetV2SingleStreamResult> {
   data: TweetV2SingleStreamResult['data'];
   analysis?: Analysis;
   backup?: boolean;
-};
+}
 
 export const TweetStreamParse = (b64string: string) => {
   const record = JSON.parse(Buffer.from(b64string, 'base64').toString('utf8'));

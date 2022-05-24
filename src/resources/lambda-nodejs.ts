@@ -27,9 +27,6 @@ interface RetryFunctionProps extends NodejsFunctionProps {
     bucket: s3.IBucket;
     prefix: string;
   };
-  destination: {
-    kinesisStream: kinesis.Stream;
-  };
 };
 
 export class RetryFunction extends NodejsFunction {
@@ -42,7 +39,6 @@ export class RetryFunction extends NodejsFunction {
     });
 
     const { bucket, prefix } = props.source;
-    const destStream = props.destination.kinesisStream;
 
     const queue = new Queue(this, 'Queue', {
       retentionPeriod: Duration.days(14),
@@ -53,9 +49,6 @@ export class RetryFunction extends NodejsFunction {
     bucket.addObjectCreatedNotification(new SqsDestination(queue), { prefix });
     bucket.grantRead(this, `${prefix}*`);
     bucket.grantDelete(this, `${prefix}*`);
-
-    destStream.grantWrite(this);
-    this.addEnvironment('DEST_STREAM_NAME', destStream.streamName);
 
     this.addEnvironment('POWERTOOLS_SERVICE_NAME', id);
     this.addEnvironment('POWERTOOLS_METRICS_NAMESPACE', Aws.STACK_NAME);

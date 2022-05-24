@@ -129,6 +129,10 @@
       "type": "runtime"
     },
     {
+      "name": "@aws-sdk/client-lambda",
+      "type": "runtime"
+    },
+    {
       "name": "@aws-sdk/client-s3",
       "type": "runtime"
     },
@@ -158,6 +162,10 @@
     },
     {
       "name": "@aws-sdk/signature-v4",
+      "type": "runtime"
+    },
+    {
+      "name": "@aws-sdk/util-utf8-node",
       "type": "runtime"
     },
     {

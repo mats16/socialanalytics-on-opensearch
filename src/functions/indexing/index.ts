@@ -1,6 +1,5 @@
 import { Readable } from 'stream';
 import { Sha256 } from '@aws-crypto/sha256-js';
-import { LambdaInterface } from '@aws-lambda-powertools/commons';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
 import { Tracer } from '@aws-lambda-powertools/tracer';
@@ -8,9 +7,9 @@ import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpRequest, HttpResponse } from '@aws-sdk/protocol-http';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
-import { KinesisStreamHandler, KinesisStreamEvent, Context } from 'aws-lambda';
+import { Handler, KinesisStreamEvent } from 'aws-lambda';
 import { TweetV2, UserV2, TweetPublicMetricsV2, TTweetReplySettingsV2 } from 'twitter-api-v2';
-import { TweetStreamParse, TweetStreamRecord, Deduplicate, Normalize, Analysis } from '../utils';
+import { TweetStreamParse, TweetStreamRecord, Deduplicate, Normalize, Analysis, KinesisEmulatedEvent } from '../utils';
 
 const allowedTimeRange = 1000 * 60 * 60 * 24 * 365 * 2;
 const opensearchDomainEndpoint = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
@@ -248,30 +247,35 @@ const toBulkAction = (record: TweetStreamRecord): [BulkUpdateHeader, BulkUpdateD
   return [header, updateDoc];
 };
 
-const httpClient = new NodeHttpHandler();
+const sendBulkOperation = async(host: string, operations: [BulkUpdateHeader, BulkUpdateDocument][]): Promise<BulkResponse> => {
+  const body = operations.flatMap(ops => ops.map(x => JSON.stringify(x))).join('\n') + '\n';
+  const httpClient = new NodeHttpHandler();
+  const request = new HttpRequest({
+    headers: { 'Content-Type': 'application/json', host },
+    hostname: host,
+    method: 'POST',
+    path: '_bulk',
+    body: body,
+  });
+  const signer = new SignatureV4({
+    credentials: defaultProvider(),
+    region: region,
+    service: 'es',
+    sha256: Sha256,
+  });
+  const signedRequest = await signer.sign(request) as HttpRequest;
+  const { response } = await httpClient.handle(signedRequest);
+  const res: BulkResponse = await responseParse(response);
+  return res;
+};
 
-const bulkLoader = async (tweetStreamRecords: TweetStreamRecord[], inprogress: (BulkUpdateHeader|BulkUpdateDocument)[] = [], i: number = 0) => {
+// eslint-disable-next-line max-len
+const bulkLoader = async (host: string, tweetStreamRecords: TweetStreamRecord[], inprogress: [BulkUpdateHeader, BulkUpdateDocument][] = [], i: number = 0) => {
   const record = tweetStreamRecords[i];
   const bulkAction = toBulkAction(record);
-  inprogress.push(...bulkAction);
-  if (i+1 == tweetStreamRecords.length || inprogress.length == 500) {
-    const body = inprogress.map(x => JSON.stringify(x)).join('\n') + '\n';
-    const request = new HttpRequest({
-      headers: { 'Content-Type': 'application/json', 'host': opensearchDomainEndpoint },
-      hostname: opensearchDomainEndpoint,
-      method: 'POST',
-      path: '_bulk',
-      body: body,
-    });
-    const signer = new SignatureV4({
-      credentials: defaultProvider(),
-      region: region,
-      service: 'es',
-      sha256: Sha256,
-    });
-    const signedRequest = await signer.sign(request) as HttpRequest;
-    const { response } = await httpClient.handle(signedRequest);
-    const { took, items, errors }: BulkResponse = await responseParse(response);
+  inprogress.push(bulkAction);
+  if (i+1 == tweetStreamRecords.length || inprogress.length == 100) {
+    const { took, items, errors } = await sendBulkOperation(host, inprogress);
     searchMetrics.addMetric('Latency', MetricUnits.Milliseconds, took);
     searchMetrics.addMetric('RequestItemCount', MetricUnits.Count, items.length);
     const errorItems = items.filter(item => typeof item.update.error != 'undefined');
@@ -284,15 +288,15 @@ const bulkLoader = async (tweetStreamRecords: TweetStreamRecord[], inprogress: (
       inprogress.length = 0;
     }
   }
-  await bulkLoader(tweetStreamRecords, inprogress, i+1);
+  await bulkLoader(host, tweetStreamRecords, inprogress, i+1);
   return;
 };
 
-export const handler: KinesisStreamHandler = async(event, _context) => {
+export const handler: Handler<KinesisStreamEvent|KinesisEmulatedEvent> = async(event, _context) => {
   const kinesisStreamRecords = event.Records;
   metrics.addMetric('IncomingRecordCount', MetricUnits.Count, kinesisStreamRecords.length);
   const tweetStreamRecords = kinesisStreamRecords.map(record => TweetStreamParse(record.kinesis.data));
   const extendedTweetStreamRecords = tweetStreamRecords.flatMap(addOriginTweet);
-  await bulkLoader(extendedTweetStreamRecords);
+  await bulkLoader(opensearchDomainEndpoint, extendedTweetStreamRecords);
   metrics.publishStoredMetrics();
 };
