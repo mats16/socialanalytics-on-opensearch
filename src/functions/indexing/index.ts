@@ -248,14 +248,17 @@ const toBulkAction = (record: TweetStreamRecord): [BulkUpdateHeader, BulkUpdateD
   return [header, updateDoc];
 };
 
-class Lambda implements LambdaInterface {
+const httpClient = new NodeHttpHandler();
 
-  @tracer.captureMethod()
-  public async bulkRequest(host: string, body: string): Promise<BulkResponse> {
-    const httpClient = new NodeHttpHandler();
+const bulkLoader = async (tweetStreamRecords: TweetStreamRecord[], inprogress: (BulkUpdateHeader|BulkUpdateDocument)[] = [], i: number = 0) => {
+  const record = tweetStreamRecords[i];
+  const bulkAction = toBulkAction(record);
+  inprogress.push(...bulkAction);
+  if (i+1 == tweetStreamRecords.length || inprogress.length == 500) {
+    const body = inprogress.map(x => JSON.stringify(x)).join('\n') + '\n';
     const request = new HttpRequest({
-      headers: { 'Content-Type': 'application/json', host },
-      hostname: host,
+      headers: { 'Content-Type': 'application/json', 'host': opensearchDomainEndpoint },
+      hostname: opensearchDomainEndpoint,
       method: 'POST',
       path: '_bulk',
       body: body,
@@ -272,30 +275,24 @@ class Lambda implements LambdaInterface {
     searchMetrics.addMetric('Latency', MetricUnits.Milliseconds, took);
     searchMetrics.addMetric('RequestItemCount', MetricUnits.Count, items.length);
     const errorItems = items.filter(item => typeof item.update.error != 'undefined');
-    searchMetrics.addMetric('ResponseErrorItemCount', MetricUnits.Count, errorItems.length);
     errorItems.map(item => {
       logger.error({ message: item.update.error!.reason, item });
     });
-    return { took, items, errors };
-  };
-
-  @metrics.logMetrics()
-  @searchMetrics.logMetrics()
-  @tracer.captureLambdaHandler()
-  public async handler(event: KinesisStreamEvent, _context: Context): Promise<void> {
-    const kinesisStreamRecords = event.Records;
-    metrics.addMetric('IncomingRecordCount', MetricUnits.Count, kinesisStreamRecords.length);
-    const tweetStreamRecords = kinesisStreamRecords.map(record => TweetStreamParse(record.kinesis.data));
-    const originTweetStreamRecords = tweetStreamRecords.flatMap(addOriginTweet);
-    const bulkActions = originTweetStreamRecords.flatMap(toBulkAction);
-    const stringBulkActions = bulkActions.map(item => JSON.stringify(item));
-    const body = stringBulkActions.join('\n') + '\n';
-    const { took, items, errors } = await this.bulkRequest(opensearchDomainEndpoint, body);
-    metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, items.length);
-    return;
-  };
-
+    if (i+1 == tweetStreamRecords.length) {
+      return;
+    } else {
+      inprogress.length = 0;
+    }
+  }
+  await bulkLoader(tweetStreamRecords, inprogress, i+1);
+  return;
 };
 
-export const myFunction = new Lambda();
-export const handler: KinesisStreamHandler = myFunction.handler;
+export const handler: KinesisStreamHandler = async(event, _context) => {
+  const kinesisStreamRecords = event.Records;
+  metrics.addMetric('IncomingRecordCount', MetricUnits.Count, kinesisStreamRecords.length);
+  const tweetStreamRecords = kinesisStreamRecords.map(record => TweetStreamParse(record.kinesis.data));
+  const extendedTweetStreamRecords = tweetStreamRecords.flatMap(addOriginTweet);
+  await bulkLoader(extendedTweetStreamRecords);
+  metrics.publishStoredMetrics();
+};
