@@ -247,9 +247,10 @@ const toBulkAction = (record: TweetStreamRecord): [BulkUpdateHeader, BulkUpdateD
   return [header, updateDoc];
 };
 
+const httpClient = new NodeHttpHandler();
+
 const sendBulkOperation = async(host: string, operations: [BulkUpdateHeader, BulkUpdateDocument][]): Promise<BulkResponse> => {
   const body = operations.flatMap(ops => ops.map(x => JSON.stringify(x))).join('\n') + '\n';
-  const httpClient = new NodeHttpHandler();
   const request = new HttpRequest({
     headers: { 'Content-Type': 'application/json', host },
     hostname: host,

@@ -6,7 +6,7 @@ import { Tracer } from '@aws-lambda-powertools/tracer';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { fromUtf8 } from '@aws-sdk/util-utf8-node';
-import { SQSHandler, S3Event, S3EventRecord } from 'aws-lambda';
+import { SQSHandler, SQSRecord, S3Event, S3EventRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
 import { TweetStreamRecord, KinesisEmulatedEvent, KinesisEmulatedRecord } from '../utils';
 
@@ -18,6 +18,7 @@ const metrics = new Metrics();
 const tracer = new Tracer();
 
 const s3 = tracer.captureAWSv3Client(new S3Client({ region }));
+const lambda = tracer.captureAWSv3Client(new LambdaClient({ region }));
 
 const asBuffer = async (data: unknown): Promise<Buffer> => {
   const stream = data as Readable;
@@ -50,7 +51,7 @@ const getObject = async (record: S3EventRecord): Promise<string|undefined> => {
   return data;
 };
 
-const deleteObject = async(record: S3EventRecord)=> {
+const deleteObject = async(record: S3EventRecord): Promise<void> => {
   const bucket = record.s3.bucket.name;
   const objectKey = record.s3.object.key.replace(/%3D/g, '=');
   const cmd = new DeleteObjectCommand({ Bucket: bucket, Key: objectKey });
@@ -59,23 +60,12 @@ const deleteObject = async(record: S3EventRecord)=> {
   } catch (err: any) {
     logger.warn({ message: JSON.stringify(err) });
   }
-  return;
 };
 
-const bodyToLines = (objectBody: string|undefined): TweetStreamRecord[] => {
-  if (typeof objectBody == 'string') {
-    const lines = objectBody.trimEnd().split('\n');
-    const records: TweetStreamRecord[] = lines.map(line => JSON.parse(line));
-    return records;
-  } else {
-    return [];
-  }
-};
-
-const getAllObjects = async(records: S3EventRecord[]): Promise<TweetStreamRecord[]> => {
-  const objectBodyArray = await Promise.map(records, getObject);
-  const tweetStreamRecords = objectBodyArray.flatMap(body => bodyToLines(body));
-  return tweetStreamRecords;
+const bodyToLines = (objectBody: string): TweetStreamRecord[] => {
+  const lines = objectBody.trimEnd().split('\n');
+  const records: TweetStreamRecord[] = lines.map(line => JSON.parse(line));
+  return records;
 };
 
 const toKinesisEvent = (records: TweetStreamRecord[]): KinesisEmulatedEvent => {
@@ -89,40 +79,43 @@ const toKinesisEvent = (records: TweetStreamRecord[]): KinesisEmulatedEvent => {
 };
 
 const invokeFunction = async(functionName: string, event: KinesisEmulatedEvent) => {
-  const client = tracer.captureAWSv3Client(new LambdaClient({ region }));
   const cmd = new InvokeCommand({
     FunctionName: functionName,
     Payload: fromUtf8(JSON.stringify(event)),
   });
-  await client.send(cmd);
+  await lambda.send(cmd);
 };
 
-const dataLoader = async (tweetStreamRecords: TweetStreamRecord[], inprogress: TweetStreamRecord[] = [], i: number = 0) => {
+const dataLoader = async (functionName: string, tweetStreamRecords: TweetStreamRecord[], inprogress: TweetStreamRecord[] = [], i: number = 0) => {
   const record = tweetStreamRecords[i];
   inprogress.push(record);
   if (i+1 == tweetStreamRecords.length || inprogress.length == 500) {
     const emulatedEvent = toKinesisEvent(inprogress);
-    await invokeFunction(indexingFunctionArn, emulatedEvent);
+    await invokeFunction(functionName, emulatedEvent);
     if (i+1 == tweetStreamRecords.length) {
       return;
     } else {
       inprogress.length = 0;
     }
   }
-  await dataLoader(tweetStreamRecords, inprogress, i+1);
+  await dataLoader(functionName, tweetStreamRecords, inprogress, i+1);
 };
 
-const deleteAllObjects = async(s3EventRecords: S3EventRecord[]) => {
+const deleteAllObjects = async(s3EventRecords: S3EventRecord[]): Promise<void> => {
   await Promise.map(s3EventRecords, deleteObject);
-  return;
 };
 
 export const handler: SQSHandler = async(event, _context) => {
   const sqsRecords = event.Records;
   const s3Events: S3Event[] = sqsRecords.map(record => JSON.parse(record.body));
   const s3EventRecords = s3Events.flatMap(s3Event => s3Event.Records);
-  const tweetStreamRecords = await getAllObjects(s3EventRecords);
-  await dataLoader(tweetStreamRecords);
+  for await (let s3EventRecord of s3EventRecords) {
+    const body = await getObject(s3EventRecord);
+    if (typeof body != 'undefined') {
+      const tweetStreamRecords = bodyToLines(body);
+      await dataLoader(indexingFunctionArn, tweetStreamRecords);
+    }
+  }
   await deleteAllObjects(s3EventRecords);
   metrics.publishStoredMetrics();
 };

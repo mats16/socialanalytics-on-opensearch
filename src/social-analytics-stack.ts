@@ -198,7 +198,7 @@ export class SocialAnalyticsStack extends Stack {
     const indexingFunction = new Function(this, 'IndexingFunction', {
       description: '[SocialAnalytics] Bulk operations to load data into OpenSearch',
       entry: './src/functions/indexing/index.ts',
-      memorySize: 768,
+      memorySize: 320,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'IndexingFunction',
         POWERTOOLS_METRICS_NAMESPACE: this.stackName,
@@ -254,7 +254,6 @@ export class SocialAnalyticsStack extends Stack {
 
     const reingestTweetsV1Function = new RetryFunction(this, 'ReingestTweetsV1Function', {
       source: { bucket, prefix: 'reingest/tweets/v1/' },
-      //destination: { kinesisStream: ingestionStream },
       description: 'Re-ingest for TweetsV1',
       entry: './src/functions/reingest-tweets-v1/index.ts',
       initialPolicy: [twitterParameterPolicyStatement],
@@ -265,7 +264,6 @@ export class SocialAnalyticsStack extends Stack {
 
     const reingestTweetsV2Function = new RetryFunction(this, 'ReingestTweetsV2Function', {
       source: { bucket, prefix: 'reingest/tweets/v2/' },
-      //destination: { kinesisStream: ingestionStream },
       description: 'Re-ingest for TweetsV2',
       entry: './src/functions/reingest-tweets-v2/index.ts',
       initialPolicy: [twitterParameterPolicyStatement],
@@ -276,16 +274,15 @@ export class SocialAnalyticsStack extends Stack {
 
     const reindexTweetsV2Function = new RetryFunction(this, 'ReindexTweetsV2Function', {
       source: { bucket, prefix: 'reindex/tweets/v2/' },
-      //destination: { kinesisStream: indexingStream },
       description: 'Re-index for TweetsV2',
       entry: './src/functions/reindex-tweets-v2/index.ts',
-      memorySize: 768,
+      memorySize: 1024,
       initialPolicy: [twitterParameterPolicyStatement],
       environment: {
         TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
         INDEXING_FUNCTION_ARN: indexingFunction.functionArn,
       },
-      reservedConcurrentExecutions: 6,
+      reservedConcurrentExecutions: 8,
     });
     indexingFunction.grantInvoke(reindexTweetsV2Function);
 
