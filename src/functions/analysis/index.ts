@@ -1,23 +1,23 @@
-import { LambdaInterface } from '@aws-lambda-powertools/commons';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
 import { Tracer } from '@aws-lambda-powertools/tracer';
 import { ComprehendClient, DetectSentimentCommand, DetectEntitiesCommand, DetectDominantLanguageCommand } from '@aws-sdk/client-comprehend';
 import { KinesisClient, PutRecordsCommand, PutRecordsRequestEntry } from '@aws-sdk/client-kinesis';
-import { SSMClient, GetParametersByPathCommand } from '@aws-sdk/client-ssm';
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
-import { KinesisStreamHandler, KinesisStreamRecord, KinesisStreamEvent, Context } from 'aws-lambda';
+import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
 import { Promise, resolve } from 'bluebird';
 import { TweetV2 } from 'twitter-api-v2';
 import { TweetStreamParse, TweetStreamRecord, Deduplicate, Normalize, Analysis } from '../utils';
 
 const entityScoreThreshold = 0.8;
-let twitterFilterSourceLabels: string[];
 let twitterFilterContextDomains: string[];
+let twitterFilterSourceLabels: string[];
 
 const region = process.env.AWS_REGION || 'us-west-2';
+const twitterFilterContextDomainsParameterName = process.env.TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME!;
+const twitterFilterSourceLabelsParameterName = process.env.TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME!;
 const destStreamName = process.env.DEST_STREAM_NAME!;
-const twitterParameterPrefix = process.env.TWITTER_PARAMETER_PREFIX!;
 
 const logger = new Logger();
 const metrics = new Metrics();
@@ -26,6 +26,12 @@ const tracer = new Tracer();
 const ssm = tracer.captureAWSv3Client(new SSMClient({ region }));
 const kinesis = tracer.captureAWSv3Client(new KinesisClient({ region }));
 const comprehend = tracer.captureAWSv3Client(new ComprehendClient({ region, maxAttempts: 10 }));
+
+const getParameter = async(name: string): Promise<string[]> => {
+  const cmd = new GetParameterCommand({ Name: name });
+  const { Parameter } = await ssm.send(cmd);
+  return Parameter?.Value?.split(',') || [];
+};
 
 const detectLanguage = async (text: string) => {
   const cmd = new DetectDominantLanguageCommand({ Text: text });
@@ -120,6 +126,11 @@ const analyzeRecord = async (record: TweetStreamRecord): Promise<TweetStreamReco
   return record;
 };
 
+const analyzeRecords = async(records: TweetStreamRecord[]): Promise<TweetStreamRecord[]> => {
+  const analyzedRecords = await Promise.map(records, analyzeRecord, { concurrency: 10 });
+  return analyzedRecords;
+};
+
 const sourceLabelFilter = (tweet: TweetV2): boolean => {
   const sourceLabel = tweet.source || '';
   const isFiltered = twitterFilterSourceLabels.includes(sourceLabel);
@@ -132,67 +143,45 @@ const contextDomainFilter = (tweet: TweetV2): boolean => {
   return (isFiltered) ? false: true;
 };
 
-class Lambda implements LambdaInterface {
-
-  private transformRecords(kinesisStreamRecords: KinesisStreamRecord[]): TweetStreamRecord[] {
-    const records = kinesisStreamRecords.map(record => TweetStreamParse(record.kinesis.data));
-    const filteredRecords = records.filter(record => sourceLabelFilter(record.data)).filter(record => contextDomainFilter(record.data));
-    metrics.addMetric('FilteredRate', MetricUnits.Percent, (records.length - filteredRecords.length) / records.length * 100);
-    return filteredRecords;
-  };
-
-  @tracer.captureMethod()
-  private async fetchParameter(): Promise<void> {
-    const cmd = new GetParametersByPathCommand({ Path: twitterParameterPrefix, Recursive: true });
-    const { Parameters } = await ssm.send(cmd);
-    twitterFilterContextDomains = Parameters!.find(param => param.Name?.endsWith('Filter/ContextDomains'))!.Value!.split(',');
-    twitterFilterSourceLabels = Parameters!.find(param => param.Name?.endsWith('Filter/SourceLabels'))!.Value!.split(',');
-    logger.info({ message: 'Get palameters from parameter store successfully' });
-    return;
-  };
-
-  @tracer.captureMethod()
-  private async analyzeRecords(records: TweetStreamRecord[]): Promise<TweetStreamRecord[]> {
-    const analyzedRecords = await Promise.map(records, analyzeRecord, { concurrency: 10 });
-    return analyzedRecords;
-  };
-
-  @tracer.captureMethod()
-  private async putRecordsKinesis(records: TweetStreamRecord[]) {
-    const entries = records.map(record => {
-      const entry: PutRecordsRequestEntry = {
-        PartitionKey: record.data.id,
-        Data: Buffer.from(JSON.stringify(record)),
-      };
-      return entry;
-    });
-    const result = { requestRecordCount: 0, failedRecordCount: 0 };
-    if (entries.length > 0) {
-      const cmd = new PutRecordsCommand({
-        StreamName: destStreamName,
-        Records: entries,
-      });
-      const { Records, FailedRecordCount, $metadata } = await kinesis.send(cmd);
-      result.requestRecordCount = Records?.length || 0;
-      result.failedRecordCount = FailedRecordCount || 0;
-    };
-    return result;
-  };
-
-  @metrics.logMetrics()
-  @tracer.captureLambdaHandler()
-  public async handler(event: KinesisStreamEvent, _context: Context): Promise<void> {
-    await this.fetchParameter();
-    const kinesisStreamRecords = event.Records;
-    metrics.addMetric('IncomingRecordCount', MetricUnits.Count, kinesisStreamRecords.length);
-    const streamRecords = this.transformRecords(kinesisStreamRecords);
-    const analyzedRecords = await this.analyzeRecords(streamRecords);
-    const { requestRecordCount, failedRecordCount } = await this.putRecordsKinesis(analyzedRecords);
-    metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, requestRecordCount-failedRecordCount);
-    return;
-  };
-
+const transformRecords = (kinesisStreamRecords: KinesisStreamRecord[]): TweetStreamRecord[] => {
+  const records = kinesisStreamRecords.map(record => TweetStreamParse(record.kinesis.data));
+  const filteredRecords = records.filter(record => sourceLabelFilter(record.data)).filter(record => contextDomainFilter(record.data));
+  metrics.addMetric('FilteredRate', MetricUnits.Percent, (records.length - filteredRecords.length) / records.length * 100);
+  return filteredRecords;
 };
 
-export const myFunction = new Lambda();
-export const handler: KinesisStreamHandler = myFunction.handler;
+const putRecordsKinesis = async(records: TweetStreamRecord[]) => {
+  const entries = records.map(record => {
+    const entry: PutRecordsRequestEntry = {
+      PartitionKey: record.data.id,
+      Data: Buffer.from(JSON.stringify(record)),
+    };
+    return entry;
+  });
+  const result = { requestRecordCount: 0, failedRecordCount: 0 };
+  if (entries.length > 0) {
+    const cmd = new PutRecordsCommand({
+      StreamName: destStreamName,
+      Records: entries,
+    });
+    const { Records, FailedRecordCount, $metadata } = await kinesis.send(cmd);
+    result.requestRecordCount = Records?.length || 0;
+    result.failedRecordCount = FailedRecordCount || 0;
+  };
+  return result;
+};
+
+export const handler: KinesisStreamHandler = async(event, _context) => {
+  // Load parameters
+  twitterFilterContextDomains = await getParameter(twitterFilterContextDomainsParameterName);
+  twitterFilterSourceLabels = await getParameter(twitterFilterSourceLabelsParameterName);
+
+  const kinesisStreamRecords = event.Records;
+  metrics.addMetric('IncomingRecordCount', MetricUnits.Count, kinesisStreamRecords.length);
+
+  const streamRecords = transformRecords(kinesisStreamRecords);
+  const analyzedRecords = await analyzeRecords(streamRecords);
+  const { requestRecordCount, failedRecordCount } = await putRecordsKinesis(analyzedRecords);
+  metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, requestRecordCount-failedRecordCount);
+  return;
+};

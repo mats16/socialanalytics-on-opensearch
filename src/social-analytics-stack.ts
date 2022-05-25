@@ -46,14 +46,14 @@ export class SocialAnalyticsStack extends Stack {
       stringValue: JSON.stringify(tweetFieldsParams),
     });
 
-    new StringListParameter(this, 'twitterFilterContextDomains', {
+    const twitterFilterContextDomains = new StringListParameter(this, 'twitterFilterContextDomains', {
       // https://developer.twitter.com/en/docs/twitter-api/annotations/overview
       description: 'Context domains for filtering',
       parameterName: `${twitterParameterPath}/Filter/ContextDomains`,
       stringListValue: ['Musician', 'Music Genre', 'Actor', 'TV Shows', 'Multimedia Franchise', 'Fictional Character', 'Entertainment Personality'],
     });
 
-    new StringListParameter(this, 'twitterFilterSourceLabels', {
+    const twitterFilterSourceLabels = new StringListParameter(this, 'twitterFilterSourceLabels', {
       // https://help.twitter.com/en/using-twitter/how-to-tweet#source-labels
       description: 'Tweet source labels for filtering',
       parameterName: `${twitterParameterPath}/Filter/SourceLabels`,
@@ -114,7 +114,8 @@ export class SocialAnalyticsStack extends Stack {
         POWERTOOLS_SERVICE_NAME: 'AnalysisFunction',
         POWERTOOLS_METRICS_NAMESPACE: this.stackName,
         POWERTOOLS_TRACER_CAPTURE_RESPONSE: 'false',
-        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/Filter/`,
+        TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME: twitterFilterContextDomains.parameterName,
+        TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME: twitterFilterSourceLabels.parameterName,
         DEST_STREAM_NAME: indexingStream.streamName,
       },
       events: [
