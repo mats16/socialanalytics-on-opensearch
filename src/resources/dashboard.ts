@@ -150,7 +150,16 @@ export class Dashboard extends Construct {
                   annotation: {
                     type: 'keyword',
                   },
+                  cashtag: {
+                    type: 'keyword',
+                  },
                   hashtag: {
+                    type: 'keyword',
+                  },
+                  mention: {
+                    type: 'keyword',
+                  },
+                  url: {
                     type: 'keyword',
                   },
                 },
@@ -273,8 +282,7 @@ export class Dashboard extends Construct {
               analysis: {
                 properties: {
                   normalized_text: {
-                    type: 'keyword',
-                    index: false,
+                    type: 'text',
                   },
                   sentiment: {
                     type: 'keyword',

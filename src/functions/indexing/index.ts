@@ -195,7 +195,6 @@ const toDocument = (record: TweetStreamRecord): Document => {
   const tweet = record.data;
   const doc: Document = {
     ...tweet,
-    text: record.analysis?.normalized_text || Normalize(tweet.text),
     url: `https://twitter.com/0/status/${tweet.id}`,
     author: author(record),
     context_annotations: context_annotations(tweet),
