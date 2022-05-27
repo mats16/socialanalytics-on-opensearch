@@ -184,6 +184,9 @@ export class Dashboard extends Construct {
               id: {
                 type: 'keyword',
               },
+              in_reply_to_user_id: {
+                type: 'keyword',
+              },
               lang: {
                 type: 'keyword',
               },
