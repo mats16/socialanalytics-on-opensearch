@@ -1,3 +1,4 @@
+import { SentimentScore, Entity, KeyPhrase } from '@aws-sdk/client-comprehend';
 import { TweetV2SingleStreamResult } from 'twitter-api-v2';
 
 export interface KinesisEmulatedRecord {
@@ -10,6 +11,14 @@ export interface KinesisEmulatedEvent {
   Records: KinesisEmulatedRecord[];
 }
 
+export interface ComprehendJobOutput {
+  NormalizedText?: string;
+  Sentiment?: string;
+  SentimentScore?: SentimentScore;
+  Entities?: Entity[];
+  KeyPhrases?: KeyPhrase[];
+}
+
 export interface Analysis {
   normalized_text?: string;
   sentiment?: string;
@@ -20,6 +29,7 @@ export interface Analysis {
     mixed?: number;
   };
   entities?: string[];
+  //key_phrases?: string[];
 }
 
 export interface TweetStreamRecord extends Partial<TweetV2SingleStreamResult> {
@@ -28,9 +38,13 @@ export interface TweetStreamRecord extends Partial<TweetV2SingleStreamResult> {
   backup?: boolean;
 }
 
-export const TweetStreamParse = (b64string: string) => {
-  const record = JSON.parse(Buffer.from(b64string, 'base64').toString('utf8'));
-  return record as TweetStreamRecord;
+export const b64encode = (text: string) => Buffer.from(text).toString('base64');
+export const b64decode = (b64string: string) => Buffer.from(b64string, 'base64').toString('utf8');
+
+export const TweetStreamParse = (b64string: string): TweetStreamRecord => {
+  const decodedText = b64decode(b64string);
+  const record: TweetStreamRecord = JSON.parse(decodedText);
+  return record;
 };
 
 export const Deduplicate = (array: any[]) => {

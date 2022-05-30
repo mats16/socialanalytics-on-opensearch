@@ -16,6 +16,7 @@ import { Dashboard } from './resources/dashboard';
 import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { Function, RetryFunction } from './resources/lambda-nodejs';
 import { Proxy } from './resources/proxy';
+import { ComprehendWithCache } from './resources/sfn-state-machines';
 import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
 
 interface SocialAnalyticsStackProps extends StackProps {
@@ -106,6 +107,8 @@ export class SocialAnalyticsStack extends Stack {
       encryption: kinesis.StreamEncryption.MANAGED,
     });
 
+    const comprehendJob = new ComprehendWithCache(this, 'ComprehendJob');
+
     const analysisFunction = new Function(this, 'AnalysisFunction', {
       description: '[SocialAnalytics] Analysis with Amazon Comprehend',
       entry: './src/functions/analysis/index.ts',
@@ -117,6 +120,7 @@ export class SocialAnalyticsStack extends Stack {
         TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME: twitterFilterContextDomains.parameterName,
         TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME: twitterFilterSourceLabels.parameterName,
         DEST_STREAM_NAME: indexingStream.streamName,
+        COMPREHEND_JOB_ARN: comprehendJob.stateMachine.stateMachineArn,
       },
       events: [
         new KinesisEventSource(ingestionStream, {
@@ -132,6 +136,7 @@ export class SocialAnalyticsStack extends Stack {
       ],
     });
     indexingStream.grantWrite(analysisFunction);
+    comprehendJob.stateMachine.grantStartSyncExecution(analysisFunction);
 
     const archiveFilterFunction = new Function(this, 'ArchiveFilterFunction', {
       description: '[SocialAnalytics] Filtering with backup flag',
@@ -293,5 +298,6 @@ export class SocialAnalyticsStack extends Stack {
       cognitoHost: userPool.domainName,
     });
     new CfnOutput(this, 'url', { value: `https://${proxy.domainName}` });
+
   }
 };

@@ -309,6 +309,9 @@ export class Dashboard extends Construct {
                   entities: {
                     type: 'keyword',
                   },
+                  //key_phrases: {
+                  //  type: 'keyword',
+                  //},
                 },
               },
               includes: {

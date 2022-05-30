@@ -1,14 +1,14 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
 import { Tracer } from '@aws-lambda-powertools/tracer';
-import { ComprehendClient, DetectSentimentCommand, DetectEntitiesCommand, DetectDominantLanguageCommand } from '@aws-sdk/client-comprehend';
+import { Entity } from '@aws-sdk/client-comprehend';
 import { KinesisClient, PutRecordsCommand, PutRecordsRequestEntry } from '@aws-sdk/client-kinesis';
+import { SFNClient, StartSyncExecutionCommand } from '@aws-sdk/client-sfn';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
-import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
-import { Promise, resolve } from 'bluebird';
+import { Promise } from 'bluebird';
 import { TweetV2 } from 'twitter-api-v2';
-import { TweetStreamParse, TweetStreamRecord, Deduplicate, Normalize, Analysis } from '../utils';
+import { TweetStreamParse, TweetStreamRecord, Deduplicate, Analysis, ComprehendJobOutput } from '../utils';
 
 const entityScoreThreshold = 0.8;
 let twitterFilterContextDomains: string[];
@@ -18,6 +18,7 @@ const region = process.env.AWS_REGION || 'us-west-2';
 const twitterFilterContextDomainsParameterName = process.env.TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME!;
 const twitterFilterSourceLabelsParameterName = process.env.TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME!;
 const destStreamName = process.env.DEST_STREAM_NAME!;
+const comprehendJobArn = process.env.COMPREHEND_JOB_ARN!;
 
 const logger = new Logger();
 const metrics = new Metrics();
@@ -25,7 +26,7 @@ const tracer = new Tracer();
 
 const ssm = tracer.captureAWSv3Client(new SSMClient({ region }));
 const kinesis = tracer.captureAWSv3Client(new KinesisClient({ region }));
-const comprehend = tracer.captureAWSv3Client(new ComprehendClient({ region, maxAttempts: 10 }));
+const sfn = tracer.captureAWSv3Client(new SFNClient({ region }));
 
 const getParameter = async(name: string): Promise<string[]> => {
   const cmd = new GetParameterCommand({ Name: name });
@@ -33,76 +34,57 @@ const getParameter = async(name: string): Promise<string[]> => {
   return Parameter?.Value?.split(',') || [];
 };
 
-const detectLanguage = async (text: string) => {
-  const cmd = new DetectDominantLanguageCommand({ Text: text });
-  const { Languages, $metadata } = await comprehend.send(cmd);
-  const scores = Languages?.map(x => x.Score||0) || [];
-  const maxScore = Math.max(...scores);
-  const maxScoreLang = Languages?.find(x => x.Score == maxScore);
-  return maxScoreLang?.LanguageCode;
-};
-
-const detectSentiment = async (text: string, lang: string) => {
-  const cmd = new DetectSentimentCommand({ Text: text, LanguageCode: lang });
-  const { Sentiment, SentimentScore, $metadata } = await comprehend.send(cmd);
-  return { Sentiment, SentimentScore };
-};
-
-const detectEntities = async (text: string, lang: string) => {
-  const cmd = new DetectEntitiesCommand({ Text: text, LanguageCode: lang });
-  const { Entities, $metadata } = await comprehend.send(cmd);
-  return { Entities };
-};
-
-const translate = async (text: string, sourceLanguageCode: string) => {
-  const client = new TranslateClient({ region });
-  const cmd = new TranslateTextCommand({ Text: text, SourceLanguageCode: sourceLanguageCode, TargetLanguageCode: 'en' });
-  const { TranslatedText } = await client.send(cmd);
-  return TranslatedText!;
-};
-
-const getOriginText = (record: TweetStreamRecord): string => {
-  const tweet = record.data;
-  const index = tweet.referenced_tweets?.findIndex(x => x.type == 'retweeted');
-  if (typeof index != 'undefined') {
-    const retweetId = tweet.referenced_tweets?.[index]?.id;
-    const retweet = record.includes?.tweets?.find(includedTweet => includedTweet.id == retweetId);
-    return retweet?.text || tweet.text;
-  } else {
-    return tweet.text;
-  };
-};
-
-const analyzeText = async (text: string, lang: string|undefined): Promise<Analysis> => {
-  const normalizedText = Normalize(text);
-  if (normalizedText == '') { return {}; };
-  let languageCode = lang;
-  if (!lang) {
-    languageCode = await detectLanguage(text);
-  } else if (lang !in ['en', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'ja', 'ko', 'zh']) {
-    text = await translate(text, lang);
-    languageCode = 'en';
-  };
-  if (!languageCode) { return {}; };
-  // Sentiment
-  const { Sentiment, SentimentScore } = await detectSentiment(text, languageCode);
-  // Entities
-  const { Entities } = await detectEntities(text, languageCode);
-  const filteredEntities = Entities?.filter(entity => {
-    let flag = true;
-    if (entity.Type == 'QUANTITY' || entity.Type == 'DATE') {
-      flag = false;
-    } else if (entity.Text!.length < 2 || entity.Text!.startsWith('@') ) {
-      flag = false;
-    } else if (entity.Score! < entityScoreThreshold ) {
-      flag = false;
-    }
-    return flag;
+const comprehend = async (text: string, lang?: string): Promise<ComprehendJobOutput> => {
+  const cmd = new StartSyncExecutionCommand({
+    stateMachineArn: comprehendJobArn,
+    input: JSON.stringify({
+      Text: text,
+      LanguageCode: lang,
+    }),
   });
-  const entities: string[] = Deduplicate(filteredEntities?.map(entity => { return entity.Text!.toLowerCase(); }) || []);
+  const { output } = await sfn.send(cmd);
+  const result: ComprehendJobOutput = (typeof output == 'string')
+    ? JSON.parse(output)
+    : {};
+  return result;
+};
 
+const entitiesToString = (entities: Entity[]): string[] => {
+  const filteredEntities = entities.filter(entity => {
+    if (entity.Type == 'QUANTITY' || entity.Type == 'DATE') {
+      return false;
+    } else if (entity.Text!.length < 2 || entity.Text!.startsWith('@') ) {
+      return false;
+    } else if (entity.Score! < entityScoreThreshold ) {
+      return false;
+    } else {
+      return true;
+    }
+  });
+  const result: string[] = Deduplicate(filteredEntities.map(entity => entity.Text!.toLowerCase()));
+  return result;
+};
+
+//const keyPhrasesToString = (keyPhrases: KeyPhrase[]): string[] => {
+//  const filteredKeyPhrases = keyPhrases.filter(phrase => {
+//    if (phrase.Text!.length < 2 || phrase.Text!.startsWith('@') ) {
+//      return false;
+//    } else if (phrase.Score! < keyPhraseScoreThreshold ) {
+//      return false;
+//    } else {
+//      return true;
+//    }
+//  });
+//  const result: string[] = Deduplicate(filteredKeyPhrases.map(phrase => phrase.Text!.toLowerCase()));
+//  return result;
+//};
+
+const analyzeText = async (text: string, lang?: string): Promise<Analysis> => {
+  const { NormalizedText, Sentiment, SentimentScore, Entities } = await comprehend(text, lang);
+  const entities = (typeof Entities == 'undefined') ? undefined : entitiesToString(Entities);
+  //const keyPhrases = (typeof KeyPhrases == 'undefined') ? undefined : keyPhrasesToString(KeyPhrases);
   const data: Analysis = {
-    normalized_text: normalizedText,
+    normalized_text: NormalizedText,
     sentiment: Sentiment,
     sentiment_score: {
       positive: SentimentScore?.Positive,
@@ -111,17 +93,15 @@ const analyzeText = async (text: string, lang: string|undefined): Promise<Analys
       mixed: SentimentScore?.Mixed,
     },
     entities: entities,
+    //key_phrases: keyPhrases,
   };
   return data;
 };
 
 const analyzeRecord = async (record: TweetStreamRecord): Promise<TweetStreamRecord> => {
   const tweet = record.data;
-  const originText = getOriginText(record);
-  const normalizedText = Normalize(originText);
-  const lang = tweet.lang || await detectLanguage(normalizedText);
   if (typeof record.analysis == 'undefined') {
-    record.analysis = await analyzeText(normalizedText, lang);
+    record.analysis = await analyzeText(tweet.text, tweet.lang);
   };
   return record;
 };
