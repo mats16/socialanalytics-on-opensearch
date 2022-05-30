@@ -1,3 +1,4 @@
+const awsSdkVersion = '^3.100.0';
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
   cdkVersion: '2.25.0',
@@ -10,17 +11,18 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   // packageName: undefined,      /* The "name" in package.json. */
   // release: undefined,          /* Add release management to this project. */
   deps: [
-    '@aws-sdk/client-cognito-identity',
-    '@aws-sdk/client-cognito-identity-provider',
-    '@aws-sdk/client-comprehend',
-    '@aws-sdk/client-eventbridge',
-    '@aws-sdk/client-kinesis',
-    '@aws-sdk/client-lambda',
-    '@aws-sdk/client-s3',
-    '@aws-sdk/client-ssm',
-    '@aws-sdk/client-sts',
-    '@aws-sdk/client-translate',
-    '@aws-sdk/credential-provider-node',
+    `@aws-sdk/client-cognito-identity@${awsSdkVersion}`,
+    `@aws-sdk/client-cognito-identity-provider@${awsSdkVersion}`,
+    `@aws-sdk/client-comprehend@${awsSdkVersion}`,
+    `@aws-sdk/client-eventbridge@${awsSdkVersion}`,
+    `@aws-sdk/client-kinesis@${awsSdkVersion}`,
+    `@aws-sdk/client-lambda@${awsSdkVersion}`,
+    `@aws-sdk/client-s3@${awsSdkVersion}`,
+    `@aws-sdk/client-sfn@${awsSdkVersion}`,
+    `@aws-sdk/client-ssm@${awsSdkVersion}`,
+    `@aws-sdk/client-sts@${awsSdkVersion}`,
+    `@aws-sdk/client-translate@${awsSdkVersion}`,
+    `@aws-sdk/credential-provider-node@${awsSdkVersion}`,
     '@aws-sdk/node-http-handler',
     '@aws-sdk/protocol-http',
     '@aws-sdk/signature-v4',

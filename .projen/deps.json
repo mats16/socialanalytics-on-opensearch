@@ -109,47 +109,63 @@
       "type": "runtime"
     },
     {
-      "name": "@aws-sdk/client-cognito-identity",
+      "name": "@aws-sdk/client-cognito-identity-provider",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
-      "name": "@aws-sdk/client-cognito-identity-provider",
+      "name": "@aws-sdk/client-cognito-identity",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-comprehend",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-eventbridge",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-kinesis",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-lambda",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-s3",
+      "version": "^3.100.0",
+      "type": "runtime"
+    },
+    {
+      "name": "@aws-sdk/client-sfn",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-ssm",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-sts",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-translate",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/credential-provider-node",
+      "version": "^3.100.0",
       "type": "runtime"
     },
     {
