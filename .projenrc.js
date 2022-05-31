@@ -1,6 +1,7 @@
 const awsSdkVersion = '^3.100.0';
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
+  typescriptVersion: '4.5.5',
   cdkVersion: '2.25.0',
   defaultReleaseBranch: 'main',
   name: 'social-analytics',
@@ -21,7 +22,6 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     `@aws-sdk/client-sfn@${awsSdkVersion}`,
     `@aws-sdk/client-ssm@${awsSdkVersion}`,
     `@aws-sdk/client-sts@${awsSdkVersion}`,
-    `@aws-sdk/client-translate@${awsSdkVersion}`,
     `@aws-sdk/credential-provider-node@${awsSdkVersion}`,
     '@aws-sdk/node-http-handler',
     '@aws-sdk/protocol-http',
