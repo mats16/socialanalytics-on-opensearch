@@ -1,3 +1,4 @@
+import { Duration } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke, DynamoGetItem, DynamoPutItem, DynamoAttributeValue, CallAwsService } from 'aws-cdk-lib/aws-stepfunctions-tasks';
@@ -52,7 +53,7 @@ export class ComprehendWithCache extends Construct {
       },
       inputPath: '$.NormalizedText.SHA256',
       resultPath: '$.Cache',
-    });
+    }).addRetry({ maxAttempts: 2 });
 
     const decodeCacheTask = new LambdaInvoke(this, 'Decode Cache', {
       lambdaFunction: b64DecodeFunction,
@@ -69,7 +70,7 @@ export class ComprehendWithCache extends Construct {
         'Text.$': '$.NormalizedText.Value',
       },
       resultPath: '$.DetectDominantLanguage',
-    });
+    }).addRetry({ maxAttempts: 10 });;
 
     const filterDominantLangTask = new LambdaInvoke(this, 'Choice DominantLanguage', {
       lambdaFunction: filterDominantLangFunction,
@@ -87,7 +88,7 @@ export class ComprehendWithCache extends Construct {
         'Text.$': '$.NormalizedText.Value',
         'LanguageCode.$': '$.LanguageCode',
       },
-    });
+    }).addRetry({ maxAttempts: 10 });
 
     const detectSentimentTask = new CallAwsService(this, 'Detect Sentiment', {
       service: 'Comprehend',
@@ -98,25 +99,25 @@ export class ComprehendWithCache extends Construct {
         'Text.$': '$.NormalizedText.Value',
         'LanguageCode.$': '$.LanguageCode',
       },
-    });
+    }).addRetry({ maxAttempts: 10 });
 
-    const detectKeyPhrasesTask = new CallAwsService(this, 'Detect KeyPhrases', {
-      service: 'Comprehend',
-      action: 'detectKeyPhrases',
-      iamAction: 'comprehend:DetectKeyPhrases',
-      iamResources: ['*'],
-      parameters: {
-        'Text.$': '$.NormalizedText.Value',
-        'LanguageCode.$': '$.LanguageCode',
-      },
-    });
+    //const detectKeyPhrasesTask = new CallAwsService(this, 'Detect KeyPhrases', {
+    //  service: 'Comprehend',
+    //  action: 'detectKeyPhrases',
+    //  iamAction: 'comprehend:DetectKeyPhrases',
+    //  iamResources: ['*'],
+    //  parameters: {
+    //    'Text.$': '$.NormalizedText.Value',
+    //    'LanguageCode.$': '$.LanguageCode',
+    //  },
+    //});
 
     const detectTask = new sfn.Parallel(this, 'Detection', {
       resultSelector: {
         'Entities.$': '$[0].Entities',
         'Sentiment.$': '$[1].Sentiment',
         'SentimentScore.$': '$[1].SentimentScore',
-        'KeyPhrases.$': '$[2].KeyPhrases',
+        //'KeyPhrases.$': '$[2].KeyPhrases',
       },
       resultPath: '$.Comprehend',
     });
@@ -127,7 +128,7 @@ export class ComprehendWithCache extends Construct {
         'Entities.$': '$.Comprehend.Entities',
         'Sentiment.$': '$.Comprehend.Sentiment',
         'SentimentScore.$': '$.Comprehend.SentimentScore',
-        'KeyPhrases.$': '$.Comprehend.KeyPhrases',
+        //'KeyPhrases.$': '$.Comprehend.KeyPhrases',
       },
       resultPath: '$.Response',
     });
@@ -148,9 +149,9 @@ export class ComprehendWithCache extends Construct {
       },
       resultPath: '$.tmp',
       outputPath: '$.Response',
-    });
+    }).addRetry({ maxAttempts: 2 });;
 
-    detectTask.branch(detectEntitiesTask).branch(detectSentimentTask).branch(detectKeyPhrasesTask);
+    detectTask.branch(detectEntitiesTask).branch(detectSentimentTask);
     detectTask.next(genResponseTask).next(genCacheValueTask).next(storeCacheTask);
 
     const checkLanguageCode = new sfn.Choice(this, 'LanguageCode?');
