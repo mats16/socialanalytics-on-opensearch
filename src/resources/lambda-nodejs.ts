@@ -12,8 +12,8 @@ const defaultProps: Partial<NodejsFunctionProps> = {
   timeout: Duration.minutes(5),
   runtime: lambda.Runtime.NODEJS_16_X,
   architecture: lambda.Architecture.ARM_64,
-  insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
-  tracing: lambda.Tracing.ACTIVE,
+  //insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
+  //tracing: lambda.Tracing.ACTIVE,
 };
 
 export class Function extends NodejsFunction {

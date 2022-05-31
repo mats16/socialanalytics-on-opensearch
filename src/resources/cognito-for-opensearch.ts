@@ -1,10 +1,9 @@
 import { CustomResource } from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
+import { Function } from './lambda-nodejs';
 
 interface UserPoolProps extends cognito.UserPoolProps {
   allowedSignupDomains: string[];
@@ -20,12 +19,9 @@ export class UserPool extends cognito.UserPool {
   constructor(scope: Construct, id: string, props: UserPoolProps) {
     super(scope, id, props);
 
-    const preSignUpFunction = new NodejsFunction(this, 'PreSignUpFunction', {
+    const preSignUpFunction = new Function(this, 'PreSignUpFunction', {
       description: 'Social Analytics - PreSignUp trigger',
       entry: './src/functions/pre-sign-up/index.ts',
-      handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_14_X,
-      architecture: lambda.Architecture.ARM_64,
       environment: {
         ALLOWED_SIGNUP_DOMAINS: props.allowedSignupDomains.join(','),
       },
@@ -62,12 +58,9 @@ export class UserPool extends cognito.UserPool {
       },
     });
 
-    const onEventHandler = new NodejsFunction(this, 'EnableRoleFromTokenFunction', {
+    const onEventHandler = new Function(this, 'EnableRoleFromTokenFunction', {
       description: 'Lambda-backed custom resources - Enable role from token',
       entry: './src/custom-resources-functions/enable-role-from-token/index.ts',
-      handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_14_X,
-      architecture: lambda.Architecture.ARM_64,
       initialPolicy: [
         new iam.PolicyStatement({
           actions: [

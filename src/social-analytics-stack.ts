@@ -23,6 +23,9 @@ interface SocialAnalyticsStackProps extends StackProps {
   defaultTwitterBearerToken?: string;
 };
 
+const insightsVersion = lambda.LambdaInsightsVersion.VERSION_1_0_119_0;
+const tracing = lambda.Tracing.ACTIVE;
+
 export class SocialAnalyticsStack extends Stack {
   constructor(scope: Construct, id: string, props: SocialAnalyticsStackProps) {
     super(scope, id, props);
@@ -58,7 +61,7 @@ export class SocialAnalyticsStack extends Stack {
       // https://help.twitter.com/en/using-twitter/how-to-tweet#source-labels
       description: 'Tweet source labels for filtering',
       parameterName: `${twitterParameterPath}/Filter/SourceLabels`,
-      stringListValue: ['twittbot.net', 'Mk00JapanBot', 'Gakeppu Tweet', 'BelugaCampaignSEA', 'rare_zaiko', 'Wn32ShimaneBot', 'uhiiman_bot', 'atulsbots'],
+      stringListValue: ['Twitter for Advertisers', 'twittbot.net', 'Mk00JapanBot', 'Gakeppu Tweet', 'BelugaCampaignSEA', 'rare_zaiko', 'Wn32ShimaneBot', 'uhiiman_bot', 'atulsbots'],
     });
 
     const twitterParameterPolicyStatement = new iam.PolicyStatement({
@@ -113,6 +116,8 @@ export class SocialAnalyticsStack extends Stack {
       description: '[SocialAnalytics] Analysis with Amazon Comprehend',
       entry: './src/functions/analysis/index.ts',
       memorySize: 256,
+      insightsVersion,
+      tracing,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'AnalysisFunction',
         POWERTOOLS_METRICS_NAMESPACE: this.stackName,
@@ -205,6 +210,8 @@ export class SocialAnalyticsStack extends Stack {
       description: '[SocialAnalytics] Bulk operations to load data into OpenSearch',
       entry: './src/functions/indexing/index.ts',
       memorySize: 320,
+      insightsVersion,
+      tracing,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'IndexingFunction',
         POWERTOOLS_METRICS_NAMESPACE: this.stackName,
@@ -262,6 +269,8 @@ export class SocialAnalyticsStack extends Stack {
       source: { bucket, prefix: 'reingest/tweets/v1/' },
       description: 'Re-ingest for TweetsV1',
       entry: './src/functions/reingest-tweets-v1/index.ts',
+      insightsVersion,
+      tracing,
       initialPolicy: [twitterParameterPolicyStatement],
       environment: {
         TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
@@ -272,6 +281,8 @@ export class SocialAnalyticsStack extends Stack {
       source: { bucket, prefix: 'reingest/tweets/v2/' },
       description: 'Re-ingest for TweetsV2',
       entry: './src/functions/reingest-tweets-v2/index.ts',
+      insightsVersion,
+      tracing,
       initialPolicy: [twitterParameterPolicyStatement],
       environment: {
         TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
@@ -283,6 +294,8 @@ export class SocialAnalyticsStack extends Stack {
       description: 'Re-index for TweetsV2',
       entry: './src/functions/reindex-tweets-v2/index.ts',
       memorySize: 1024,
+      insightsVersion,
+      tracing,
       initialPolicy: [twitterParameterPolicyStatement],
       environment: {
         TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,

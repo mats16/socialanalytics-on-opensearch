@@ -2,10 +2,10 @@ import { CustomResource, Duration } from 'aws-cdk-lib';
 import { Port } from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
+import { Function } from './lambda-nodejs';
 
 interface IndexPermission {
   index_patterns?: string[];
@@ -105,12 +105,9 @@ export class Domain extends opensearch.Domain {
 
     this.masterUserRole = masterUserRole;
 
-    const onEventHandler = new NodejsFunction(this, 'OpenSearchResourceFunction', {
+    const onEventHandler = new Function(this, 'OpenSearchResourceFunction', {
       description: 'Lambda-backed custom resources - OpenSearch resources',
       entry: './src/custom-resources-functions/opensearch-resource/index.ts',
-      handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_14_X,
-      architecture: lambda.Architecture.ARM_64,
       timeout: Duration.seconds(300),
       role: masterUserRole,
       vpc: props.vpc,
