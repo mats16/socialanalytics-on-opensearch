@@ -1,5 +1,3 @@
-FROM public.ecr.aws/aws-observability/aws-for-fluent-bit:2.24.0
-
-RUN yum remove -y vim-minimal
+FROM public.ecr.aws/aws-observability/aws-for-fluent-bit:2.25.1
 
 ADD extra.conf /fluent-bit/etc/
