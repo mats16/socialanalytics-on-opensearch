@@ -310,7 +310,7 @@ export class SocialAnalyticsStack extends Stack {
       openSearchDomain: dashboard.Domain,
       cognitoHost: userPool.domainName,
     });
-    new CfnOutput(this, 'url', { value: `https://${proxy.domainName}` });
+    new CfnOutput(this, 'url', { value: `https://${proxy.service.serviceUrl}` });
 
   }
 };

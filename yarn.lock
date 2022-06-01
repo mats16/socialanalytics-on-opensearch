@@ -10,6 +10,11 @@
     "@jridgewell/gen-mapping" "^0.1.0"
     "@jridgewell/trace-mapping" "^0.3.9"
 
+"@aws-cdk/aws-apprunner-alpha@2.26.0-alpha.0":
+  version "2.26.0-alpha.0"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/aws-apprunner-alpha/-/aws-apprunner-alpha-2.26.0-alpha.0.tgz#9af2a782d3974211daa10e03072448a934339b9f"
+  integrity sha512-LXoCSPSMlgeOeys2d7AgIBsWk3F3XJ5bcJdOvuZfNhWKG1oV53AyQLK0YZJM0VIwllTC2viV1n8n55+hF1nFaQ==
+
 "@aws-crypto/crc32@2.0.0":
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/@aws-crypto/crc32/-/crc32-2.0.0.tgz#4ad432a3c03ec3087c5540ff6e41e6565d2dc153"
