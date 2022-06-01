@@ -7,8 +7,7 @@ import { SFNClient, StartSyncExecutionCommand } from '@aws-sdk/client-sfn';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
-import { TweetV2 } from 'twitter-api-v2';
-import { TweetStreamParse, TweetStreamRecord, Deduplicate, Analysis, ComprehendJobOutput } from '../utils';
+import { TweetV2a, TweetStreamParse, TweetStreamRecord, Deduplicate, Analysis, ComprehendJobOutput } from '../utils';
 
 const entityScoreThreshold = 0.8;
 let twitterFilterContextDomains: string[];
@@ -100,9 +99,16 @@ const analyzeText = async (text: string, lang?: string): Promise<Analysis> => {
 
 const analyzeRecord = async (record: TweetStreamRecord): Promise<TweetStreamRecord> => {
   const tweet = record.data;
-  if (typeof record.analysis == 'undefined') {
-    record.analysis = await analyzeText(tweet.text, tweet.lang);
+  if (typeof tweet.analysis == 'undefined') {
+    tweet.analysis = await analyzeText(tweet.text, tweet.lang);
   };
+  const referencedTweetIds = tweet.referenced_tweets?.map(referencedTweet => referencedTweet.id) || [];
+  const includedTweets = record.includes?.tweets || [];
+  for await (let includedTweet of includedTweets) {
+    if (referencedTweetIds.includes(includedTweet.id)) {
+      includedTweet.analysis = await analyzeText(includedTweet.text, includedTweet.lang);
+    }
+  }
   return record;
 };
 
@@ -111,13 +117,13 @@ const analyzeRecords = async(records: TweetStreamRecord[]): Promise<TweetStreamR
   return analyzedRecords;
 };
 
-const sourceLabelFilter = (tweet: TweetV2): boolean => {
+const sourceLabelFilter = (tweet: TweetV2a): boolean => {
   const sourceLabel = tweet.source || '';
   const isFiltered = twitterFilterSourceLabels.includes(sourceLabel);
   return (isFiltered) ? false: true;
 };
 
-const contextDomainFilter = (tweet: TweetV2): boolean => {
+const contextDomainFilter = (tweet: TweetV2a): boolean => {
   const contextAnnotationsDomains = tweet.context_annotations?.map(a => a.domain.name) || [];
   const isFiltered = contextAnnotationsDomains.some(domain => twitterFilterContextDomains.includes(domain));
   return (isFiltered) ? false: true;

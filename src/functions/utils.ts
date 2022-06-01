@@ -1,5 +1,5 @@
 import { SentimentScore, Entity, KeyPhrase } from '@aws-sdk/client-comprehend';
-import { TweetV2SingleStreamResult } from 'twitter-api-v2';
+import { TweetV2SingleStreamResult, TweetV2, ApiV2Includes } from 'twitter-api-v2';
 
 export interface KinesisEmulatedRecord {
   kinesis: {
@@ -32,9 +32,17 @@ export interface Analysis {
   //key_phrases?: string[];
 }
 
-export interface TweetStreamRecord extends Partial<TweetV2SingleStreamResult> {
-  data: TweetV2SingleStreamResult['data'];
+export interface TweetV2a extends TweetV2 {
   analysis?: Analysis;
+}
+
+interface Includes extends ApiV2Includes {
+  tweets?: TweetV2a[];
+}
+
+export interface TweetStreamRecord extends Partial<TweetV2SingleStreamResult> {
+  data: TweetV2a;
+  includes?: Includes;
   backup?: boolean;
 }
 

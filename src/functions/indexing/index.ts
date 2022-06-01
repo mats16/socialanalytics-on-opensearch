@@ -8,8 +8,8 @@ import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpRequest, HttpResponse } from '@aws-sdk/protocol-http';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { Handler, KinesisStreamEvent } from 'aws-lambda';
-import { TweetV2, UserV2, TweetPublicMetricsV2, TTweetReplySettingsV2 } from 'twitter-api-v2';
-import { TweetStreamParse, TweetStreamRecord, Deduplicate, Normalize, Analysis, KinesisEmulatedEvent } from '../utils';
+import { UserV2, TweetPublicMetricsV2, TTweetReplySettingsV2 } from 'twitter-api-v2';
+import { TweetV2a, TweetStreamParse, TweetStreamRecord, Deduplicate, Normalize, Analysis, KinesisEmulatedEvent } from '../utils';
 
 const allowedTimeRange = 1000 * 60 * 60 * 24 * 365 * 2;
 const opensearchDomainEndpoint = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
@@ -79,7 +79,7 @@ interface Document {
     tag?: string[];
   };
   includes?: {
-    tweets?: TweetV2[];
+    tweets?: TweetV2a[];
     users?: UserV2[];
   };
   analysis?: Analysis;
@@ -130,7 +130,7 @@ const author = (record: TweetStreamRecord) => {
   };
 };
 
-const context_annotations = (tweet: TweetV2) => {
+const context_annotations = (tweet: TweetV2a) => {
   if (typeof tweet.context_annotations == 'undefined') {
     return undefined;
   } else {
@@ -141,7 +141,7 @@ const context_annotations = (tweet: TweetV2) => {
   };
 };
 
-const entities = (tweet: TweetV2) => {
+const entities = (tweet: TweetV2a) => {
   if (typeof tweet.entities == 'undefined') {
     return undefined;
   } else {
@@ -155,7 +155,7 @@ const entities = (tweet: TweetV2) => {
   };
 };
 
-const geo = (tweet: TweetV2) => {
+const geo = (tweet: TweetV2a) => {
   if (typeof tweet.geo?.coordinates == 'undefined' && typeof tweet.geo?.place_id == 'undefined') {
     return undefined;
   } else {
@@ -169,7 +169,7 @@ const geo = (tweet: TweetV2) => {
   };
 };
 
-const referenced_tweets = (tweet: TweetV2) => {
+const referenced_tweets = (tweet: TweetV2a) => {
   if (typeof tweet.referenced_tweets == 'undefined') {
     return undefined;
   } else {
@@ -203,7 +203,7 @@ const toDocument = (record: TweetStreamRecord): Document => {
     referenced_tweets: referenced_tweets(tweet),
     matching_rules: matching_rules(record),
     includes: record.includes,
-    analysis: record.analysis,
+    //analysis: tweet.analysis,
   };
   if (doc.referenced_tweets?.type?.includes('retweeted')) {
     doc.public_metrics = {
