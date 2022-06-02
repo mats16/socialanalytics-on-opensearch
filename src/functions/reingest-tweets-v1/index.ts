@@ -196,4 +196,5 @@ export const handler: SQSHandler = async(event, _context) => {
   const tweetIds = await getTweetIds(s3EventRecords);
   await ingestTweets(tweetIds);
   await deleteAllObjects(s3EventRecords);
+  twitterMetrics.publishStoredMetrics();
 };
