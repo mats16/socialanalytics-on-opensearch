@@ -9,7 +9,7 @@ import { Queue　} from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 const defaultProps: Partial<NodejsFunctionProps> = {
-  timeout: Duration.minutes(5),
+  timeout: Duration.minutes(15),
   runtime: lambda.Runtime.NODEJS_16_X,
   architecture: lambda.Architecture.ARM_64,
   //insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
