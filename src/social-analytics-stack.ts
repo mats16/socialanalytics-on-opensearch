@@ -116,6 +116,7 @@ export class SocialAnalyticsStack extends Stack {
       description: '[SocialAnalytics] Analysis with Amazon Comprehend',
       entry: './src/functions/analysis/index.ts',
       memorySize: 256,
+      timeout: Duration.minutes(15),
       insightsVersion,
       tracing,
       environment: {
@@ -210,6 +211,7 @@ export class SocialAnalyticsStack extends Stack {
       description: '[SocialAnalytics] Bulk operations to load data into OpenSearch',
       entry: './src/functions/indexing/index.ts',
       memorySize: 320,
+      timeout: Duration.minutes(15),
       insightsVersion,
       tracing,
       environment: {
@@ -269,6 +271,7 @@ export class SocialAnalyticsStack extends Stack {
       source: { bucket, prefix: 'reingest/tweets/v1/' },
       description: 'Re-ingest for TweetsV1',
       entry: './src/functions/reingest-tweets-v1/index.ts',
+      timeout: Duration.minutes(15),
       insightsVersion,
       tracing,
       initialPolicy: [twitterParameterPolicyStatement],
@@ -296,6 +299,7 @@ export class SocialAnalyticsStack extends Stack {
       description: 'Re-index for TweetsV2',
       entry: './src/functions/reindex-tweets-v2/index.ts',
       memorySize: 1024,
+      timeout: Duration.minutes(15),
       insightsVersion,
       tracing,
       initialPolicy: [twitterParameterPolicyStatement],
