@@ -169,5 +169,6 @@ export const handler: KinesisStreamHandler = async(event, _context) => {
   const analyzedRecords = await analyzeRecords(streamRecords);
   const { requestRecordCount, failedRecordCount } = await putRecordsKinesis(analyzedRecords);
   metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, requestRecordCount-failedRecordCount);
+  metrics.publishStoredMetrics();
   return;
 };

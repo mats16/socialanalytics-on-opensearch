@@ -1,4 +1,4 @@
-import { Duration } from 'aws-cdk-lib';
+import { Duration, Aws } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke, DynamoGetItem, DynamoPutItem, DynamoAttributeValue, CallAwsService } from 'aws-cdk-lib/aws-stepfunctions-tasks';
@@ -13,19 +13,33 @@ export class ComprehendWithCache extends Construct {
 
     const normalizeFunction = new Function(this, 'NormalizeFunction', {
       entry: './src/functions/normalize/index.ts',
+      environment: {
+        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
+        POWERTOOLS_SERVICE_NAME: 'ComprehendWithCache',
+      },
     });
 
     const filterDominantLangFunction = new Function(this, 'FilterDominantLangFunction', {
       entry: './src/functions/filter-dominant-lang/index.ts',
+      environment: {
+        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
+        POWERTOOLS_SERVICE_NAME: 'ComprehendWithCache',
+      },
     });
 
     const b64DecodeFunction = new Function(this, 'B64DecodeFunction', {
       entry: './src/functions/b64decode/index.ts',
+      environment: {
+        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
+        POWERTOOLS_SERVICE_NAME: 'ComprehendWithCache',
+      },
     });
 
     const b64EncodeFunction = new Function(this, 'B64EncodeFunction', {
       entry: './src/functions/b64encode/index.ts',
       environment: {
+        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
+        POWERTOOLS_SERVICE_NAME: 'ComprehendWithCache',
         CACHE_TTL_DAYS: '30',
       },
     });
