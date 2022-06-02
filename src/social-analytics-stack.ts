@@ -273,9 +273,11 @@ export class SocialAnalyticsStack extends Stack {
       tracing,
       initialPolicy: [twitterParameterPolicyStatement],
       environment: {
-        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
+        TWITTER_PARAMETER_PATH: twitterParameterPath,
+        DEST_STREAM_NAME: ingestionStream.streamName,
       },
     });
+    ingestionStream.grantWrite(reingestTweetsV1Function);
 
     const reingestTweetsV2Function = new RetryFunction(this, 'ReingestTweetsV2Function', {
       source: { bucket, prefix: 'reingest/tweets/v2/' },
@@ -298,7 +300,6 @@ export class SocialAnalyticsStack extends Stack {
       tracing,
       initialPolicy: [twitterParameterPolicyStatement],
       environment: {
-        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
         INDEXING_FUNCTION_ARN: indexingFunction.functionArn,
       },
       reservedConcurrentExecutions: 8,
