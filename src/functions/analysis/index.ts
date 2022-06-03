@@ -9,6 +9,7 @@ import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
 import { TweetV2a, TweetStreamParse, TweetStreamRecord, Deduplicate, Analysis, ComprehendJobOutput } from '../utils';
 
+const concurrency = 10; // for Comprehend call via StepFunctions
 const entityScoreThreshold = 0.8;
 let twitterFilterContextDomains: string[];
 let twitterFilterSourceLabels: string[];
@@ -113,25 +114,33 @@ const analyzeRecord = async (record: TweetStreamRecord): Promise<TweetStreamReco
 };
 
 const analyzeRecords = async(records: TweetStreamRecord[]): Promise<TweetStreamRecord[]> => {
-  const analyzedRecords = await Promise.map(records, analyzeRecord, { concurrency: 10 });
+  const analyzedRecords = await Promise.map(records, analyzeRecord, { concurrency });
   return analyzedRecords;
 };
 
-const sourceLabelFilter = (tweet: TweetV2a): boolean => {
+const sourceLabelFilter = (record: TweetStreamRecord): boolean => {
+  const tweet = record.data;
   const sourceLabel = tweet.source || '';
-  const isFiltered = twitterFilterSourceLabels.includes(sourceLabel);
-  return (isFiltered) ? false: true;
+  const result = !twitterFilterSourceLabels.includes(sourceLabel);
+  return result;
 };
 
-const contextDomainFilter = (tweet: TweetV2a): boolean => {
+const contextDomainFilter = (record: TweetStreamRecord): boolean => {
+  const tweet = record.data;
   const contextAnnotationsDomains = tweet.context_annotations?.map(a => a.domain.name) || [];
-  const isFiltered = contextAnnotationsDomains.some(domain => twitterFilterContextDomains.includes(domain));
-  return (isFiltered) ? false: true;
+  const result = !contextAnnotationsDomains.some(domain => twitterFilterContextDomains.includes(domain));
+  return result;
+};
+
+const languageCodeFilter = (record: TweetStreamRecord): boolean => {
+  const lang = record.data.lang;
+  const result = (typeof lang == 'undefined' || lang == 'und') ? false : true;
+  return result;
 };
 
 const transformRecords = (kinesisStreamRecords: KinesisStreamRecord[]): TweetStreamRecord[] => {
   const records = kinesisStreamRecords.map(record => TweetStreamParse(record.kinesis.data));
-  const filteredRecords = records.filter(record => sourceLabelFilter(record.data)).filter(record => contextDomainFilter(record.data));
+  const filteredRecords = records.filter(sourceLabelFilter).filter(contextDomainFilter).filter(languageCodeFilter);
   metrics.addMetric('FilteredRate', MetricUnits.Percent, (records.length - filteredRecords.length) / records.length * 100);
   return filteredRecords;
 };
