@@ -1,5 +1,7 @@
 import { Duration, Aws } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke, DynamoGetItem, DynamoPutItem, DynamoAttributeValue, CallAwsService } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
@@ -13,14 +15,6 @@ export class ComprehendWithCache extends Construct {
 
     const normalizeFunction = new Function(this, 'NormalizeFunction', {
       entry: './src/functions/normalize/index.ts',
-      environment: {
-        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
-        POWERTOOLS_SERVICE_NAME: 'ComprehendWithCache',
-      },
-    });
-
-    const filterDominantLangFunction = new Function(this, 'FilterDominantLangFunction', {
-      entry: './src/functions/filter-dominant-lang/index.ts',
       environment: {
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
         POWERTOOLS_SERVICE_NAME: 'ComprehendWithCache',
@@ -53,11 +47,20 @@ export class ComprehendWithCache extends Construct {
       timeToLiveAttribute: 'expire',
     });
 
+    const invokeState = new sfn.Pass(this, 'Invoke', {
+      parameters: {
+        'input.$': '$',
+      },
+    });
+
     const normalizeTextTask = new LambdaInvoke(this, 'Normalize Text', {
       lambdaFunction: normalizeFunction,
       payloadResponseOnly: true,
-      inputPath: '$.Text',
-      resultPath: '$.NormalizedText',
+      inputPath: '$.input',
+      resultSelector: {
+        'input.$': '$',
+        'CacheKey.$': '$.CacheKey',
+      },
     });
 
     const getCacheTask = new DynamoGetItem(this, 'Get Cache', {
@@ -65,7 +68,7 @@ export class ComprehendWithCache extends Construct {
       key: {
         id: DynamoAttributeValue.fromString(sfn.JsonPath.stringAt('$')),
       },
-      inputPath: '$.NormalizedText.SHA256',
+      inputPath: '$.CacheKey',
       resultPath: '$.Cache',
     }).addRetry({ maxAttempts: 2 });
 
@@ -75,23 +78,23 @@ export class ComprehendWithCache extends Construct {
       inputPath: '$.Cache.Item.value.B',
     });
 
-    const detectDominantLanguageTask = new CallAwsService(this, 'Detect DominantLanguage', {
-      service: 'Comprehend',
-      action: 'detectDominantLanguage',
-      iamAction: 'comprehend:DetectDominantLanguage',
+    const translateTask = new CallAwsService(this, 'Translate', {
+      service: 'Translate',
+      action: 'translateText',
+      iamAction: 'translate:TranslateText',
       iamResources: ['*'],
+      inputPath: '$.input',
       parameters: {
-        'Text.$': '$.NormalizedText.Value',
+        'Text.$': '$.Text',
+        'SourceLanguageCode': 'auto',
+        'TargetLanguageCode': 'en',
       },
-      resultPath: '$.DetectDominantLanguage',
-    }).addRetry({ maxAttempts: 10 });;
-
-    const filterDominantLangTask = new LambdaInvoke(this, 'Choice DominantLanguage', {
-      lambdaFunction: filterDominantLangFunction,
-      payloadResponseOnly: true,
-      inputPath: '$.DetectDominantLanguage',
-      resultPath: '$.LanguageCode',
-    });
+      resultSelector: {
+        'Text.$': '$.TranslatedText',
+        'LanguageCode': 'en',
+      },
+      resultPath: '$.input',
+    }).addRetry({ maxAttempts: 2 });
 
     const detectEntitiesTask = new CallAwsService(this, 'Detect Entities', {
       service: 'Comprehend',
@@ -99,10 +102,10 @@ export class ComprehendWithCache extends Construct {
       iamAction: 'comprehend:DetectEntities',
       iamResources: ['*'],
       parameters: {
-        'Text.$': '$.NormalizedText.Value',
+        'Text.$': '$.Text',
         'LanguageCode.$': '$.LanguageCode',
       },
-    }).addRetry({ maxAttempts: 10 });
+    }).addRetry({ maxAttempts: 20 });
 
     const detectSentimentTask = new CallAwsService(this, 'Detect Sentiment', {
       service: 'Comprehend',
@@ -110,10 +113,10 @@ export class ComprehendWithCache extends Construct {
       iamAction: 'comprehend:DetectSentiment',
       iamResources: ['*'],
       parameters: {
-        'Text.$': '$.NormalizedText.Value',
+        'Text.$': '$.Text',
         'LanguageCode.$': '$.LanguageCode',
       },
-    }).addRetry({ maxAttempts: 10 });
+    }).addRetry({ maxAttempts: 20 });
 
     //const detectKeyPhrasesTask = new CallAwsService(this, 'Detect KeyPhrases', {
     //  service: 'Comprehend',
@@ -127,6 +130,7 @@ export class ComprehendWithCache extends Construct {
     //});
 
     const detectTask = new sfn.Parallel(this, 'Detection', {
+      inputPath: '$.input',
       resultSelector: {
         'Entities.$': '$[0].Entities',
         'Sentiment.$': '$[1].Sentiment',
@@ -138,7 +142,7 @@ export class ComprehendWithCache extends Construct {
 
     const genResponseTask = new sfn.Pass(this, 'Generate Response', {
       parameters: {
-        'NormalizedText.$': '$.NormalizedText.Value',
+        'NormalizedText.$': '$.input.Text',
         'Entities.$': '$.Comprehend.Entities',
         'Sentiment.$': '$.Comprehend.Sentiment',
         'SentimentScore.$': '$.Comprehend.SentimentScore',
@@ -157,7 +161,7 @@ export class ComprehendWithCache extends Construct {
     const storeCacheTask = new DynamoPutItem(this, 'Store Cache', {
       table: cacheTable,
       item: {
-        id: DynamoAttributeValue.fromString(sfn.JsonPath.stringAt( '$.NormalizedText.SHA256')),
+        id: DynamoAttributeValue.fromString(sfn.JsonPath.stringAt( '$.CacheKey')),
         value: DynamoAttributeValue.fromBinary(sfn.JsonPath.stringAt('$.Cache.Value')),
         expire: DynamoAttributeValue.numberFromString(sfn.JsonPath.stringAt('$.Cache.Expire')),
       },
@@ -168,21 +172,62 @@ export class ComprehendWithCache extends Construct {
     detectTask.branch(detectEntitiesTask).branch(detectSentimentTask);
     detectTask.next(genResponseTask).next(genCacheValueTask).next(storeCacheTask);
 
-    const checkLanguageCode = new sfn.Choice(this, 'LanguageCode?');
-    checkLanguageCode.when(sfn.Condition.isNotPresent('$.LanguageCode'), detectDominantLanguageTask.next(filterDominantLangTask).next(detectTask));
-    checkLanguageCode.otherwise(detectTask);
+    const checkLanguageCodeSupported = new sfn.Choice(this, 'LanguageCode supported?');
+    checkLanguageCodeSupported.when(sfn.Condition.or(
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'ar'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'hi'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'ko'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'zh-TW'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'ja'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'zh'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'de'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'pt'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'en'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'it'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'fr'),
+      sfn.Condition.stringEquals('$.input.LanguageCode', 'es'),
+    ), detectTask);
+    checkLanguageCodeSupported.otherwise(translateTask.next(detectTask));
 
-    const checkCache = new sfn.Choice(this, 'CacheHit?');
-    checkCache.when(sfn.Condition.isPresent('$.Cache.Item.value.B'), decodeCacheTask);
-    checkCache.otherwise(checkLanguageCode);
+    //const autoLanguageCode = new sfn.Pass(this, 'Auto LanguageCode', {
+    //  parameters: {
+    //    'Text.$': '$.input.Text',
+    //    'LanguageCode': 'auto',
+    //  },
+    //  resultPath: '$.input',
+    //});
 
-    normalizeTextTask.next(getCacheTask).next(checkCache);
+    //const checkLanguageCodeExist = new sfn.Choice(this, 'LanguageCode exist?');
+    //checkLanguageCodeExist.when(sfn.Condition.isNotPresent('$.input.LanguageCode'), autoLanguageCode.next(checkLanguageCodeSupported));
+    //checkLanguageCodeExist.otherwise(checkLanguageCodeSupported);
+
+    const checkCacheHit = new sfn.Choice(this, 'CacheHit?');
+    checkCacheHit.when(sfn.Condition.isPresent('$.Cache.Item.value.B'), decodeCacheTask);
+    checkCacheHit.otherwise(checkLanguageCodeSupported);
+
+    const empryResponse = new sfn.Pass(this, 'EmpryResponse', { parameters: {} });
+
+    const checkTextEmpty = new sfn.Choice(this, 'Text empty?');
+    checkTextEmpty.when(sfn.Condition.stringEquals('$.input.Text', ''), empryResponse);
+    checkTextEmpty.otherwise(getCacheTask.next(checkCacheHit));
+
+    invokeState.next(normalizeTextTask).next(checkTextEmpty);
 
     this.stateMachine = new sfn.StateMachine(this, 'StateMachine', {
       stateMachineType: sfn.StateMachineType.EXPRESS,
-      definition: normalizeTextTask,
+      definition: invokeState,
       tracingEnabled: true,
+      logs: {
+        level: sfn.LogLevel.ERROR,
+        destination: new logs.LogGroup(this, 'Logs', { retention: logs.RetentionDays.TWO_WEEKS }),
+      },
     });
+
+    // for Translate auto mode
+    this.stateMachine.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['comprehend:DetectDominantLanguage'],
+      resources: ['*'],
+    }));
 
   }
 }

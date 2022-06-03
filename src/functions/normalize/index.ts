@@ -3,9 +3,13 @@ import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
 import { Handler } from 'aws-lambda';
 import { Normalize } from '../utils';
 
-interface Result {
-  Value: string;
-  SHA256: string;
+interface Event {
+  Text: string;
+  LanguageCode?: string;
+}
+
+interface Result extends Event {
+  CacheKey: string;
 }
 
 const metrics = new Metrics();
@@ -18,11 +22,13 @@ const toHash = (text: string): string => {
   return digest;
 };
 
-export const handler: Handler<string, Result> = async (text, _context) => {
-  const normalizedText = Normalize(text);
+export const handler: Handler<Event, Result> = async (event, _context) => {
+  const normalizedText = Normalize(event.Text);
+  const languageCode = (typeof event.LanguageCode == 'undefined') ? 'auto' : event.LanguageCode;
   const result: Result = {
-    Value: normalizedText,
-    SHA256: toHash(normalizedText),
+    Text: normalizedText,
+    LanguageCode: languageCode,
+    CacheKey: toHash(normalizedText),
   };
   metrics.addMetric('ExecutedCount', MetricUnits.Count, 1);
   metrics.publishStoredMetrics();
