@@ -1,4 +1,4 @@
-import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy, CfnOutput } from 'aws-cdk-lib';
+import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy, CfnOutput, Aws } from 'aws-cdk-lib';
 import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
 import { Vpc, SubnetType, Port } from 'aws-cdk-lib/aws-ec2';
 import * as events from 'aws-cdk-lib/aws-events';
@@ -121,7 +121,7 @@ export class SocialAnalyticsStack extends Stack {
       tracing,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'AnalysisFunction',
-        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
+        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
         POWERTOOLS_TRACER_CAPTURE_RESPONSE: 'false',
         TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME: twitterFilterContextDomains.parameterName,
         TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME: twitterFilterSourceLabels.parameterName,
@@ -131,9 +131,10 @@ export class SocialAnalyticsStack extends Stack {
       events: [
         new KinesisEventSource(ingestionStream, {
           startingPosition: lambda.StartingPosition.LATEST,
-          batchSize: 100,
+          batchSize: 60,
           maxBatchingWindow: Duration.seconds(15),
           maxRecordAge: Duration.days(1),
+          //parallelizationFactor: 1,
         }),
       ],
       initialPolicy: [
@@ -150,7 +151,7 @@ export class SocialAnalyticsStack extends Stack {
       timeout: Duration.minutes(5),
       environment: {
         POWERTOOLS_SERVICE_NAME: 'ArchiveFilterFunction',
-        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
+        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
       },
     });
 
@@ -216,7 +217,7 @@ export class SocialAnalyticsStack extends Stack {
       tracing,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'IndexingFunction',
-        POWERTOOLS_METRICS_NAMESPACE: this.stackName,
+        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
         POWERTOOLS_TRACER_CAPTURE_RESPONSE: 'false',
         OPENSEARCH_DOMAIN_ENDPOINT: dashboard.Domain.domainEndpoint,
       },
