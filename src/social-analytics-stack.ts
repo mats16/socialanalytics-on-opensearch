@@ -23,7 +23,7 @@ interface SocialAnalyticsStackProps extends StackProps {
   defaultTwitterBearerToken?: string;
 };
 
-const insightsVersion = lambda.LambdaInsightsVersion.VERSION_1_0_119_0;
+const insightsVersion = lambda.LambdaInsightsVersion.VERSION_1_0_135_0;
 const tracing = lambda.Tracing.ACTIVE;
 
 export class SocialAnalyticsStack extends Stack {
