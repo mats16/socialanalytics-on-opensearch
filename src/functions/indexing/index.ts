@@ -55,7 +55,12 @@ interface Document {
     cashtag?: string[];
     hashtag?: string[];
     mention?: string[];
-    url?: string[];
+    url?: {
+      domain?: string[];
+      expanded_url?: string[];
+      title?: string[];
+      description?: string[];
+    };
   };
   geo?: {
     coordinates?: {
@@ -145,13 +150,19 @@ const entities = (tweet: TweetV2a) => {
   if (typeof tweet.entities == 'undefined') {
     return undefined;
   } else {
-    return {
+    const result = {
       annotation: tweet.entities?.annotations?.map(x => x.normalized_text.toLowerCase()),
       cashtag: tweet.entities?.cashtags?.map(x => x.tag?.toLowerCase()),
       hashtag: tweet.entities?.hashtags?.map(x => x.tag?.toLowerCase()),
       mention: tweet.entities?.mentions?.map(x => x.username?.toLowerCase()),
-      url: tweet.entities?.urls?.map(x => x.expanded_url),
+      url: {
+        domain: tweet.entities?.urls?.map(entityUrl => entityUrl.display_url.split('/').shift()).filter((item): item is string => typeof item == 'string'),
+        expanded_url: tweet.entities?.urls?.map(entityUrl => entityUrl.expanded_url),
+        title: tweet.entities?.urls?.map(entityUrl => entityUrl.title).filter((item): item is string => typeof item == 'string'),
+        description: tweet.entities?.urls?.map(entityUrl => entityUrl.description).filter((item): item is string => typeof item == 'string'),
+      },
     };
+    return result;
   };
 };
 

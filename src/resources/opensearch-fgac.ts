@@ -41,10 +41,15 @@ interface RoleMappingProps {
 
 interface FieldProperty {
   type?: 'boolean'|'byte'|'short'|'integer'|'long'|'float'|'half_float'|'scaled_float'|'double'|'keyword'|'text'|'date'|'ip'|'date'|'binary'|'object'|'nested'|'geo_point';
+  analyzer?: string;
   format?: string;
   index?: boolean;
   enabled?: boolean;
   properties?: {
+    [key: string]: FieldProperty;
+  };
+  fielddata?: boolean;
+  fields?: {
     [key: string]: FieldProperty;
   };
 }

@@ -160,7 +160,28 @@ export class Dashboard extends Construct {
                     type: 'keyword',
                   },
                   url: {
-                    type: 'keyword',
+                    properties: {
+                      domain: {
+                        type: 'keyword',
+                      },
+                      expanded_url: {
+                        type: 'text',
+                        fielddata: true,
+                        fields: {
+                          raw: {
+                            type: 'keyword',
+                          },
+                        },
+                      },
+                      title: {
+                        type: 'text',
+                        analyzer: 'kuromoji',
+                      },
+                      description: {
+                        type: 'text',
+                        analyzer: 'kuromoji',
+                      },
+                    },
                   },
                 },
               },
@@ -227,6 +248,7 @@ export class Dashboard extends Construct {
               },
               text: {
                 type: 'text',
+                analyzer: 'kuromoji',
               },
               url: {
                 type: 'keyword',
@@ -286,6 +308,7 @@ export class Dashboard extends Construct {
                 properties: {
                   normalized_text: {
                     type: 'text',
+                    analyzer: 'kuromoji',
                   },
                   sentiment: {
                     type: 'keyword',
