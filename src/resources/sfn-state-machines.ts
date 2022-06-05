@@ -205,7 +205,11 @@ export class ComprehendWithCache extends Construct {
     checkCacheHit.when(sfn.Condition.isPresent('$.Cache.Item.value.B'), decodeCacheTask);
     checkCacheHit.otherwise(checkLanguageCodeSupported);
 
-    const empryResponse = new sfn.Pass(this, 'EmpryResponse', { parameters: {} });
+    const empryResponse = new sfn.Pass(this, 'EmpryResponse', {
+      parameters: {
+        'NormalizedText.$': '$.input.Text',
+      },
+    });
 
     const checkTextEmpty = new sfn.Choice(this, 'Text empty?');
     checkTextEmpty.when(sfn.Condition.stringEquals('$.input.Text', ''), empryResponse);
