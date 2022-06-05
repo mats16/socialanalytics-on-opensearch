@@ -7,6 +7,7 @@ import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { KinesisEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { tweetFieldsParams } from './parameter';
@@ -77,6 +78,7 @@ export class SocialAnalyticsStack extends Stack {
     const bucket = new s3.Bucket(this, 'Bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
       lifecycleRules: [{
+        prefix: 'raw',
         transitions: [{
           storageClass: s3.StorageClass.INTELLIGENT_TIERING,
           transitionAfter: Duration.days(0),
@@ -200,6 +202,12 @@ export class SocialAnalyticsStack extends Stack {
         'amazon.co.jp',
       ],
       cognitoDomainPrefix: `${this.stackName.toLowerCase()}-${this.account}`,
+    });
+
+    new s3deploy.BucketDeployment(this, 'OpenSearchPackages', {
+      sources: [s3deploy.Source.asset('./src/opensearch-packages')],
+      destinationBucket: bucket,
+      destinationKeyPrefix: 'opensearch-packages/',
     });
 
     const dashboard = new Dashboard(this, 'Dashboard', {

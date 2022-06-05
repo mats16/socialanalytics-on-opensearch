@@ -1,0 +1,7 @@
+自動翻訳,自動翻訳,ジドウホンヤク,一般名詞
+機械翻訳,機械翻訳,キカイホンヤク,一般名詞
+機械学習,機械学習,キカイガクシュウ,一般名詞
+強化学習,強化学習,キョウカガクシュウ,一般名詞
+深層学習,深層学習,シンソウガクシュウ,一般名詞
+自動運転,自動運転,ジドウウンテン,一般名詞
+AWS Certified Cloud Practitioner,AWS Certified Cloud Practitioner,AWS Certified Cloud Practitioner,固有名詞
