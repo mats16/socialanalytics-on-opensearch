@@ -89,7 +89,7 @@ const invokeFunction = async(functionName: string, event: KinesisEmulatedEvent) 
 const dataLoader = async (functionName: string, tweetStreamRecords: TweetStreamRecord[], inprogress: TweetStreamRecord[] = [], i: number = 0) => {
   const record = tweetStreamRecords[i];
   inprogress.push(record);
-  if (i+1 == tweetStreamRecords.length || inprogress.length == 500) {
+  if (i+1 == tweetStreamRecords.length || inprogress.length == 300) {
     const emulatedEvent = toKinesisEvent(inprogress);
     await invokeFunction(functionName, emulatedEvent);
     if (i+1 == tweetStreamRecords.length) {
