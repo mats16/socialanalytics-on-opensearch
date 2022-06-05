@@ -161,8 +161,17 @@ export class Dashboard extends Construct {
                   },
                   url: {
                     properties: {
-                      domain: {
+                      display_domain: {
                         type: 'keyword',
+                      },
+                      display_url: {
+                        type: 'text',
+                        fielddata: true,
+                        fields: {
+                          raw: {
+                            type: 'keyword',
+                          },
+                        },
                       },
                       expanded_url: {
                         type: 'text',
@@ -176,6 +185,12 @@ export class Dashboard extends Construct {
                       title: {
                         type: 'text',
                         analyzer: 'kuromoji',
+                        fielddata: true,
+                        fields: {
+                          raw: {
+                            type: 'keyword',
+                          },
+                        },
                       },
                       description: {
                         type: 'text',

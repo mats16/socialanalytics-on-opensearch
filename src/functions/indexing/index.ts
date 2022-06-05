@@ -56,7 +56,8 @@ interface Document {
     hashtag?: string[];
     mention?: string[];
     url?: {
-      domain?: string[];
+      display_domain?: string[];
+      display_url?: string[];
       expanded_url?: string[];
       title?: string[];
       description?: string[];
@@ -156,7 +157,8 @@ const entities = (tweet: TweetV2a) => {
       hashtag: tweet.entities?.hashtags?.map(x => x.tag?.toLowerCase()),
       mention: tweet.entities?.mentions?.map(x => x.username?.toLowerCase()),
       url: {
-        domain: tweet.entities?.urls?.map(entityUrl => entityUrl.display_url.split('/').shift()).filter((item): item is string => typeof item == 'string'),
+        display_domain: Deduplicate(tweet.entities?.urls?.map(entityUrl => entityUrl.display_url.split('/').shift()).filter((item): item is string => typeof item == 'string')) as string[],
+        display_url: tweet.entities?.urls?.map(entityUrl => entityUrl.display_url),
         expanded_url: tweet.entities?.urls?.map(entityUrl => entityUrl.expanded_url),
         title: tweet.entities?.urls?.map(entityUrl => entityUrl.title).filter((item): item is string => typeof item == 'string'),
         description: tweet.entities?.urls?.map(entityUrl => entityUrl.description).filter((item): item is string => typeof item == 'string'),
