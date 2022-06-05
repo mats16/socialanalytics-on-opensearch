@@ -132,15 +132,15 @@ const contextDomainFilter = (record: TweetStreamRecord): boolean => {
   return result;
 };
 
-const languageCodeFilter = (record: TweetStreamRecord): boolean => {
-  const lang = record.data.lang;
-  const result = (typeof lang == 'undefined' || lang == 'und') ? false : true;
-  return result;
-};
+//const languageCodeFilter = (record: TweetStreamRecord): boolean => {
+//  const lang = record.data.lang;
+//  const result = (typeof lang == 'undefined' || lang == 'und') ? false : true;
+//  return result;
+//};
 
 const transformRecords = (kinesisStreamRecords: KinesisStreamRecord[]): TweetStreamRecord[] => {
   const records = kinesisStreamRecords.map(record => TweetStreamParse(record.kinesis.data));
-  const filteredRecords = records.filter(sourceLabelFilter).filter(contextDomainFilter).filter(languageCodeFilter);
+  const filteredRecords = records.filter(sourceLabelFilter).filter(contextDomainFilter);
   metrics.addMetric('FilteredRate', MetricUnits.Percent, (records.length - filteredRecords.length) / records.length * 100);
   return filteredRecords;
 };
