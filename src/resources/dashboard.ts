@@ -165,13 +165,7 @@ export class Dashboard extends Construct {
                         type: 'keyword',
                       },
                       display_url: {
-                        type: 'text',
-                        fielddata: true,
-                        fields: {
-                          raw: {
-                            type: 'keyword',
-                          },
-                        },
+                        type: 'keyword',
                       },
                       expanded_url: {
                         type: 'text',
