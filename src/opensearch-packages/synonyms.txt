@@ -1,0 +1,23 @@
+api gateway,apigateway,api gw,apigw
+app mesh,appmesh,アップメッシュ
+app runner,apprunner,アップランナー
+backup,backups,バックアップ
+blockchain,ブロックチェーン
+containers,container,コンテナ
+database,db,データベース
+data lake,datalake,データレイク
+deep learning,ディープラーニング,深層学習
+kubernetes,k8s
+machine learning,ml,マシンラーニング,機械学習
+network,ネットワーク
+reinforcement learning,強化学習
+server,サーバー,サーバ
+serverless,サーバーレス,サーバレス
+service mesh,サービスメッシュ
+session manager,セッションマネージャー
+solutions architect,sa,ソリューションアーキテクト
+startup,startups,スタートアップ
+storage,ストレージ
+systems manager,ssm
+venture capital,vc,ベンチャーキャピタル
+web3,web3.0
