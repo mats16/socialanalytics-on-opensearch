@@ -145,6 +145,11 @@
       "type": "runtime"
     },
     {
+      "name": "@aws-sdk/client-opensearch",
+      "version": "^3.100.0",
+      "type": "runtime"
+    },
+    {
       "name": "@aws-sdk/client-s3",
       "version": "^3.100.0",
       "type": "runtime"

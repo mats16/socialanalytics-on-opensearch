@@ -19,6 +19,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     `@aws-sdk/client-eventbridge@${awsSdkVersion}`,
     `@aws-sdk/client-kinesis@${awsSdkVersion}`,
     `@aws-sdk/client-lambda@${awsSdkVersion}`,
+    `@aws-sdk/client-opensearch@${awsSdkVersion}`,
     `@aws-sdk/client-s3@${awsSdkVersion}`,
     `@aws-sdk/client-sfn@${awsSdkVersion}`,
     `@aws-sdk/client-ssm@${awsSdkVersion}`,

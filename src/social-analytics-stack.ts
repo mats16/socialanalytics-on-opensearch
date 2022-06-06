@@ -5,7 +5,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { KinesisEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { KinesisEventSource, S3EventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
@@ -204,10 +204,33 @@ export class SocialAnalyticsStack extends Stack {
       cognitoDomainPrefix: `${this.stackName.toLowerCase()}-${this.account}`,
     });
 
+    const openSearchPackagesPrefix = 'opensearch-packages/';
+    new Function(this, 'OpenSearchPackageRegisterFunction', {
+      description: '[SocialAnalytics] OpenSearch package register',
+      entry: './src/functions/opensearch-package-register/index.ts',
+      events: [new S3EventSource(bucket, {
+        events: [s3.EventType.OBJECT_CREATED],
+        filters: [{ prefix: openSearchPackagesPrefix, suffix: '.txt' }],
+      })],
+      initialPolicy: [
+        new iam.PolicyStatement({
+          actions: [
+            'es:CreatePackage',
+            'es:DescribePackages',
+            'es:UpdatePackage',
+          ],
+          resources: ['*'],
+        }),
+        new iam.PolicyStatement({
+          actions: ['s3:GetObject'],
+          resources: [`${bucket.bucketArn}/opensearch-packages/*`],
+        }),
+      ],
+    });
     new s3deploy.BucketDeployment(this, 'OpenSearchPackages', {
       sources: [s3deploy.Source.asset('./src/opensearch-packages')],
       destinationBucket: bucket,
-      destinationKeyPrefix: 'opensearch-packages/',
+      destinationKeyPrefix: openSearchPackagesPrefix,
     });
 
     const dashboard = new Dashboard(this, 'Dashboard', {
