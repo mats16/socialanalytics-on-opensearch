@@ -115,14 +115,36 @@ export class Dashboard extends Construct {
       });
     };
 
-    this.Domain.addTemplate('TweetsTemplate', {
+    const kuromojiComponentTemplate = this.Domain.addComponentTemplate('KuromojiComponentTemplate', {
+      name: 'kuromoji_user_dic',
+      body: {
+        template: {
+          settings: {
+            index: {
+              analysis: {
+                analyzer: {
+                  kuromoji_user_dic: {
+                    type: 'kuromoji',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    this.Domain.addIndexTemplate('TweetsTemplate', {
       name: 'tweets',
       body: {
         index_patterns: ['tweets-*'],
+        composed_of: [kuromojiComponentTemplate.getAttString('Name')],
         template: {
           settings: {
-            number_of_shards: 3,
-            number_of_replicas: 1,
+            index: {
+              number_of_shards: 3,
+              number_of_replicas: 1,
+            },
           },
           mappings: {
             _source: {
@@ -178,7 +200,7 @@ export class Dashboard extends Construct {
                       },
                       title: {
                         type: 'text',
-                        analyzer: 'kuromoji',
+                        analyzer: 'kuromoji_user_dic',
                         fielddata: true,
                         fields: {
                           raw: {
@@ -188,7 +210,7 @@ export class Dashboard extends Construct {
                       },
                       description: {
                         type: 'text',
-                        analyzer: 'kuromoji',
+                        analyzer: 'kuromoji_user_dic',
                       },
                     },
                   },
@@ -257,7 +279,7 @@ export class Dashboard extends Construct {
               },
               text: {
                 type: 'text',
-                analyzer: 'kuromoji',
+                analyzer: 'kuromoji_user_dic',
               },
               url: {
                 type: 'keyword',
@@ -317,7 +339,7 @@ export class Dashboard extends Construct {
                 properties: {
                   normalized_text: {
                     type: 'text',
-                    analyzer: 'kuromoji',
+                    analyzer: 'kuromoji_user_dic',
                   },
                   sentiment: {
                     type: 'keyword',

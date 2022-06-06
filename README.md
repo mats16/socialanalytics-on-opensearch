@@ -19,3 +19,25 @@ export TWITTER_BEARER_TOKEN=xxxxxxxxxxxxxxxxxxxx
 npx projen
 npj projen deploy
 ```
+
+## Apply user dictionary
+
+```
+PUT _component_template/kuromoji_user_dic
+{
+  "template": {
+    "settings": {
+      "index": {
+        "analysis": {
+          "analyzer": {
+            "kuromoji_user_dic": {
+              "type": "kuromoji",
+              "user_dictionary": "analyzers/F95056340"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```

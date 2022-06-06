@@ -54,27 +54,50 @@ interface FieldProperty {
   };
 }
 
-interface TemplateProps {
-  name?: string;
-  body: {
-    index_patterns: string[];
-    template: {
-      aliased?: object;
-      settings: {
-        number_of_shards: number;
-        number_of_replicas: number;
-      };
-      mappings: {
-        _source?: {
-          enabled: boolean;
-        };
-        properties: {
-          [key: string]: FieldProperty;
+interface TemplateBody {
+  aliased?: object;
+  settings?: {
+    index?: {
+      number_of_shards?: number;
+      number_of_replicas?: number;
+      analysis?: {
+        analyzer?: {
+          [key: string]: {
+            type: string;
+            tokenizer?: string;
+            user_dictionary?: string;
+          };
         };
       };
     };
-    priority?: number;
+  };
+  mappings?: {
+    _source?: {
+      enabled: boolean;
+    };
+    properties?: {
+      [key: string]: FieldProperty;
+    };
+  };
+}
+
+interface IndexTemplateProps {
+  name?: string;
+  body: {
+    index_patterns: string[];
+    template: TemplateBody;
     composed_of?: string[];
+    priority?: number;
+    version?: number;
+    _meta?: object;
+  };
+};
+
+interface ComponentTemplateProps {
+  name?: string;
+  body: {
+    template: TemplateBody;
+    priority?: number;
     version?: number;
     _meta?: object;
   };
@@ -178,7 +201,7 @@ export class Domain extends opensearch.Domain {
     });
     return resource;
   };
-  addTemplate(id: string, props: TemplateProps) {
+  addIndexTemplate(id: string, props: IndexTemplateProps) {
     const name = props.name || id;
     const body = props.body;
     const resource = new CustomResource(this, id, {
@@ -187,6 +210,21 @@ export class Domain extends opensearch.Domain {
       properties: {
         host: this.domainEndpoint,
         path: '_index_template/',
+        name,
+        body,
+      },
+    });
+    return resource;
+  };
+  addComponentTemplate(id: string, props: ComponentTemplateProps) {
+    const name = props.name || id;
+    const body = props.body;
+    const resource = new CustomResource(this, id, {
+      serviceToken: this.crServiceToken,
+      resourceType: 'Custom::OpenSearchComponentTemplate',
+      properties: {
+        host: this.domainEndpoint,
+        path: '_component_template/',
         name,
         body,
       },
