@@ -68,6 +68,12 @@ interface TemplateBody {
             user_dictionary?: string;
           };
         };
+        filter?: {
+          [key: string]: {
+            type: string;
+            synonyms_path: string[];
+          };
+        };
       };
     };
   };
