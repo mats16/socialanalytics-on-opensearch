@@ -32,14 +32,15 @@ PUT _component_template/kuromoji_user_dic
           "analyzer": {
             "kuromoji_user_dic": {
               "type": "kuromoji",
-              "user_dictionary": "analyzers/F210539969",
-              "filter": ["synonym"]
-            }
-          },
-          "filter": {
-            "synonym": {
-              "type": "synonym",
-              "synonyms_path": "analyzers/F171096003"
+              "user_dictionary": "analyzers/F11469869",
+              "filter": [
+                "kuromoji_baseform",
+                "kuromoji_part_of_speech",
+                "cjk_width",
+                "ja_stop",
+                "kuromoji_stemmer",
+                "lowercase"
+              ]
             }
           }
         }

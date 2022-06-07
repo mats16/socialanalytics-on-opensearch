@@ -78,12 +78,7 @@ const deleteObject = async(record: S3EventRecord)=> {
   const bucket = record.s3.bucket.name;
   const objectKey = record.s3.object.key.replace(/%3D/g, '=');
   const cmd = new DeleteObjectCommand({ Bucket: bucket, Key: objectKey });
-  try {
-    await s3.send(cmd);
-  } catch (err: any) {
-    logger.warn({ message: JSON.stringify(err) });
-  }
-  return;
+  await s3.send(cmd);
 };
 
 const bodyToLines = (objectBody: string|undefined): TweetV1[] => {
@@ -127,6 +122,25 @@ const lookupTweets = async(tweetIds: string[]) => {
   return result;
 };
 
+const putRecords = async (records: TweetStreamRecord[]) => {
+  const entries = records.map(record => {
+    const entry: PutRecordsRequestEntry = {
+      PartitionKey: record.data.id,
+      Data: Buffer.from(JSON.stringify(record)),
+    };
+    return entry;
+  });
+  const cmd = new PutRecordsCommand({
+    StreamName: destStreamName,
+    Records: entries,
+  });
+  const output = await kinesis.send(cmd);
+  const requestRecordCount = output.Records?.length || 0;
+  const failedRecordCount = output.FailedRecordCount || 0;
+  metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, requestRecordCount-failedRecordCount);
+  return output;
+};
+
 const tweetsLoader = async (tweetIds: string[], inprogress: string[] = [], i: number = 0) => {
   inprogress.push(tweetIds[i]);
   if (i+1 == tweetIds.length || inprogress.length == 100) {
@@ -136,21 +150,12 @@ const tweetsLoader = async (tweetIds: string[], inprogress: string[] = [], i: nu
     twitterMetrics.addMetric('ResponseRecordCount', MetricUnits.Count, lookupResult.data.length);
     twitterMetrics.addMetric('ResponseErrorRecordCount', MetricUnits.Count, lookupResult.errors?.length||0);
     const filteredTweets = lookupResult.data.filter(sourceLabelFilter).filter(contextDomainFilter);
-    lookupResult.data = filteredTweets;
-    //metrics.addMetric('FilteredTweetsRate', MetricUnits.Percent, (lookupResult.data.length - filteredTweets.length) / lookupResult.data.length * 100);
-    const twitterStreamRecords = toTweetStreamRecords(lookupResult);
-    const entries = twitterStreamRecords.map(record => {
-      const entry: PutRecordsRequestEntry = {
-        PartitionKey: record.data.id,
-        Data: Buffer.from(JSON.stringify(record)),
-      };
-      return entry;
-    });
-    const cmd = new PutRecordsCommand({
-      StreamName: destStreamName,
-      Records: entries,
-    });
-    const { FailedRecordCount, $metadata } = await kinesis.send(cmd);
+    metrics.addMetric('FilteredTweetsRate', MetricUnits.Percent, (lookupResult.data.length - filteredTweets.length) / lookupResult.data.length * 100);
+    if (filteredTweets.length > 0) {
+      lookupResult.data = filteredTweets;
+      const twitterStreamRecords = toTweetStreamRecords(lookupResult);
+      await putRecords(twitterStreamRecords);
+    }
     if (i+1 == tweetIds.length) {
       return;
     } else {
@@ -185,7 +190,11 @@ const ingestTweets = async(tweetIds: string[]) => {
 };
 
 const deleteAllObjects = async(s3EventRecords: S3EventRecord[]) => {
-  await Promise.map(s3EventRecords, deleteObject);
+  try {
+    await Promise.map(s3EventRecords, deleteObject);
+  } catch (err: any) {
+    logger.warn({ message: JSON.stringify(err) });
+  }
 };
 
 export const handler: SQSHandler = async(event, _context) => {
@@ -194,7 +203,10 @@ export const handler: SQSHandler = async(event, _context) => {
   const s3Events: S3Event[] = sqsRecords.map(record => JSON.parse(record.body));
   const s3EventRecords = s3Events.flatMap(s3Event => s3Event.Records);
   const tweetIds = await getTweetIds(s3EventRecords);
-  await ingestTweets(tweetIds);
+  if (tweetIds.length > 0) {
+    await tweetsLoader(tweetIds);
+  }
   await deleteAllObjects(s3EventRecords);
   twitterMetrics.publishStoredMetrics();
+  metrics.publishStoredMetrics();
 };

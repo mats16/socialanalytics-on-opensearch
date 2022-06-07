@@ -153,17 +153,15 @@ const putRecordsKinesis = async(records: TweetStreamRecord[]) => {
     };
     return entry;
   });
-  const result = { requestRecordCount: 0, failedRecordCount: 0 };
-  if (entries.length > 0) {
-    const cmd = new PutRecordsCommand({
-      StreamName: destStreamName,
-      Records: entries,
-    });
-    const { Records, FailedRecordCount, $metadata } = await kinesis.send(cmd);
-    result.requestRecordCount = Records?.length || 0;
-    result.failedRecordCount = FailedRecordCount || 0;
-  };
-  return result;
+  const cmd = new PutRecordsCommand({
+    StreamName: destStreamName,
+    Records: entries,
+  });
+  const output = await kinesis.send(cmd);
+  const requestRecordCount = output.Records?.length || 0;
+  const failedRecordCount = output.FailedRecordCount || 0;
+  metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, requestRecordCount-failedRecordCount);
+  return output;
 };
 
 export const handler: KinesisStreamHandler = async(event, _context) => {
@@ -176,8 +174,8 @@ export const handler: KinesisStreamHandler = async(event, _context) => {
 
   const streamRecords = transformRecords(kinesisStreamRecords);
   const analyzedRecords = await analyzeRecords(streamRecords);
-  const { requestRecordCount, failedRecordCount } = await putRecordsKinesis(analyzedRecords);
-  metrics.addMetric('OutgoingRecordCount', MetricUnits.Count, requestRecordCount-failedRecordCount);
+  if (analyzedRecords.length > 0) {
+    await putRecordsKinesis(analyzedRecords);
+  }
   metrics.publishStoredMetrics();
-  return;
 };

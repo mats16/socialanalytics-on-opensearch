@@ -55,11 +55,7 @@ const deleteObject = async(record: S3EventRecord): Promise<void> => {
   const bucket = record.s3.bucket.name;
   const objectKey = record.s3.object.key.replace(/%3D/g, '=');
   const cmd = new DeleteObjectCommand({ Bucket: bucket, Key: objectKey });
-  try {
-    await s3.send(cmd);
-  } catch (err: any) {
-    logger.warn({ message: JSON.stringify(err) });
-  }
+  await s3.send(cmd);
 };
 
 const bodyToLines = (objectBody: string): TweetStreamRecord[] => {
@@ -102,7 +98,11 @@ const dataLoader = async (functionName: string, tweetStreamRecords: TweetStreamR
 };
 
 const deleteAllObjects = async(s3EventRecords: S3EventRecord[]): Promise<void> => {
-  await Promise.map(s3EventRecords, deleteObject);
+  try {
+    await Promise.map(s3EventRecords, deleteObject);
+  } catch (err: any) {
+    logger.warn({ message: JSON.stringify(err) });
+  }
 };
 
 export const handler: SQSHandler = async(event, _context) => {
