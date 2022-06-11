@@ -53,6 +53,12 @@ export class ComprehendWithCache extends Construct {
       },
     });
 
+    const empryResponse = new sfn.Pass(this, 'EmpryResponse', {
+      parameters: {
+        'NormalizedText.$': '$.input.Text',
+      },
+    });
+
     const normalizeTextTask = new LambdaInvoke(this, 'Normalize Text', {
       lambdaFunction: normalizeFunction,
       payloadResponseOnly: true,
@@ -94,7 +100,7 @@ export class ComprehendWithCache extends Construct {
         'LanguageCode': 'en',
       },
       resultPath: '$.input',
-    }).addRetry({ maxAttempts: 2 });
+    }).addRetry({ maxAttempts: 1 }).addCatch(empryResponse, { resultPath: '$.error' });
 
     const detectEntitiesTask = new CallAwsService(this, 'Detect Entities', {
       service: 'Comprehend',
@@ -189,27 +195,9 @@ export class ComprehendWithCache extends Construct {
     ), detectTask);
     checkLanguageCodeSupported.otherwise(translateTask.next(detectTask));
 
-    //const autoLanguageCode = new sfn.Pass(this, 'Auto LanguageCode', {
-    //  parameters: {
-    //    'Text.$': '$.input.Text',
-    //    'LanguageCode': 'auto',
-    //  },
-    //  resultPath: '$.input',
-    //});
-
-    //const checkLanguageCodeExist = new sfn.Choice(this, 'LanguageCode exist?');
-    //checkLanguageCodeExist.when(sfn.Condition.isNotPresent('$.input.LanguageCode'), autoLanguageCode.next(checkLanguageCodeSupported));
-    //checkLanguageCodeExist.otherwise(checkLanguageCodeSupported);
-
     const checkCacheHit = new sfn.Choice(this, 'CacheHit?');
     checkCacheHit.when(sfn.Condition.isPresent('$.Cache.Item.value.B'), decodeCacheTask);
     checkCacheHit.otherwise(checkLanguageCodeSupported);
-
-    const empryResponse = new sfn.Pass(this, 'EmpryResponse', {
-      parameters: {
-        'NormalizedText.$': '$.input.Text',
-      },
-    });
 
     const checkTextEmpty = new sfn.Choice(this, 'Text empty?');
     checkTextEmpty.when(sfn.Condition.stringEquals('$.input.Text', ''), empryResponse);
