@@ -147,9 +147,9 @@ const tweetsLoader = async (tweetIds: string[], inprogress: string[] = [], i: nu
     await sleep(twitterApiLookupInterval);
     const lookupResult = await lookupTweets(inprogress);
     twitterMetrics.addMetric('RequestCount', MetricUnits.Count, 1);
-    twitterMetrics.addMetric('ResponseRecordCount', MetricUnits.Count, lookupResult.data.length);
-    twitterMetrics.addMetric('ResponseErrorRecordCount', MetricUnits.Count, lookupResult.errors?.length||0);
-    const filteredTweets = lookupResult.data.filter(sourceLabelFilter).filter(contextDomainFilter);
+    //twitterMetrics.addMetric('ResponseRecordCount', MetricUnits.Count, lookupResult.data.length);
+    //twitterMetrics.addMetric('ResponseErrorRecordCount', MetricUnits.Count, lookupResult.errors?.length||0);
+    const filteredTweets = lookupResult.data?.filter(sourceLabelFilter).filter(contextDomainFilter) || [];
     metrics.addMetric('FilteredTweetsRate', MetricUnits.Percent, (lookupResult.data.length - filteredTweets.length) / lookupResult.data.length * 100);
     if (filteredTweets.length > 0) {
       lookupResult.data = filteredTweets;

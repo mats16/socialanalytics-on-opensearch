@@ -1,15 +1,16 @@
 import { Readable } from 'stream';
 import zlib from 'zlib';
-import { LambdaInterface } from '@aws-lambda-powertools/commons';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics } from '@aws-lambda-powertools/metrics';
 import { Tracer } from '@aws-lambda-powertools/tracer';
 import { KinesisClient, PutRecordsCommand, PutRecordsRequestEntry } from '@aws-sdk/client-kinesis';
 import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { SQSHandler, SQSEvent, S3Event, S3EventRecord, Context } from 'aws-lambda';
+import { SQSHandler, S3Event, S3EventRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
 import { TweetStreamRecord } from '../utils';
 
+const putRecordsMaxLength = 250;
+const putRecordsInterval = 1000; // 1000records/sec or 1MB/sec
 const region = process.env.AWS_REGION || 'us-west-2';
 const destStreamName = process.env.DEST_STREAM_NAME!;
 
@@ -51,6 +52,12 @@ const getObject = async (record: S3EventRecord): Promise<string|undefined> => {
   return data;
 };
 
+const getAllObjects = async (records: S3EventRecord[]): Promise<TweetStreamRecord[]> => {
+  const objectBodyArray = await Promise.map(records, getObject);
+  const tweetStreamRecords = objectBodyArray.flatMap(body => bodyToLines(body));
+  return tweetStreamRecords;
+};
+
 const deleteObject = async(record: S3EventRecord)=> {
   const bucket = record.s3.bucket.name;
   const objectKey = record.s3.object.key.replace(/%3D/g, '=');
@@ -63,21 +70,31 @@ const deleteObject = async(record: S3EventRecord)=> {
   return;
 };
 
+const deleteAllObjects = async(s3EventRecords: S3EventRecord[]) => {
+  try {
+    await Promise.map(s3EventRecords, deleteObject);
+  } catch (err: any) {
+    logger.warn({ message: JSON.stringify(err) });
+  }
+};
+
 const bodyToLines = (objectBody: string|undefined): TweetStreamRecord[] => {
   if (objectBody) {
     const lines = objectBody.trimEnd().split('\n');
     const records: TweetStreamRecord[] = lines.map(line => JSON.parse(line));
-    const newRecords = records.map(record => {
-      const newRecord: TweetStreamRecord = {
-        ...record,
-        backup: false,
-      };
-      return newRecord;
+    records.map(record => {
+      delete record.data.analysis;
+      record.includes?.tweets?.map(tweet => delete tweet.analysis);
+      record.backup = true;
     });
-    return newRecords;
+    return records;
   } else {
     return [];
   }
+};
+
+const sleep = async(ms: number) => {
+  return new Promise(resolve => setTimeout(resolve, ms));
 };
 
 const kinesisStreamLoader = async (tweetStreamRecords: TweetStreamRecord[], inprogress: PutRecordsRequestEntry[] =[], i: number = 0) => {
@@ -87,7 +104,8 @@ const kinesisStreamLoader = async (tweetStreamRecords: TweetStreamRecord[], inpr
     Data: Buffer.from(JSON.stringify(record)),
   };
   inprogress.push(entry);
-  if (i+1 == tweetStreamRecords.length || inprogress.length == 500) {
+  if (i+1 == tweetStreamRecords.length || inprogress.length == putRecordsMaxLength) {
+    await sleep(putRecordsInterval);
     const cmd = new PutRecordsCommand({
       StreamName: destStreamName,
       Records: inprogress,
@@ -103,41 +121,12 @@ const kinesisStreamLoader = async (tweetStreamRecords: TweetStreamRecord[], inpr
   return;
 };
 
-class Lambda implements LambdaInterface {
-
-  @tracer.captureMethod()
-  private async getAllObjects(records: S3EventRecord[]): Promise<TweetStreamRecord[]> {
-    const objectBodyArray = await Promise.map(records, getObject);
-    const tweetStreamRecords = objectBodyArray.flatMap(body => bodyToLines(body));
-    return tweetStreamRecords;
-  };
-
-  @tracer.captureMethod()
-  private async putKinesis(tweetStreamRecords: TweetStreamRecord[]) {
-    await kinesisStreamLoader(tweetStreamRecords);
-    return;
-  };
-
-  @tracer.captureMethod()
-  public async deleteAllObjects(s3EventRecords: S3EventRecord[]) {
-    await Promise.map(s3EventRecords, deleteObject);
-    return;
-  };
-
-  @metrics.logMetrics()
-  @tracer.captureLambdaHandler()
-  public async handler(event: SQSEvent, _context: Context): Promise<void> {
-    const sqsRecords = event.Records;
-    const s3Events: S3Event[] = sqsRecords.map(record => JSON.parse(record.body));
-    const s3EventRecords = s3Events.flatMap(s3Event => s3Event.Records);
-    const tweetStreamRecords = await this.getAllObjects(s3EventRecords);
-    await this.putKinesis(tweetStreamRecords);
-    await this.deleteAllObjects(s3EventRecords);
-    metrics.publishStoredMetrics();
-    return;
-  };
-
+export const handler: SQSHandler = async (event, _context) => {
+  const sqsRecords = event.Records;
+  const s3Events: S3Event[] = sqsRecords.map(record => JSON.parse(record.body));
+  const s3EventRecords = s3Events.flatMap(s3Event => s3Event.Records);
+  const tweetStreamRecords = await getAllObjects(s3EventRecords);
+  await kinesisStreamLoader(tweetStreamRecords);
+  await deleteAllObjects(s3EventRecords);
+  metrics.publishStoredMetrics();
 };
-
-export const myFunction = new Lambda();
-export const handler: SQSHandler = myFunction.handler;
