@@ -136,7 +136,7 @@ export class SocialAnalyticsStack extends Stack {
           batchSize: 60,
           maxBatchingWindow: Duration.seconds(15),
           maxRecordAge: Duration.days(1),
-          //parallelizationFactor: 1,
+          parallelizationFactor: 4,
         }),
       ],
       initialPolicy: [
@@ -294,13 +294,15 @@ export class SocialAnalyticsStack extends Stack {
       source: { bucket, prefix: 'reingest/tweets/v2/' },
       description: 'Re-ingest for TweetsV2',
       entry: './src/functions/reingest-tweets-v2/index.ts',
+      timeout: Duration.minutes(5),
       insightsVersion,
       tracing,
       initialPolicy: [twitterParameterPolicyStatement],
       environment: {
-        TWITTER_PARAMETER_PREFIX: `/${this.stackName}/Twitter/`,
+        DEST_STREAM_NAME: ingestionStream.streamName,
       },
     });
+    ingestionStream.grantWrite(reingestTweetsV2Function);
 
     const reindexTweetsV2Function = new RetryFunction(this, 'ReindexTweetsV2Function', {
       source: { bucket, prefix: 'reindex/tweets/v2/' },
