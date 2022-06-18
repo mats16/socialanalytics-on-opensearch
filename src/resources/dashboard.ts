@@ -1,16 +1,15 @@
 import { RemovalPolicy } from 'aws-cdk-lib';
-import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { IVpc } from 'aws-cdk-lib/aws-ec2';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import { Construct } from 'constructs';
-import { UserPool } from './cognito-for-opensearch';
 import { Domain } from './opensearch-fgac';
 
 interface DashboardProps {
+  domainName?: string;
   vpc?: IVpc;
-  userPool?: UserPool;
+  snapshotBucketName?: string;
+  snapshotBasePath?: string;
 };
 
 export class Dashboard extends Construct {
@@ -19,38 +18,24 @@ export class Dashboard extends Construct {
   constructor(scope: Construct, id: string, props: DashboardProps) {
     super(scope, id);
 
-    const { vpc, userPool } = props;
-
-    let cognitoOptions: opensearch.CognitoOptions|undefined = undefined;
-    if (typeof userPool != 'undefined') {
-      cognitoOptions = {
-        userPoolId: userPool?.userPoolId,
-        identityPoolId: userPool.identityPoolId,
-        role: new iam.Role(this, 'CognitoAccessForAmazonOpenSearch', {
-          // https://docs.aws.amazon.com/da_pv/opensearch-service/latest/developerguide/cognito-auth.html
-          assumedBy: new iam.ServicePrincipal('es.amazonaws.com'),
-          managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonOpenSearchServiceCognitoAccess')],
-        }),
-      };
-    }
+    const { vpc, domainName, snapshotBucketName, snapshotBasePath } = props;
 
     const removalPolicy = RemovalPolicy.DESTROY;
     const retention = logs.RetentionDays.ONE_MONTH;
 
     this.Domain = new Domain(this, 'Domain', {
-      removalPolicy,
+      domainName,
       version: opensearch.EngineVersion.OPENSEARCH_1_2,
       enableVersionUpgrade: true,
       zoneAwareness: { availabilityZoneCount: 3 },
       vpc,
       capacity: {
-        dataNodeInstanceType: 'r6gd.large.search',
+        dataNodeInstanceType: 'r6gd.xlarge.search',
         dataNodes: 3,
         masterNodeInstanceType: 'm6g.large.search',
         masterNodes: 3,
       },
       ebs: { enabled: false },
-      cognitoDashboardsAuth: cognitoOptions,
       logging: {
         slowSearchLogEnabled: true,
         slowSearchLogGroup: new logs.LogGroup(this, 'SlowSearchLogs', { removalPolicy, retention }),
@@ -63,57 +48,61 @@ export class Dashboard extends Construct {
       },
     });
 
-    if (typeof userPool != 'undefined') {
-      new cognito.CfnUserPoolGroup(this, 'MasterUserGroup', {
-        groupName: 'MasterUser',
-        description: 'Master user for OpenSearch / fine-grained access control',
-        userPoolId: userPool.userPoolId,
-        roleArn: this.Domain.masterUserRole.roleArn,
-      });
-
-      this.Domain.masterUserRole.assumeRolePolicy?.addStatements(new iam.PolicyStatement({
-        principals: [new iam.FederatedPrincipal(
-          'cognito-identity.amazonaws.com',
-          {
-            'StringEquals': { 'cognito-identity.amazonaws.com:aud': userPool.identityPoolId },
-            'ForAnyValue:StringLike': { 'cognito-identity.amazonaws.com:amr': 'authenticated' },
+    if (typeof snapshotBucketName == 'string') {
+      this.Domain.addSnapshotRepo('DefaultSnapshotRepo', {
+        name: 'default',
+        body: {
+          settings: {
+            bucket: snapshotBucketName,
+            base_path: snapshotBasePath || 'snapshot',
           },
-        )],
-        actions: ['sts:AssumeRoleWithWebIdentity'],
-      }));
+        },
+      });
+    }
 
-      const dashboardsUserRole = this.Domain.addRole('DashboardsUserRole', {
-        name: 'dashboards_user',
-        body: {
-          description: 'Provide the minimum permissions for a dashboards user',
-          cluster_permissions: ['cluster_composite_ops_ro'],
-          index_permissions: [
-            {
-              index_patterns: ['.kibana_*', '.opensearch_dashboards_*'],
-              allowed_actions: ['read', 'delete', 'manage', 'index'],
-            },
-            {
-              index_patterns: ['.tasks', '.management-beats'],
-              allowed_actions: ['indices_all'],
-            },
-            {
-              index_patterns: ['tweets-*'],
-              allowed_actions: ['read'],
-            },
-          ],
-          tenant_permissions: [{
-            tenant_patterns: ['global_tenant'],
-            allowed_actions: ['kibana_all_write'],
-          }],
-        },
-      });
-      this.Domain.addRoleMapping('DashboardsUserRoleMapping', {
-        name: dashboardsUserRole.getAttString('Name'),
-        body: {
-          backend_roles: [userPool.authenticatedRole.roleArn],
-        },
-      });
-    };
+    const socialAnalyticsReadOnlyRole = this.Domain.addRole('SocialAnalyticsReadOnlyRole', {
+      name: 'social_analytics_read_only',
+      body: {
+        description: 'Provide the minimum permissions for all users',
+        cluster_permissions: [
+          'cluster_composite_ops_ro',
+          'cluster:admin/opendistro/reports/definition/create',
+          'cluster:admin/opendistro/reports/definition/update',
+          'cluster:admin/opendistro/reports/definition/on_demand',
+          'cluster:admin/opendistro/reports/definition/delete',
+          'cluster:admin/opendistro/reports/definition/get',
+          'cluster:admin/opendistro/reports/definition/list',
+          'cluster:admin/opendistro/reports/instance/list',
+          'cluster:admin/opendistro/reports/instance/get',
+          'cluster:admin/opendistro/reports/menu/download',
+
+        ],
+        index_permissions: [
+          {
+            index_patterns: ['.kibana', '.kibana_*', '.opensearch_dashboards', '.opensearch_dashboards_*'],
+            allowed_actions: ['read', 'delete', 'manage', 'index'],
+          },
+          {
+            index_patterns: ['.tasks', '.management-beats'],
+            allowed_actions: ['indices_all'],
+          },
+          {
+            index_patterns: ['tweets-*'],
+            allowed_actions: ['read', 'indices_monitor'],
+          },
+        ],
+        tenant_permissions: [{
+          tenant_patterns: ['global_tenant'],
+          allowed_actions: ['kibana_all_read'],
+        }],
+      },
+    });
+    this.Domain.addRoleMapping('SocialAnalyticsReadOnlyRoleMapping', {
+      name: socialAnalyticsReadOnlyRole.getAttString('Name'),
+      body: {
+        backend_roles: ['*'],
+      },
+    });
 
     const kuromojiComponentTemplate = this.Domain.addComponentTemplate('KuromojiComponentTemplate', {
       name: 'kuromoji_user_dic',

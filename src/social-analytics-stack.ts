@@ -1,5 +1,6 @@
 import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy, CfnOutput, Aws } from 'aws-cdk-lib';
-import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
+//import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Vpc, SubnetType, Port } from 'aws-cdk-lib/aws-ec2';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -10,7 +11,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { tweetFieldsParams } from './parameter';
-import { UserPool } from './resources/cognito-for-opensearch';
+//import { UserPool } from './resources/cognito-for-opensearch';
 import { ContainerInsights } from './resources/container-insights';
 import { Dashboard } from './resources/dashboard';
 import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
@@ -184,36 +185,16 @@ export class SocialAnalyticsStack extends Stack {
       targetService: twitterStreamingReader.service,
     });
 
-    const userPool = new UserPool(this, `${id}-UserPool`, {
-      removalPolicy: RemovalPolicy.DESTROY,
-      signInAliases: {
-        username: false,
-        email: true,
-      },
-      autoVerify: {
-        email: true,
-      },
-      userVerification: {
-        emailStyle: VerificationEmailStyle.LINK,
-      },
-      selfSignUpEnabled: true,
-      allowedSignupDomains: [
-        'amazon.com',
-        'amazon.co.jp',
-      ],
-      cognitoDomainPrefix: `${this.stackName.toLowerCase()}-${this.account}`,
-    });
-
     new OpenSearchPackages(this, 'OpenSearchPackages', {
       sourcePath: './src/opensearch-packages',
       stagingBucket: bucket,
+      stagingKeyPrefix: 'opensearch/packages/',
     });
 
     const dashboard = new Dashboard(this, 'Dashboard', {
-      vpc,
-      userPool,
+      snapshotBucketName: bucket.bucketName,
+      snapshotBasePath: 'opensearch/snapshot',
     });
-    userPool.enableRoleFromToken(`AmazonOpenSearchService-${dashboard.Domain.domainName}-`);
 
     const indexingFunction = new Function(this, 'IndexingFunction', {
       description: '[SocialAnalytics] Bulk operations to load data into OpenSearch',
@@ -236,9 +217,7 @@ export class SocialAnalyticsStack extends Stack {
           maxRecordAge: Duration.days(1),
         }),
       ],
-      vpc,
     });
-    dashboard.Domain.connections.allowFrom(indexingFunction, Port.tcp(443));
 
     const bulkOperationRole = dashboard.Domain.addRole('BulkOperationRole', {
       name: 'bulk_operation',
@@ -319,13 +298,6 @@ export class SocialAnalyticsStack extends Stack {
       reservedConcurrentExecutions: 8,
     });
     indexingFunction.grantInvoke(reindexTweetsV2Function);
-
-    const proxy = new Proxy(this, 'Proxy', {
-      vpc,
-      openSearchDomain: dashboard.Domain,
-      cognitoHost: userPool.domainName,
-    });
-    new CfnOutput(this, 'url', { value: `https://${proxy.service.serviceUrl}` });
 
   }
 };

@@ -1,4 +1,4 @@
-import { CustomResource, Duration } from 'aws-cdk-lib';
+import { Aws, CustomResource, Duration } from 'aws-cdk-lib';
 import { Port } from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
@@ -18,6 +18,16 @@ interface IndexPermission {
 interface TenantPermission {
   tenant_patterns?: string[];
   allowed_actions?: ('kibana_all_read'|'kibana_all_write')[];
+}
+
+interface SnapshotRepoProps {
+  name?: string;
+  body: {
+    settings: {
+      bucket: string;
+      base_path: string;
+    };
+  };
 }
 
 interface RoleProps {
@@ -111,11 +121,12 @@ interface ComponentTemplateProps {
 
 export class Domain extends opensearch.Domain {
   masterUserRole: iam.Role;
+  snapshotRole: iam.Role;
   crServiceToken: string;
 
   constructor(scope: Construct, id: string, props: opensearch.DomainProps) {
 
-    const masterUserRole = new iam.Role(scope, `${id}-MasterUserRole`, {
+    const masterUserRole = new iam.Role(scope, 'MasterUserRole', {
       description: 'Master user for OpenSearch / fine-grained access control',
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole')],
@@ -139,18 +150,32 @@ export class Domain extends opensearch.Domain {
 
     this.masterUserRole = masterUserRole;
 
-    const onEventHandler = new Function(this, 'OpenSearchResourceFunction', {
+    // Lambda-backed custom resources for OpenSearch
+    const openSearchResourceFunction = new Function(this, 'OpenSearchResourceFunction', {
       description: 'Lambda-backed custom resources - OpenSearch resources',
       entry: './src/custom-resources-functions/opensearch-resource/index.ts',
       timeout: Duration.seconds(300),
       role: masterUserRole,
       vpc: props.vpc,
     });
-    const provider = new cr.Provider(this, 'Provider', { onEventHandler });
+    const provider = new cr.Provider(this, 'Provider', { onEventHandler: openSearchResourceFunction });
     this.crServiceToken = provider.serviceToken;
 
+    // Snapshot - https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-snapshots.html
+    this.snapshotRole = new iam.Role(scope, 'SnapshotRole', {
+      assumedBy: new iam.ServicePrincipal('opensearchservice.amazonaws.com'),
+    });
+    this.snapshotRole.grantPassRole(this.masterUserRole);
+
+    this.addRoleMapping('SnapshotRoleRoleMapping', {
+      name: 'manage_snapshots',
+      body: {
+        backend_roles: [this.snapshotRole.roleArn],
+      },
+    });
+
     if (typeof props.vpc != 'undefined') {
-      this.connections.allowFrom(onEventHandler, Port.tcp(443));
+      this.connections.allowFrom(openSearchResourceFunction, Port.tcp(443));
     } else {
       const consoleRole = this.addRole('ConsoleRole', {
         name: 'aws_console',
@@ -176,6 +201,41 @@ export class Domain extends opensearch.Domain {
       });
     }
 
+  };
+  addSnapshotRepo(id: string, props: SnapshotRepoProps) {
+    const name = props.name || id;
+    const { bucket, base_path } = props.body.settings;
+    this.snapshotRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['s3:ListBucket'],
+      resources: [`arn:aws:s3:::${bucket}`],
+    }));
+    this.snapshotRole.addToPolicy(new iam.PolicyStatement({
+      actions: [
+        's3:GetObject',
+        's3:PutObject',
+        's3:DeleteObject',
+      ],
+      resources: [`arn:aws:s3:::${bucket}/${base_path}/*`],
+    }));
+    const resource = new CustomResource(this, id, {
+      serviceToken: this.crServiceToken,
+      resourceType: 'Custom::OpenSearchSnapshotRepo',
+      properties: {
+        host: this.domainEndpoint,
+        path: '_snapshot/',
+        name,
+        body: {
+          type: 's3',
+          settings: {
+            bucket,
+            base_path,
+            role_arn: this.snapshotRole.roleArn,
+          },
+        },
+      },
+    });
+    resource.node.addDependency(this.snapshotRole);
+    return resource;
   };
   addRole(id: string, props: RoleProps) {
     const name = props.name || id;

@@ -16,7 +16,7 @@ export class OpenSearchPackages extends Construct {
     super(scope, id);
 
     const { sourcePath, stagingBucket } = props;
-    const stagingKeyPrefix = props.stagingKeyPrefix || 'opensearch-packages/';
+    const stagingKeyPrefix = props.stagingKeyPrefix || 'packages/';
 
     new Function(this, 'RegisterFunction', {
       description: '[SocialAnalytics] OpenSearch package register',
