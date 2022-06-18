@@ -1,6 +1,4 @@
 import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy, CfnOutput, Aws } from 'aws-cdk-lib';
-//import { VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
-import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Vpc, SubnetType, Port } from 'aws-cdk-lib/aws-ec2';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -11,13 +9,11 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { tweetFieldsParams } from './parameter';
-//import { UserPool } from './resources/cognito-for-opensearch';
 import { ContainerInsights } from './resources/container-insights';
 import { Dashboard } from './resources/dashboard';
 import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { Function, RetryFunction } from './resources/lambda-nodejs';
 import { OpenSearchPackages } from './resources/opensearch-packages';
-import { Proxy } from './resources/proxy';
 import { ComprehendWithCache } from './resources/sfn-state-machines';
 import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
 
