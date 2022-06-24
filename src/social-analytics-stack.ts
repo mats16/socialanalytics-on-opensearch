@@ -1,10 +1,10 @@
-import { Stack, StackProps, Duration, CfnParameter, RemovalPolicy, CfnOutput, Aws } from 'aws-cdk-lib';
-import { Vpc, SubnetType, Port } from 'aws-cdk-lib/aws-ec2';
-import * as events from 'aws-cdk-lib/aws-events';
+import { Stack, StackProps, Duration, CfnParameter, Aws } from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import { Vpc, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { KinesisEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { KinesisEventSource, DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
@@ -83,6 +83,27 @@ export class SocialAnalyticsStack extends Stack {
       }],
     });
 
+    const tweetTable = new dynamodb.Table(this, 'TweetTable', {
+      partitionKey: {
+        name: 'id',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      stream: dynamodb.StreamViewType.NEW_IMAGE,
+    });
+    tweetTable.addGlobalSecondaryIndex({
+      indexName: 'created_at-index',
+      partitionKey: {
+        name: 'created_at_year',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'created_at',
+        type: dynamodb.AttributeType.STRING,
+      },
+      //projectionType: dynamodb.ProjectionType.KEYS_ONLY,
+    });
+
     const vpc = new Vpc(this, 'VPC', {
       natGateways: 1,
       subnetConfiguration: [
@@ -99,50 +120,63 @@ export class SocialAnalyticsStack extends Stack {
       ],
     });
 
-    const eventBus = new events.EventBus(this, 'EventBus');
-
     const ingestionStream = new kinesis.Stream(this, 'IngestionStream', {
       encryption: kinesis.StreamEncryption.MANAGED,
     });
 
-    const indexingStream = new kinesis.Stream(this, 'IndexingStream', {
-      encryption: kinesis.StreamEncryption.MANAGED,
-    });
+    const comprehendJob = new ComprehendWithCache(this, 'ComprehendJob', { cacheExpireDays: 14 });
 
-    const comprehendJob = new ComprehendWithCache(this, 'ComprehendJob');
-
-    const analysisFunction = new Function(this, 'AnalysisFunction', {
-      description: '[SocialAnalytics] Analysis with Amazon Comprehend',
-      entry: './src/functions/analysis/index.ts',
+    const dynamodbLoaderFunction = new Function(this, 'DynamodbLoaderFunction', {
+      description: '[SocialAnalytics] Process stream records to update DynamoDB',
+      entry: './src/functions/dynamodb-loader/index.ts',
       memorySize: 256,
-      timeout: Duration.minutes(15),
+      timeout: Duration.minutes(1),
       insightsVersion,
       tracing,
       environment: {
-        POWERTOOLS_SERVICE_NAME: 'AnalysisFunction',
+        POWERTOOLS_SERVICE_NAME: 'DynamodbLoaderFunction',
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
-        POWERTOOLS_TRACER_CAPTURE_RESPONSE: 'false',
         TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME: twitterFilterContextDomains.parameterName,
         TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME: twitterFilterSourceLabels.parameterName,
-        DEST_STREAM_NAME: indexingStream.streamName,
-        COMPREHEND_JOB_ARN: comprehendJob.stateMachine.stateMachineArn,
+        TWEET_TABLE_NAME: tweetTable.tableName,
       },
       events: [
         new KinesisEventSource(ingestionStream, {
           startingPosition: lambda.StartingPosition.LATEST,
-          batchSize: 60,
-          maxBatchingWindow: Duration.seconds(15),
+          batchSize: 100,
+          maxBatchingWindow: Duration.seconds(10),
           maxRecordAge: Duration.days(1),
-          parallelizationFactor: 4,
+          parallelizationFactor: 3,
         }),
       ],
-      initialPolicy: [
-        twitterParameterPolicyStatement,
-        comprehendPolicyStatement,
+      initialPolicy: [twitterParameterPolicyStatement],
+    });
+    tweetTable.grantWriteData(dynamodbLoaderFunction);
+
+    const analyzeFunction = new Function(this, 'AnalyzeFunction', {
+      description: '[SocialAnalytics] Amazon Comprehend',
+      entry: './src/functions/analyze/index.ts',
+      memorySize: 256,
+      timeout: Duration.minutes(1),
+      insightsVersion,
+      tracing,
+      environment: {
+        POWERTOOLS_SERVICE_NAME: 'AnalyzeFunction',
+        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
+        TWEET_TABLE_NAME: tweetTable.tableName,
+        COMPREHEND_JOB_ARN: comprehendJob.stateMachine.stateMachineArn,
+      },
+      events: [
+        new DynamoEventSource(tweetTable, {
+          startingPosition: lambda.StartingPosition.LATEST,
+          batchSize: 100,
+          maxBatchingWindow: Duration.seconds(10),
+          maxRecordAge: Duration.days(1),
+        }),
       ],
     });
-    indexingStream.grantWrite(analysisFunction);
-    comprehendJob.stateMachine.grantStartSyncExecution(analysisFunction);
+    tweetTable.grantWriteData(analyzeFunction);
+    comprehendJob.stateMachine.grantStartSyncExecution(analyzeFunction);
 
     const archiveFilterFunction = new Function(this, 'ArchiveFilterFunction', {
       description: '[SocialAnalytics] Filtering with backup flag',
@@ -160,14 +194,6 @@ export class SocialAnalyticsStack extends Stack {
       destinationBucket: bucket,
       prefix: 'raw/tweets/v2/',
       errorOutputPrefix: 'raw/tweets/v2-error/',
-    });
-
-    const indexingArchiveStream = new DeliveryStream(this, 'IndexingArchiveStream', {
-      sourceStream: indexingStream,
-      processorFunction: archiveFilterFunction,
-      destinationBucket: bucket,
-      prefix: 'raw-with-analysis/tweets/v2/',
-      errorOutputPrefix: 'raw-with-analysis/tweets/v2-error/',
     });
 
     const twitterStreamingReader = new TwitterStreamingReader(this, 'TwitterStreamingReader', {
@@ -192,24 +218,23 @@ export class SocialAnalyticsStack extends Stack {
       snapshotBasePath: 'opensearch/snapshot',
     });
 
-    const indexingFunction = new Function(this, 'IndexingFunction', {
-      description: '[SocialAnalytics] Bulk operations to load data into OpenSearch',
-      entry: './src/functions/indexing/index.ts',
-      memorySize: 320,
-      timeout: Duration.minutes(15),
+    const openSearchLoaderFunction = new Function(this, 'OpenSearchLoaderFunction', {
+      description: '[SocialAnalytics] OpenSearch Bulk Loader',
+      entry: './src/functions/opensearch-loader/index.ts',
+      memorySize: 256,
+      timeout: Duration.minutes(1),
       insightsVersion,
       tracing,
       environment: {
-        POWERTOOLS_SERVICE_NAME: 'IndexingFunction',
+        POWERTOOLS_SERVICE_NAME: 'OpenSearchLoaderFunction',
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
-        POWERTOOLS_TRACER_CAPTURE_RESPONSE: 'false',
         OPENSEARCH_DOMAIN_ENDPOINT: dashboard.Domain.domainEndpoint,
       },
       events: [
-        new KinesisEventSource(indexingStream, {
+        new DynamoEventSource(tweetTable, {
           startingPosition: lambda.StartingPosition.LATEST,
           batchSize: 100,
-          maxBatchingWindow: Duration.seconds(15),
+          maxBatchingWindow: Duration.seconds(10),
           maxRecordAge: Duration.days(1),
         }),
       ],
@@ -229,26 +254,9 @@ export class SocialAnalyticsStack extends Stack {
     dashboard.Domain.addRoleMapping('BulkOperationRoleMapping', {
       name: bulkOperationRole.getAttString('Name'),
       body: {
-        backend_roles: [`${indexingFunction.role?.roleArn}`],
+        backend_roles: [`${openSearchLoaderFunction.role?.roleArn}`],
       },
     });
-
-    const putEventsFunction = new Function(this, 'PutEventsFunction', {
-      description: '[SocialAnalytics] Put events to EventBus',
-      entry: './src/functions/put-events/index.ts',
-      environment: {
-        EVENT_BUS_NAME: eventBus.eventBusName,
-      },
-      events: [
-        new KinesisEventSource(indexingStream, {
-          startingPosition: lambda.StartingPosition.LATEST,
-          batchSize: 100,
-          maxBatchingWindow: Duration.seconds(15),
-          maxRecordAge: Duration.days(1),
-        }),
-      ],
-    });
-    eventBus.grantPutEventsTo(putEventsFunction);
 
     const reingestTweetsV1Function = new RetryFunction(this, 'ReingestTweetsV1Function', {
       source: { bucket, prefix: 'reingest/tweets/v1/' },
@@ -269,7 +277,8 @@ export class SocialAnalyticsStack extends Stack {
       source: { bucket, prefix: 'reingest/tweets/v2/' },
       description: 'Re-ingest for TweetsV2',
       entry: './src/functions/reingest-tweets-v2/index.ts',
-      timeout: Duration.minutes(5),
+      memorySize: 1536,
+      timeout: Duration.minutes(15),
       insightsVersion,
       tracing,
       initialPolicy: [twitterParameterPolicyStatement],
@@ -279,21 +288,21 @@ export class SocialAnalyticsStack extends Stack {
     });
     ingestionStream.grantWrite(reingestTweetsV2Function);
 
-    const reindexTweetsV2Function = new RetryFunction(this, 'ReindexTweetsV2Function', {
-      source: { bucket, prefix: 'reindex/tweets/v2/' },
-      description: 'Re-index for TweetsV2',
-      entry: './src/functions/reindex-tweets-v2/index.ts',
-      memorySize: 1024,
-      timeout: Duration.minutes(5),
-      insightsVersion,
-      tracing,
-      initialPolicy: [twitterParameterPolicyStatement],
-      environment: {
-        INDEXING_FUNCTION_ARN: indexingFunction.functionArn,
-      },
-      reservedConcurrentExecutions: 8,
-    });
-    indexingFunction.grantInvoke(reindexTweetsV2Function);
+    //const reindexTweetsV2Function = new RetryFunction(this, 'ReindexTweetsV2Function', {
+    //  source: { bucket, prefix: 'reindex/tweets/v2/' },
+    //  description: 'Re-index for TweetsV2',
+    //  entry: './src/functions/reindex-tweets-v2/index.ts',
+    //  memorySize: 1024,
+    //  timeout: Duration.minutes(5),
+    //  insightsVersion,
+    //  tracing,
+    //  initialPolicy: [twitterParameterPolicyStatement],
+    //  environment: {
+    //    INDEXING_FUNCTION_ARN: indexingFunction.functionArn,
+    //  },
+    //  reservedConcurrentExecutions: 8,
+    //});
+    //indexingFunction.grantInvoke(reindexTweetsV2Function);
 
   }
 };

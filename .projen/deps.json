@@ -130,6 +130,11 @@
       "type": "runtime"
     },
     {
+      "name": "@aws-sdk/client-dynamodb",
+      "version": "^3.100.0",
+      "type": "runtime"
+    },
+    {
       "name": "@aws-sdk/client-eventbridge",
       "version": "^3.100.0",
       "type": "runtime"
@@ -175,6 +180,10 @@
       "type": "runtime"
     },
     {
+      "name": "@aws-sdk/lib-dynamodb",
+      "type": "runtime"
+    },
+    {
       "name": "@aws-sdk/node-http-handler",
       "type": "runtime"
     },
@@ -184,6 +193,10 @@
     },
     {
       "name": "@aws-sdk/signature-v4",
+      "type": "runtime"
+    },
+    {
+      "name": "@aws-sdk/util-dynamodb",
       "type": "runtime"
     },
     {

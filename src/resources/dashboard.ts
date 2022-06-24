@@ -140,6 +140,74 @@ export class Dashboard extends Construct {
               enabled: true,
             },
             properties: {
+              author: {
+                properties: {
+                  id: {
+                    type: 'keyword',
+                  },
+                  name: {
+                    type: 'keyword',
+                  },
+                  username: {
+                    type: 'keyword',
+                  },
+                  url: {
+                    type: 'keyword',
+                    index: false,
+                  },
+                  verified: {
+                    type: 'boolean',
+                  },
+                  public_metrics: {
+                    properties: {
+                      followers_count: {
+                        type: 'long',
+                      },
+                      following_count: {
+                        type: 'long',
+                      },
+                      tweet_count: {
+                        type: 'long',
+                      },
+                      listed_count: {
+                        type: 'long',
+                      },
+                    },
+                  },
+                },
+              },
+              author_id: {
+                type: 'keyword',
+              },
+              comprehend: {
+                properties: {
+                  entities: {
+                    type: 'keyword',
+                  },
+                  //key_phrases: {
+                  //  type: 'keyword',
+                  //},
+                  sentiment: {
+                    type: 'keyword',
+                  },
+                  sentiment_score: {
+                    properties: {
+                      positive: {
+                        type: 'double',
+                      },
+                      negative: {
+                        type: 'double',
+                      },
+                      neutral: {
+                        type: 'double',
+                      },
+                      mixed: {
+                        type: 'double',
+                      },
+                    },
+                  },
+                },
+              },
               context_annotations: {
                 properties: {
                   domain: {
@@ -155,6 +223,9 @@ export class Dashboard extends Construct {
               },
               created_at: {
                 type: 'date',
+              },
+              created_at_year: {
+                type: 'keyword',
               },
               entities: {
                 properties: {
@@ -231,6 +302,10 @@ export class Dashboard extends Construct {
               lang: {
                 type: 'keyword',
               },
+              normalized_text: {
+                type: 'text',
+                analyzer: 'kuromoji_user_dic',
+              },
               possibly_sensitive: {
                 type: 'boolean',
               },
@@ -270,105 +345,24 @@ export class Dashboard extends Construct {
                 type: 'text',
                 analyzer: 'kuromoji_user_dic',
               },
+              updated_at: {
+                type: 'date',
+                format: 'epoch_second',
+              },
               url: {
                 type: 'keyword',
                 index: false,
               },
-              author_id: {
-                type: 'keyword',
-                index: false,
-              },
-              author: {
-                properties: {
-                  id: {
-                    type: 'keyword',
-                  },
-                  name: {
-                    type: 'keyword',
-                  },
-                  username: {
-                    type: 'keyword',
-                  },
-                  url: {
-                    type: 'keyword',
-                    index: false,
-                  },
-                  verified: {
-                    type: 'boolean',
-                  },
-                  public_metrics: {
-                    properties: {
-                      followers_count: {
-                        type: 'long',
-                      },
-                      following_count: {
-                        type: 'long',
-                      },
-                      tweet_count: {
-                        type: 'long',
-                      },
-                      listed_count: {
-                        type: 'long',
-                      },
-                    },
-                  },
-                },
-              },
-              matching_rules: {
-                properties: {
-                  id: {
-                    type: 'keyword',
-                  },
-                  tag: {
-                    type: 'keyword',
-                  },
-                },
-              },
-              analysis: {
-                properties: {
-                  normalized_text: {
-                    type: 'text',
-                    analyzer: 'kuromoji_user_dic',
-                  },
-                  sentiment: {
-                    type: 'keyword',
-                  },
-                  sentiment_score: {
-                    properties: {
-                      positive: {
-                        type: 'double',
-                      },
-                      negative: {
-                        type: 'double',
-                      },
-                      neutral: {
-                        type: 'double',
-                      },
-                      mixed: {
-                        type: 'double',
-                      },
-                    },
-                  },
-                  entities: {
-                    type: 'keyword',
-                  },
-                  //key_phrases: {
-                  //  type: 'keyword',
-                  //},
-                },
-              },
-              includes: {
-                properties: {
-                  tweets: {
-                    type: 'object',
-                    enabled: false,
-                  },
-                  users: {
-                    type: 'object',
-                    enabled: false,
-                  },
-                },
-              },
+              //matching_rules: {
+              //  properties: {
+              //    id: {
+              //      type: 'keyword',
+              //    },
+              //    tag: {
+              //      type: 'keyword',
+              //    },
+              //  },
+              //},
             },
           },
         },

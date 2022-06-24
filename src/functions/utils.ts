@@ -1,5 +1,5 @@
-import { SentimentScore, Entity, KeyPhrase } from '@aws-sdk/client-comprehend';
-import { TweetV2SingleStreamResult, TweetV2, ApiV2Includes } from 'twitter-api-v2';
+import { SentimentScore, Entity } from '@aws-sdk/client-comprehend';
+import { TweetV2SingleStreamResult, TweetV2, UserV2 } from 'twitter-api-v2';
 
 export interface KinesisEmulatedRecord {
   kinesis: {
@@ -13,45 +13,27 @@ export interface KinesisEmulatedEvent {
 
 export interface ComprehendJobOutput {
   NormalizedText?: string;
+  Entities?: Entity[];
   Sentiment?: string;
   SentimentScore?: SentimentScore;
-  Entities?: Entity[];
-  KeyPhrases?: KeyPhrase[];
+  //KeyPhrases?: KeyPhrase[];
 }
 
-export interface Analysis {
+export interface TweetItem extends Partial<TweetV2> {
+  id: string;
+  updated_at: number;
+  created_at_year?: string;
   normalized_text?: string;
-  sentiment?: string;
-  sentiment_score?: {
-    positive?: number;
-    negative?: number;
-    neutral?: number;
-    mixed?: number;
-  };
-  entities?: string[];
-  //key_phrases?: string[];
-}
-
-export interface TweetV2a extends TweetV2 {
-  analysis?: Analysis;
-}
-
-interface Includes extends ApiV2Includes {
-  tweets?: TweetV2a[];
-}
-
-export interface TweetStreamRecord extends Partial<TweetV2SingleStreamResult> {
-  data: TweetV2a;
-  includes?: Includes;
-  backup?: boolean;
+  comprehend?: ComprehendJobOutput;
+  author?: UserV2;
 }
 
 export const b64encode = (text: string) => Buffer.from(text).toString('base64');
 export const b64decode = (b64string: string) => Buffer.from(b64string, 'base64').toString('utf8');
 
-export const TweetStreamParse = (b64string: string): TweetStreamRecord => {
+export const parseKinesisData = (b64string: string) => {
   const decodedText = b64decode(b64string);
-  const record: TweetStreamRecord = JSON.parse(decodedText);
+  const record: TweetV2SingleStreamResult & { backup?: boolean } = JSON.parse(decodedText);
   return record;
 };
 

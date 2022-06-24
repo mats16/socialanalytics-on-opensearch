@@ -7,7 +7,7 @@ import { KinesisClient, PutRecordsCommand, PutRecordsRequestEntry } from '@aws-s
 import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { SQSHandler, S3Event, S3EventRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
-import { TweetStreamRecord } from '../utils';
+import { TweetV2SingleStreamResult } from 'twitter-api-v2';
 
 const putRecordsMaxLength = 250;
 const putRecordsInterval = 1000; // 1000records/sec or 1MB/sec
@@ -52,7 +52,7 @@ const getObject = async (record: S3EventRecord): Promise<string|undefined> => {
   return data;
 };
 
-const getAllObjects = async (records: S3EventRecord[]): Promise<TweetStreamRecord[]> => {
+const getAllObjects = async (records: S3EventRecord[]): Promise<TweetV2SingleStreamResult[]> => {
   const objectBodyArray = await Promise.map(records, getObject);
   const tweetStreamRecords = objectBodyArray.flatMap(body => bodyToLines(body));
   return tweetStreamRecords;
@@ -78,15 +78,10 @@ const deleteAllObjects = async(s3EventRecords: S3EventRecord[]) => {
   }
 };
 
-const bodyToLines = (objectBody: string|undefined): TweetStreamRecord[] => {
+const bodyToLines = (objectBody: string|undefined): TweetV2SingleStreamResult[] => {
   if (objectBody) {
     const lines = objectBody.trimEnd().split('\n');
-    const records: TweetStreamRecord[] = lines.map(line => JSON.parse(line));
-    records.map(record => {
-      delete record.data.analysis;
-      record.includes?.tweets?.map(tweet => delete tweet.analysis);
-      record.backup = true;
-    });
+    const records: TweetV2SingleStreamResult[] = lines.map(line => JSON.parse(line));
     return records;
   } else {
     return [];
@@ -97,7 +92,7 @@ const sleep = async(ms: number) => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
 
-const kinesisStreamLoader = async (tweetStreamRecords: TweetStreamRecord[], inprogress: PutRecordsRequestEntry[] =[], i: number = 0) => {
+const kinesisStreamLoader = async (tweetStreamRecords: TweetV2SingleStreamResult[], inprogress: PutRecordsRequestEntry[] =[], i: number = 0) => {
   const record = tweetStreamRecords[i];
   const entry: PutRecordsRequestEntry = {
     PartitionKey: record.data.id,

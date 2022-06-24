@@ -1,4 +1,4 @@
-import { Duration, Aws } from 'aws-cdk-lib';
+import { Aws } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -7,11 +7,17 @@ import { LambdaInvoke, DynamoGetItem, DynamoPutItem, DynamoAttributeValue, CallA
 import { Construct } from 'constructs';
 import { Function } from './lambda-nodejs';
 
+interface ComprehendWithCacheProps {
+  cacheExpireDays?: number;
+}
+
 export class ComprehendWithCache extends Construct {
   stateMachine: sfn.StateMachine;
 
-  constructor(scope: Construct, id: string) {
+  constructor(scope: Construct, id: string, props: ComprehendWithCacheProps) {
     super(scope, id);
+
+    const cacheExpireDays = props.cacheExpireDays || 7;
 
     const normalizeFunction = new Function(this, 'NormalizeFunction', {
       entry: './src/functions/normalize/index.ts',
@@ -34,7 +40,7 @@ export class ComprehendWithCache extends Construct {
       environment: {
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
         POWERTOOLS_SERVICE_NAME: 'ComprehendWithCache',
-        CACHE_TTL_DAYS: '30',
+        CACHE_EXPIRE_DAYS: cacheExpireDays.toString(),
       },
     });
 

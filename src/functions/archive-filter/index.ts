@@ -1,6 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { FirehoseTransformationHandler, FirehoseTransformationEventRecord, FirehoseTransformationResultRecord, FirehoseRecordTransformationStatus } from 'aws-lambda';
-import { TweetStreamParse } from '../utils';
+import { parseKinesisData } from '../utils';
 
 const logger = new Logger({ logLevel: 'INFO', serviceName: 'filter' });
 
@@ -9,7 +9,7 @@ const liveStreamFilter = (record: FirehoseTransformationEventRecord) => {
   let data = record.data;
   let result: FirehoseRecordTransformationStatus = 'Dropped';
   try {
-    const stream = TweetStreamParse(data);
+    const stream = parseKinesisData(data);
     if (stream.backup) {
       delete stream.backup;
       data = Buffer.from(JSON.stringify(stream)).toString('base64');
