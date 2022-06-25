@@ -2,21 +2,97 @@
 
 exports[`Snapshot 1`] = `
 Object {
-  "Outputs": Object {
-    "url": Object {
-      "Value": Object {
-        "Fn::Join": Array [
-          "",
-          Array [
-            "https://",
-            Object {
-              "Fn::GetAtt": Array [
-                "ProxyServiceDE4C54BC",
-                "ServiceUrl",
-              ],
-            },
-          ],
-        ],
+  "Mappings": Object {
+    "ServiceprincipalMap": Object {
+      "af-south-1": Object {
+        "states": "states.af-south-1.amazonaws.com",
+      },
+      "ap-east-1": Object {
+        "states": "states.ap-east-1.amazonaws.com",
+      },
+      "ap-northeast-1": Object {
+        "states": "states.ap-northeast-1.amazonaws.com",
+      },
+      "ap-northeast-2": Object {
+        "states": "states.ap-northeast-2.amazonaws.com",
+      },
+      "ap-northeast-3": Object {
+        "states": "states.ap-northeast-3.amazonaws.com",
+      },
+      "ap-south-1": Object {
+        "states": "states.ap-south-1.amazonaws.com",
+      },
+      "ap-southeast-1": Object {
+        "states": "states.ap-southeast-1.amazonaws.com",
+      },
+      "ap-southeast-2": Object {
+        "states": "states.ap-southeast-2.amazonaws.com",
+      },
+      "ap-southeast-3": Object {
+        "states": "states.ap-southeast-3.amazonaws.com",
+      },
+      "ca-central-1": Object {
+        "states": "states.ca-central-1.amazonaws.com",
+      },
+      "cn-north-1": Object {
+        "states": "states.cn-north-1.amazonaws.com",
+      },
+      "cn-northwest-1": Object {
+        "states": "states.cn-northwest-1.amazonaws.com",
+      },
+      "eu-central-1": Object {
+        "states": "states.eu-central-1.amazonaws.com",
+      },
+      "eu-north-1": Object {
+        "states": "states.eu-north-1.amazonaws.com",
+      },
+      "eu-south-1": Object {
+        "states": "states.eu-south-1.amazonaws.com",
+      },
+      "eu-south-2": Object {
+        "states": "states.eu-south-2.amazonaws.com",
+      },
+      "eu-west-1": Object {
+        "states": "states.eu-west-1.amazonaws.com",
+      },
+      "eu-west-2": Object {
+        "states": "states.eu-west-2.amazonaws.com",
+      },
+      "eu-west-3": Object {
+        "states": "states.eu-west-3.amazonaws.com",
+      },
+      "me-south-1": Object {
+        "states": "states.me-south-1.amazonaws.com",
+      },
+      "sa-east-1": Object {
+        "states": "states.sa-east-1.amazonaws.com",
+      },
+      "us-east-1": Object {
+        "states": "states.us-east-1.amazonaws.com",
+      },
+      "us-east-2": Object {
+        "states": "states.us-east-2.amazonaws.com",
+      },
+      "us-gov-east-1": Object {
+        "states": "states.us-gov-east-1.amazonaws.com",
+      },
+      "us-gov-west-1": Object {
+        "states": "states.us-gov-west-1.amazonaws.com",
+      },
+      "us-iso-east-1": Object {
+        "states": "states.amazonaws.com",
+      },
+      "us-iso-west-1": Object {
+        "states": "states.amazonaws.com",
+      },
+      "us-isob-east-1": Object {
+        "states": "states.amazonaws.com",
+      },
+      "us-west-1": Object {
+        "states": "states.us-west-1.amazonaws.com",
+      },
+      "us-west-2": Object {
+        "states": "states.us-west-2.amazonaws.com",
       },
     },
   },
@@ -86,10 +162,10 @@ Object {
       },
       "Type": "AWS::IAM::Role",
     },
-    "AnalysisFunction3223EF84": Object {
+    "AnalyzeFunction5A98DC09": Object {
       "DependsOn": Array [
-        "AnalysisFunctionServiceRoleDefaultPolicyC41955A9",
-        "AnalysisFunctionServiceRoleD6B6DBD6",
+        "AnalyzeFunctionServiceRoleDefaultPolicyC2F006BE",
+        "AnalyzeFunctionServiceRole2A2C257B",
       ],
       "Properties": Object {
         "Architectures": Array [
@@ -99,19 +175,22 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "c4ee6fcb7c684ef8789ffb6ce6d677b25b74f648a044e9b5aeb2a979598ae12a.zip",
+          "S3Key": "ddc85756599db9040a15e953ca4c0ce7cccb058610a33e149b0a8e2799061c5e.zip",
         },
-        "Description": "[SocialAnalytics] Analysis with Amazon Comprehend",
+        "Description": "[SocialAnalytics] Amazon Comprehend",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "DEST_STREAM_NAME": Object {
-              "Ref": "IndexingStream9338356A",
+            "COMPREHEND_JOB_ARN": Object {
+              "Ref": "ComprehendJobStateMachine877998A5",
             },
-            "POWERTOOLS_METRICS_NAMESPACE": "test",
-            "POWERTOOLS_SERVICE_NAME": "AnalysisFunction",
-            "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
-            "TWITTER_PARAMETER_PREFIX": "/test/Twitter/Filter/",
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "AnalyzeFunction",
+            "TWEET_TABLE_NAME": Object {
+              "Ref": "TweetTable97F090DB",
+            },
           },
         },
         "Handler": "index.handler",
@@ -124,7 +203,7 @@ Object {
                 Object {
                   "Ref": "AWS::Region",
                 },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
               ],
             ],
           },
@@ -132,37 +211,37 @@ Object {
         "MemorySize": 256,
         "Role": Object {
           "Fn::GetAtt": Array [
-            "AnalysisFunctionServiceRoleD6B6DBD6",
+            "AnalyzeFunctionServiceRole2A2C257B",
             "Arn",
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 300,
+        "Timeout": 60,
         "TracingConfig": Object {
           "Mode": "Active",
         },
       },
       "Type": "AWS::Lambda::Function",
     },
-    "AnalysisFunctionKinesisEventSourcetestIngestionStreamB9108F92DD806EA3": Object {
+    "AnalyzeFunctionDynamoDBEventSourcetestTweetTable04D577993C12838A": Object {
       "Properties": Object {
         "BatchSize": 100,
         "EventSourceArn": Object {
           "Fn::GetAtt": Array [
-            "IngestionStream56E76A34",
-            "Arn",
+            "TweetTable97F090DB",
+            "StreamArn",
           ],
         },
         "FunctionName": Object {
-          "Ref": "AnalysisFunction3223EF84",
+          "Ref": "AnalyzeFunction5A98DC09",
         },
-        "MaximumBatchingWindowInSeconds": 15,
+        "MaximumBatchingWindowInSeconds": 10,
         "MaximumRecordAgeInSeconds": 86400,
         "StartingPosition": "LATEST",
       },
       "Type": "AWS::Lambda::EventSourceMapping",
     },
-    "AnalysisFunctionServiceRoleD6B6DBD6": Object {
+    "AnalyzeFunctionServiceRole2A2C257B": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
@@ -205,41 +284,10 @@ Object {
       },
       "Type": "AWS::IAM::Role",
     },
-    "AnalysisFunctionServiceRoleDefaultPolicyC41955A9": Object {
+    "AnalyzeFunctionServiceRoleDefaultPolicyC2F006BE": Object {
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
-            Object {
-              "Action": Array [
-                "ssm:GetParameter",
-                "ssm:GetParametersByPath",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:aws:ssm:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":parameter/test/Twitter/*",
-                  ],
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "comprehend:Detect*",
-                "translate:TranslateText",
-              ],
-              "Effect": "Allow",
-              "Resource": "*",
-            },
             Object {
               "Action": Array [
                 "xray:PutTraceSegments",
@@ -249,54 +297,70 @@ Object {
               "Resource": "*",
             },
             Object {
+              "Action": "dynamodb:ListStreams",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
               "Action": Array [
-                "kinesis:DescribeStreamSummary",
-                "kinesis:GetRecords",
-                "kinesis:GetShardIterator",
-                "kinesis:ListShards",
-                "kinesis:SubscribeToShard",
-                "kinesis:DescribeStream",
-                "kinesis:ListStreams",
+                "dynamodb:DescribeStream",
+                "dynamodb:GetRecords",
+                "dynamodb:GetShardIterator",
               ],
               "Effect": "Allow",
               "Resource": Object {
                 "Fn::GetAtt": Array [
-                  "IngestionStream56E76A34",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "kinesis:DescribeStream",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "IngestionStream56E76A34",
-                  "Arn",
+                  "TweetTable97F090DB",
+                  "StreamArn",
                 ],
               },
             },
             Object {
               "Action": Array [
-                "kinesis:ListShards",
-                "kinesis:PutRecord",
-                "kinesis:PutRecords",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:DescribeTable",
               ],
               "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TweetTable97F090DB",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TweetTable97F090DB",
+                          "Arn",
+                        ],
+                      },
+                      "/index/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "states:StartSyncExecution",
+              "Effect": "Allow",
               "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "IndexingStream9338356A",
-                  "Arn",
-                ],
+                "Ref": "ComprehendJobStateMachine877998A5",
               },
             },
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "AnalysisFunctionServiceRoleDefaultPolicyC41955A9",
+        "PolicyName": "AnalyzeFunctionServiceRoleDefaultPolicyC2F006BE",
         "Roles": Array [
           Object {
-            "Ref": "AnalysisFunctionServiceRoleD6B6DBD6",
+            "Ref": "AnalyzeFunctionServiceRole2A2C257B",
           },
         ],
       },
@@ -304,7 +368,6 @@ Object {
     },
     "ArchiveFilterFunction81E5C2D0": Object {
       "DependsOn": Array [
-        "ArchiveFilterFunctionServiceRoleDefaultPolicyB6088409",
         "ArchiveFilterFunctionServiceRole67EDC4DF",
       ],
       "Properties": Object {
@@ -315,31 +378,19 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "ae66470e7570f2fa69b2a79b989e0e51a8f0fd43061be69b1129a2f20b0c3a2d.zip",
+          "S3Key": "940c86b6737d7b31f802e5c6af791d3b8111547d713da3ebfe067f27e48eeff9.zip",
         },
         "Description": "[SocialAnalytics] Filtering with backup flag",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "POWERTOOLS_METRICS_NAMESPACE": "test",
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
             "POWERTOOLS_SERVICE_NAME": "ArchiveFilterFunction",
           },
         },
         "Handler": "index.handler",
-        "Layers": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:aws:lambda:",
-                Object {
-                  "Ref": "AWS::Region",
-                },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
-              ],
-            ],
-          },
-        ],
         "Role": Object {
           "Fn::GetAtt": Array [
             "ArchiveFilterFunctionServiceRole67EDC4DF",
@@ -348,9 +399,6 @@ Object {
         },
         "Runtime": "nodejs16.x",
         "Timeout": 300,
-        "TracingConfig": Object {
-          "Mode": "Active",
-        },
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -381,45 +429,9 @@ Object {
               ],
             ],
           },
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
-              ],
-            ],
-          },
         ],
       },
       "Type": "AWS::IAM::Role",
-    },
-    "ArchiveFilterFunctionServiceRoleDefaultPolicyB6088409": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "xray:PutTraceSegments",
-                "xray:PutTelemetryRecords",
-              ],
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "ArchiveFilterFunctionServiceRoleDefaultPolicyB6088409",
-        "Roles": Array [
-          Object {
-            "Ref": "ArchiveFilterFunctionServiceRole67EDC4DF",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
     },
     "Bucket83908E77": Object {
       "DeletionPolicy": "Retain",
@@ -436,6 +448,7 @@ Object {
         "LifecycleConfiguration": Object {
           "Rules": Array [
             Object {
+              "Prefix": "raw",
               "Status": "Enabled",
               "Transitions": Array [
                 Object {
@@ -446,14 +459,41 @@ Object {
             },
           ],
         },
+        "Tags": Array [
+          Object {
+            "Key": "aws-cdk:cr-owned:opensearch/packages/:8bae5dbc",
+            "Value": "true",
+          },
+        ],
       },
       "Type": "AWS::S3::Bucket",
       "UpdateReplacePolicy": "Retain",
     },
+    "BucketAllowBucketNotificationsTotestOpenSearchPackagesRegisterFunction51C3D6FB3E6375B2": Object {
+      "Properties": Object {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": Object {
+          "Fn::GetAtt": Array [
+            "OpenSearchPackagesRegisterFunction7CDCEE20",
+            "Arn",
+          ],
+        },
+        "Principal": "s3.amazonaws.com",
+        "SourceAccount": Object {
+          "Ref": "AWS::AccountId",
+        },
+        "SourceArn": Object {
+          "Fn::GetAtt": Array [
+            "Bucket83908E77",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
     "BucketNotifications8F2E257D": Object {
       "DependsOn": Array [
-        "ReindexTweetsV2FunctionQueuePolicyA269E64C",
-        "ReindexTweetsV2FunctionQueue24CDEFA4",
+        "BucketAllowBucketNotificationsTotestOpenSearchPackagesRegisterFunction51C3D6FB3E6375B2",
         "ReingestTweetsV1FunctionQueuePolicyF98579A3",
         "ReingestTweetsV1FunctionQueueBCFE63A8",
         "ReingestTweetsV2FunctionQueuePolicy0BCB3395",
@@ -465,6 +505,33 @@ Object {
         },
         "Managed": true,
         "NotificationConfiguration": Object {
+          "LambdaFunctionConfigurations": Array [
+            Object {
+              "Events": Array [
+                "s3:ObjectCreated:*",
+              ],
+              "Filter": Object {
+                "Key": Object {
+                  "FilterRules": Array [
+                    Object {
+                      "Name": "suffix",
+                      "Value": ".txt",
+                    },
+                    Object {
+                      "Name": "prefix",
+                      "Value": "opensearch/packages/",
+                    },
+                  ],
+                },
+              },
+              "LambdaFunctionArn": Object {
+                "Fn::GetAtt": Array [
+                  "OpenSearchPackagesRegisterFunction7CDCEE20",
+                  "Arn",
+                ],
+              },
+            },
+          ],
           "QueueConfigurations": Array [
             Object {
               "Events": Array [
@@ -504,27 +571,6 @@ Object {
               "QueueArn": Object {
                 "Fn::GetAtt": Array [
                   "ReingestTweetsV2FunctionQueue00EE7A69",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Events": Array [
-                "s3:ObjectCreated:*",
-              ],
-              "Filter": Object {
-                "Key": Object {
-                  "FilterRules": Array [
-                    Object {
-                      "Name": "prefix",
-                      "Value": "reindex/tweets/v2/",
-                    },
-                  ],
-                },
-              },
-              "QueueArn": Object {
-                "Fn::GetAtt": Array [
-                  "ReindexTweetsV2FunctionQueue24CDEFA4",
                   "Arn",
                 ],
               },
@@ -709,6 +755,545 @@ def submit_response(event: dict, context, response_status: str, error_message: s
         "Roles": Array [
           Object {
             "Ref": "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "ComprehendJobB64DecodeFunctionCFAE8AF0": Object {
+      "DependsOn": Array [
+        "ComprehendJobB64DecodeFunctionServiceRoleAE097ABD",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "13cdb42b88315cc505e2128bc8ac099065f4228aff0afb6c07f9898cd63dae4f.zip",
+        },
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "ComprehendWithCache",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "ComprehendJobB64DecodeFunctionServiceRoleAE097ABD",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs16.x",
+        "Timeout": 5,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "ComprehendJobB64DecodeFunctionServiceRoleAE097ABD": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ComprehendJobB64EncodeFunctionE10510B6": Object {
+      "DependsOn": Array [
+        "ComprehendJobB64EncodeFunctionServiceRole6283ED2A",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "91255304de7624692ed2ac723255e3718b1d5fc2182067512b4a40b0d28e5e09.zip",
+        },
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "CACHE_EXPIRE_DAYS": "14",
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "ComprehendWithCache",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "ComprehendJobB64EncodeFunctionServiceRole6283ED2A",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs16.x",
+        "Timeout": 5,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "ComprehendJobB64EncodeFunctionServiceRole6283ED2A": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ComprehendJobCacheTable2D64C528": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "AttributeDefinitions": Array [
+          Object {
+            "AttributeName": "id",
+            "AttributeType": "S",
+          },
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": Array [
+          Object {
+            "AttributeName": "id",
+            "KeyType": "HASH",
+          },
+        ],
+        "TimeToLiveSpecification": Object {
+          "AttributeName": "expire",
+          "Enabled": true,
+        },
+      },
+      "Type": "AWS::DynamoDB::Table",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "ComprehendJobLogs46527FF7": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "RetentionInDays": 14,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "ComprehendJobNormalizeFunction49B1DB7D": Object {
+      "DependsOn": Array [
+        "ComprehendJobNormalizeFunctionServiceRoleDCC912C2",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "ddfe9bbd95336f012f543a3dab7cc6fca7513af77a56e664719d4dbbc9d04b68.zip",
+        },
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "ComprehendWithCache",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "ComprehendJobNormalizeFunctionServiceRoleDCC912C2",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs16.x",
+        "Timeout": 5,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "ComprehendJobNormalizeFunctionServiceRoleDCC912C2": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ComprehendJobStateMachine877998A5": Object {
+      "DependsOn": Array [
+        "ComprehendJobStateMachineRoleDefaultPolicyF1625302",
+        "ComprehendJobStateMachineRole8E097225",
+      ],
+      "Properties": Object {
+        "DefinitionString": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "{\\"StartAt\\":\\"Invoke\\",\\"States\\":{\\"Invoke\\":{\\"Type\\":\\"Pass\\",\\"Parameters\\":{\\"input.$\\":\\"$\\"},\\"Next\\":\\"Normalize Text\\"},\\"Normalize Text\\":{\\"Next\\":\\"Text empty?\\",\\"Retry\\":[{\\"ErrorEquals\\":[\\"Lambda.ServiceException\\",\\"Lambda.AWSLambdaException\\",\\"Lambda.SdkClientException\\"],\\"IntervalSeconds\\":2,\\"MaxAttempts\\":6,\\"BackoffRate\\":2}],\\"Type\\":\\"Task\\",\\"InputPath\\":\\"$.input\\",\\"ResultSelector\\":{\\"input.$\\":\\"$\\",\\"CacheKey.$\\":\\"$.CacheKey\\"},\\"Resource\\":\\"",
+              Object {
+                "Fn::GetAtt": Array [
+                  "ComprehendJobNormalizeFunction49B1DB7D",
+                  "Arn",
+                ],
+              },
+              "\\"},\\"Text empty?\\":{\\"Type\\":\\"Choice\\",\\"Choices\\":[{\\"Variable\\":\\"$.input.Text\\",\\"StringEquals\\":\\"\\",\\"Next\\":\\"EmpryResponse\\"}],\\"Default\\":\\"Get Cache\\"},\\"Get Cache\\":{\\"Next\\":\\"CacheHit?\\",\\"Retry\\":[{\\"ErrorEquals\\":[\\"States.ALL\\"],\\"MaxAttempts\\":2}],\\"Type\\":\\"Task\\",\\"InputPath\\":\\"$.CacheKey\\",\\"ResultPath\\":\\"$.Cache\\",\\"Resource\\":\\"arn:",
+              Object {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::dynamodb:getItem\\",\\"Parameters\\":{\\"Key\\":{\\"id\\":{\\"S.$\\":\\"$\\"}},\\"TableName\\":\\"",
+              Object {
+                "Ref": "ComprehendJobCacheTable2D64C528",
+              },
+              "\\",\\"ConsistentRead\\":false}},\\"CacheHit?\\":{\\"Type\\":\\"Choice\\",\\"Choices\\":[{\\"Variable\\":\\"$.Cache.Item.value.B\\",\\"IsPresent\\":true,\\"Next\\":\\"Decode Cache\\"}],\\"Default\\":\\"LanguageCode supported?\\"},\\"LanguageCode supported?\\":{\\"Type\\":\\"Choice\\",\\"Choices\\":[{\\"Or\\":[{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"ar\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"hi\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"ko\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"zh-TW\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"ja\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"zh\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"de\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"pt\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"en\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"it\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"fr\\"},{\\"Variable\\":\\"$.input.LanguageCode\\",\\"StringEquals\\":\\"es\\"}],\\"Next\\":\\"Detection\\"}],\\"Default\\":\\"Translate\\"},\\"Translate\\":{\\"Next\\":\\"Detection\\",\\"Retry\\":[{\\"ErrorEquals\\":[\\"States.ALL\\"],\\"MaxAttempts\\":1}],\\"Catch\\":[{\\"ErrorEquals\\":[\\"States.ALL\\"],\\"ResultPath\\":\\"$.error\\",\\"Next\\":\\"EmpryResponse\\"}],\\"Type\\":\\"Task\\",\\"InputPath\\":\\"$.input\\",\\"ResultPath\\":\\"$.input\\",\\"ResultSelector\\":{\\"Text.$\\":\\"$.TranslatedText\\",\\"LanguageCode\\":\\"en\\"},\\"Resource\\":\\"arn:",
+              Object {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::aws-sdk:translate:translateText\\",\\"Parameters\\":{\\"Text.$\\":\\"$.Text\\",\\"SourceLanguageCode\\":\\"auto\\",\\"TargetLanguageCode\\":\\"en\\"}},\\"Detection\\":{\\"Type\\":\\"Parallel\\",\\"ResultPath\\":\\"$.Comprehend\\",\\"Next\\":\\"Generate Response\\",\\"InputPath\\":\\"$.input\\",\\"Branches\\":[{\\"StartAt\\":\\"Detect Entities\\",\\"States\\":{\\"Detect Entities\\":{\\"End\\":true,\\"Retry\\":[{\\"ErrorEquals\\":[\\"States.ALL\\"],\\"MaxAttempts\\":20}],\\"Type\\":\\"Task\\",\\"Resource\\":\\"arn:",
+              Object {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::aws-sdk:comprehend:detectEntities\\",\\"Parameters\\":{\\"Text.$\\":\\"$.Text\\",\\"LanguageCode.$\\":\\"$.LanguageCode\\"}}}},{\\"StartAt\\":\\"Detect Sentiment\\",\\"States\\":{\\"Detect Sentiment\\":{\\"End\\":true,\\"Retry\\":[{\\"ErrorEquals\\":[\\"States.ALL\\"],\\"MaxAttempts\\":20}],\\"Type\\":\\"Task\\",\\"Resource\\":\\"arn:",
+              Object {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::aws-sdk:comprehend:detectSentiment\\",\\"Parameters\\":{\\"Text.$\\":\\"$.Text\\",\\"LanguageCode.$\\":\\"$.LanguageCode\\"}}}}],\\"ResultSelector\\":{\\"Entities.$\\":\\"$[0].Entities\\",\\"Sentiment.$\\":\\"$[1].Sentiment\\",\\"SentimentScore.$\\":\\"$[1].SentimentScore\\"}},\\"Generate Response\\":{\\"Type\\":\\"Pass\\",\\"ResultPath\\":\\"$.Response\\",\\"Parameters\\":{\\"NormalizedText.$\\":\\"$.input.Text\\",\\"Entities.$\\":\\"$.Comprehend.Entities\\",\\"Sentiment.$\\":\\"$.Comprehend.Sentiment\\",\\"SentimentScore.$\\":\\"$.Comprehend.SentimentScore\\"},\\"Next\\":\\"Generate CacheValue\\"},\\"Generate CacheValue\\":{\\"Next\\":\\"Store Cache\\",\\"Retry\\":[{\\"ErrorEquals\\":[\\"Lambda.ServiceException\\",\\"Lambda.AWSLambdaException\\",\\"Lambda.SdkClientException\\"],\\"IntervalSeconds\\":2,\\"MaxAttempts\\":6,\\"BackoffRate\\":2}],\\"Type\\":\\"Task\\",\\"InputPath\\":\\"$.Response\\",\\"ResultPath\\":\\"$.Cache\\",\\"Resource\\":\\"",
+              Object {
+                "Fn::GetAtt": Array [
+                  "ComprehendJobB64EncodeFunctionE10510B6",
+                  "Arn",
+                ],
+              },
+              "\\"},\\"Store Cache\\":{\\"End\\":true,\\"Retry\\":[{\\"ErrorEquals\\":[\\"States.ALL\\"],\\"MaxAttempts\\":2}],\\"Type\\":\\"Task\\",\\"OutputPath\\":\\"$.Response\\",\\"ResultPath\\":\\"$.tmp\\",\\"Resource\\":\\"arn:",
+              Object {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::dynamodb:putItem\\",\\"Parameters\\":{\\"Item\\":{\\"id\\":{\\"S.$\\":\\"$.CacheKey\\"},\\"value\\":{\\"B.$\\":\\"$.Cache.Value\\"},\\"expire\\":{\\"N.$\\":\\"$.Cache.Expire\\"}},\\"TableName\\":\\"",
+              Object {
+                "Ref": "ComprehendJobCacheTable2D64C528",
+              },
+              "\\"}},\\"EmpryResponse\\":{\\"Type\\":\\"Pass\\",\\"Parameters\\":{\\"NormalizedText.$\\":\\"$.input.Text\\"},\\"End\\":true},\\"Decode Cache\\":{\\"End\\":true,\\"Retry\\":[{\\"ErrorEquals\\":[\\"Lambda.ServiceException\\",\\"Lambda.AWSLambdaException\\",\\"Lambda.SdkClientException\\"],\\"IntervalSeconds\\":2,\\"MaxAttempts\\":6,\\"BackoffRate\\":2}],\\"Type\\":\\"Task\\",\\"InputPath\\":\\"$.Cache.Item.value.B\\",\\"Resource\\":\\"",
+              Object {
+                "Fn::GetAtt": Array [
+                  "ComprehendJobB64DecodeFunctionCFAE8AF0",
+                  "Arn",
+                ],
+              },
+              "\\"}}}",
+            ],
+          ],
+        },
+        "LoggingConfiguration": Object {
+          "Destinations": Array [
+            Object {
+              "CloudWatchLogsLogGroup": Object {
+                "LogGroupArn": Object {
+                  "Fn::GetAtt": Array [
+                    "ComprehendJobLogs46527FF7",
+                    "Arn",
+                  ],
+                },
+              },
+            },
+          ],
+          "Level": "ERROR",
+        },
+        "RoleArn": Object {
+          "Fn::GetAtt": Array [
+            "ComprehendJobStateMachineRole8E097225",
+            "Arn",
+          ],
+        },
+        "StateMachineType": "EXPRESS",
+        "TracingConfiguration": Object {
+          "Enabled": true,
+        },
+      },
+      "Type": "AWS::StepFunctions::StateMachine",
+    },
+    "ComprehendJobStateMachineRole8E097225": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": Object {
+                  "Fn::FindInMap": Array [
+                    "ServiceprincipalMap",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    "states",
+                  ],
+                },
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ComprehendJobStateMachineRoleDefaultPolicyF1625302": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "logs:CreateLogDelivery",
+                "logs:GetLogDelivery",
+                "logs:UpdateLogDelivery",
+                "logs:DeleteLogDelivery",
+                "logs:ListLogDeliveries",
+                "logs:PutResourcePolicy",
+                "logs:DescribeResourcePolicies",
+                "logs:DescribeLogGroups",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+                "xray:GetSamplingRules",
+                "xray:GetSamplingTargets",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "ComprehendJobNormalizeFunction49B1DB7D",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "ComprehendJobNormalizeFunction49B1DB7D",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "dynamodb:GetItem",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":dynamodb:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":table/",
+                    Object {
+                      "Ref": "ComprehendJobCacheTable2D64C528",
+                    },
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": "translate:TranslateText",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "ComprehendJobB64EncodeFunctionE10510B6",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "ComprehendJobB64EncodeFunctionE10510B6",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "dynamodb:PutItem",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":dynamodb:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":table/",
+                    Object {
+                      "Ref": "ComprehendJobCacheTable2D64C528",
+                    },
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": "comprehend:DetectEntities",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": "comprehend:DetectSentiment",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "ComprehendJobB64DecodeFunctionCFAE8AF0",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "ComprehendJobB64DecodeFunctionCFAE8AF0",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "comprehend:DetectDominantLanguage",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "ComprehendJobStateMachineRoleDefaultPolicyF1625302",
+        "Roles": Array [
+          Object {
+            "Ref": "ComprehendJobStateMachineRole8E097225",
           },
         ],
       },
@@ -1099,75 +1684,36 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Policy",
     },
-    "DashboardAppLogEnabled7F4B2274": Object {
-      "DeletionPolicy": "Delete",
+    "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536": Object {
+      "DependsOn": Array [
+        "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF",
+        "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265",
+      ],
       "Properties": Object {
-        "RetentionInDays": 30,
-      },
-      "Type": "AWS::Logs::LogGroup",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "DashboardAuditLogGroup3256183C": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "RetentionInDays": 30,
-      },
-      "Type": "AWS::Logs::LogGroup",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "DashboardBulkOperationRoleDefaultPolicy8EA5E3FA": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "xray:PutTraceSegments",
-                "xray:PutTelemetryRecords",
-              ],
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "kinesis:DescribeStreamSummary",
-                "kinesis:GetRecords",
-                "kinesis:GetShardIterator",
-                "kinesis:ListShards",
-                "kinesis:SubscribeToShard",
-                "kinesis:DescribeStream",
-                "kinesis:ListStreams",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "IndexingStream9338356A",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "kinesis:DescribeStream",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "IndexingStream9338356A",
-                  "Arn",
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "f98b78092dcdd31f5e6d47489beb5f804d4835ef86a8085d0a2053cb9ae711da.zip",
         },
-        "PolicyName": "DashboardBulkOperationRoleDefaultPolicy8EA5E3FA",
-        "Roles": Array [
+        "Handler": "index.handler",
+        "Layers": Array [
           Object {
-            "Ref": "DashboardBulkOperationRoleFDDFA0D0",
+            "Ref": "OpenSearchPackagesDeploymentAwsCliLayerADF8F738",
           },
         ],
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265",
+            "Arn",
+          ],
+        },
+        "Runtime": "python3.7",
+        "Timeout": 900,
       },
-      "Type": "AWS::IAM::Policy",
+      "Type": "AWS::Lambda::Function",
     },
-    "DashboardBulkOperationRoleFDDFA0D0": Object {
+    "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
@@ -1181,7 +1727,6 @@ scrape_configs:
           ],
           "Version": "2012-10-17",
         },
-        "Description": "Bulk operator for OpenSearch / fine-grained access control",
         "ManagedPolicyArns": Array [
           Object {
             "Fn::Join": Array [
@@ -1195,52 +1740,119 @@ scrape_configs:
               ],
             ],
           },
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
-              ],
-            ],
-          },
         ],
       },
       "Type": "AWS::IAM::Role",
     },
-    "DashboardCognitoAccessForAmazonOpenSearch55C52256": Object {
+    "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF": Object {
       "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
+        "PolicyDocument": Object {
           "Statement": Array [
             Object {
-              "Action": "sts:AssumeRole",
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
               "Effect": "Allow",
-              "Principal": Object {
-                "Service": "es.amazonaws.com",
-              },
+              "Resource": Array [
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":s3:::",
+                      Object {
+                        "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+                      },
+                    ],
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":s3:::",
+                      Object {
+                        "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "Bucket83908E77",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "Bucket83908E77",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
             },
           ],
           "Version": "2012-10-17",
         },
-        "ManagedPolicyArns": Array [
+        "PolicyName": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF",
+        "Roles": Array [
           Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/AmazonOpenSearchServiceCognitoAccess",
-              ],
-            ],
+            "Ref": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265",
           },
         ],
       },
-      "Type": "AWS::IAM::Role",
+      "Type": "AWS::IAM::Policy",
+    },
+    "DashboardAppLogs4099E214": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "RetentionInDays": 30,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "DashboardAuditLogsD6A35512": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "RetentionInDays": 30,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
     },
     "DashboardDomainAccessPolicyCustomResourcePolicy63DD89EF": Object {
       "Properties": Object {
@@ -1368,7 +1980,7 @@ scrape_configs:
           "backend_roles": Array [
             Object {
               "Fn::GetAtt": Array [
-                "DashboardBulkOperationRoleFDDFA0D0",
+                "OpenSearchLoaderFunctionServiceRole32276686",
                 "Arn",
               ],
             },
@@ -1471,8 +2083,12 @@ scrape_configs:
       "Type": "Custom::OpenSearchRoleMapping",
       "UpdateReplacePolicy": "Delete",
     },
-    "DashboardDomainDashboardsUserRoleC28A043B": Object {
+    "DashboardDomainDefaultSnapshotRepoEFE66608": Object {
       "DeletionPolicy": "Delete",
+      "DependsOn": Array [
+        "DashboardSnapshotRoleDefaultPolicyEF231DDD",
+        "DashboardSnapshotRole792BAAA0",
+      ],
       "Properties": Object {
         "ServiceToken": Object {
           "Fn::GetAtt": Array [
@@ -1481,82 +2097,19 @@ scrape_configs:
           ],
         },
         "body": Object {
-          "cluster_permissions": Array [
-            "cluster_composite_ops_ro",
-          ],
-          "description": "Provide the minimum permissions for a dashboards user",
-          "index_permissions": Array [
-            Object {
-              "allowed_actions": Array [
-                "read",
-                "delete",
-                "manage",
-                "index",
-              ],
-              "index_patterns": Array [
-                ".kibana_*",
-                ".opensearch_dashboards_*",
-              ],
+          "settings": Object {
+            "base_path": "opensearch/snapshot",
+            "bucket": Object {
+              "Ref": "Bucket83908E77",
             },
-            Object {
-              "allowed_actions": Array [
-                "indices_all",
-              ],
-              "index_patterns": Array [
-                ".tasks",
-                ".management-beats",
-              ],
-            },
-            Object {
-              "allowed_actions": Array [
-                "read",
-              ],
-              "index_patterns": Array [
-                "tweets-*",
-              ],
-            },
-          ],
-          "tenant_permissions": Array [
-            Object {
-              "allowed_actions": Array [
-                "kibana_all_write",
-              ],
-              "tenant_patterns": Array [
-                "global_tenant",
-              ],
-            },
-          ],
-        },
-        "host": Object {
-          "Fn::GetAtt": Array [
-            "DashboardDomainED696CAB",
-            "DomainEndpoint",
-          ],
-        },
-        "name": "dashboards_user",
-        "path": "_plugins/_security/api/roles/",
-      },
-      "Type": "Custom::OpenSearchRole",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "DashboardDomainDashboardsUserRoleMapping56C4E066": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "DashboardDomainProviderframeworkonEvent09950933",
-            "Arn",
-          ],
-        },
-        "body": Object {
-          "backend_roles": Array [
-            Object {
+            "role_arn": Object {
               "Fn::GetAtt": Array [
-                "testUserPoolAuthRole24574640",
+                "DashboardSnapshotRole792BAAA0",
                 "Arn",
               ],
             },
-          ],
+          },
+          "type": "s3",
         },
         "host": Object {
           "Fn::GetAtt": Array [
@@ -1564,19 +2117,14 @@ scrape_configs:
             "DomainEndpoint",
           ],
         },
-        "name": Object {
-          "Fn::GetAtt": Array [
-            "DashboardDomainDashboardsUserRoleC28A043B",
-            "Name",
-          ],
-        },
-        "path": "_plugins/_security/api/rolesmapping/",
+        "name": "default",
+        "path": "_snapshot/",
       },
-      "Type": "Custom::OpenSearchRoleMapping",
+      "Type": "Custom::OpenSearchSnapshotRepo",
       "UpdateReplacePolicy": "Delete",
     },
     "DashboardDomainED696CAB": Object {
-      "DeletionPolicy": "Delete",
+      "DeletionPolicy": "Retain",
       "DependsOn": Array [
         "DashboardDomainESLogGroupPolicyc8fa6d20cfff60d0c384a83a18559bc5232144e611CustomResourcePolicy49AD4ACE",
         "DashboardDomainESLogGroupPolicyc8fa6d20cfff60d0c384a83a18559bc5232144e611830181CB",
@@ -1588,7 +2136,7 @@ scrape_configs:
           "MasterUserOptions": Object {
             "MasterUserARN": Object {
               "Fn::GetAtt": Array [
-                "DashboardDomainMasterUserRole27869A14",
+                "DashboardMasterUserRoleE088A648",
                 "Arn",
               ],
             },
@@ -1599,26 +2147,14 @@ scrape_configs:
           "DedicatedMasterEnabled": true,
           "DedicatedMasterType": "m6g.large.search",
           "InstanceCount": 3,
-          "InstanceType": "r6gd.large.search",
+          "InstanceType": "r6gd.xlarge.search",
           "ZoneAwarenessConfig": Object {
             "AvailabilityZoneCount": 3,
           },
           "ZoneAwarenessEnabled": true,
         },
         "CognitoOptions": Object {
-          "Enabled": true,
-          "IdentityPoolId": Object {
-            "Ref": "testUserPoolIdentityPool42D54FD5",
-          },
-          "RoleArn": Object {
-            "Fn::GetAtt": Array [
-              "DashboardCognitoAccessForAmazonOpenSearch55C52256",
-              "Arn",
-            ],
-          },
-          "UserPoolId": Object {
-            "Ref": "testUserPool38F3A57B",
-          },
+          "Enabled": false,
         },
         "DomainEndpointOptions": Object {
           "EnforceHTTPS": true,
@@ -1635,7 +2171,7 @@ scrape_configs:
           "AUDIT_LOGS": Object {
             "CloudWatchLogsLogGroupArn": Object {
               "Fn::GetAtt": Array [
-                "DashboardAuditLogGroup3256183C",
+                "DashboardAuditLogsD6A35512",
                 "Arn",
               ],
             },
@@ -1644,7 +2180,7 @@ scrape_configs:
           "ES_APPLICATION_LOGS": Object {
             "CloudWatchLogsLogGroupArn": Object {
               "Fn::GetAtt": Array [
-                "DashboardAppLogEnabled7F4B2274",
+                "DashboardAppLogs4099E214",
                 "Arn",
               ],
             },
@@ -1653,7 +2189,7 @@ scrape_configs:
           "INDEX_SLOW_LOGS": Object {
             "CloudWatchLogsLogGroupArn": Object {
               "Fn::GetAtt": Array [
-                "DashboardSlowIndexLogEnabled95FB46D2",
+                "DashboardSlowIndexLogs61DDE73B",
                 "Arn",
               ],
             },
@@ -1662,7 +2198,7 @@ scrape_configs:
           "SEARCH_SLOW_LOGS": Object {
             "CloudWatchLogsLogGroupArn": Object {
               "Fn::GetAtt": Array [
-                "DashboardSlowSearchLogGroup4E28752B",
+                "DashboardSlowSearchLogsD1D4DEE1",
                 "Arn",
               ],
             },
@@ -1677,7 +2213,7 @@ scrape_configs:
       "UpdatePolicy": Object {
         "EnableVersionUpgrade": true,
       },
-      "UpdateReplacePolicy": "Delete",
+      "UpdateReplacePolicy": "Retain",
     },
     "DashboardDomainESLogGroupPolicyc8fa6d20cfff60d0c384a83a18559bc5232144e611830181CB": Object {
       "DeletionPolicy": "Delete",
@@ -1692,28 +2228,28 @@ scrape_configs:
               "{\\"service\\":\\"CloudWatchLogs\\",\\"action\\":\\"putResourcePolicy\\",\\"parameters\\":{\\"policyName\\":\\"ESLogPolicyc8fa6d20cfff60d0c384a83a18559bc5232144e611\\",\\"policyDocument\\":\\"{\\\\\\"Statement\\\\\\":[{\\\\\\"Action\\\\\\":[\\\\\\"logs:PutLogEvents\\\\\\",\\\\\\"logs:CreateLogStream\\\\\\"],\\\\\\"Effect\\\\\\":\\\\\\"Allow\\\\\\",\\\\\\"Principal\\\\\\":{\\\\\\"Service\\\\\\":\\\\\\"es.amazonaws.com\\\\\\"},\\\\\\"Resource\\\\\\":[\\\\\\"",
               Object {
                 "Fn::GetAtt": Array [
-                  "DashboardSlowSearchLogGroup4E28752B",
+                  "DashboardSlowSearchLogsD1D4DEE1",
                   "Arn",
                 ],
               },
               "\\\\\\",\\\\\\"",
               Object {
                 "Fn::GetAtt": Array [
-                  "DashboardSlowIndexLogEnabled95FB46D2",
+                  "DashboardSlowIndexLogs61DDE73B",
                   "Arn",
                 ],
               },
               "\\\\\\",\\\\\\"",
               Object {
                 "Fn::GetAtt": Array [
-                  "DashboardAppLogEnabled7F4B2274",
+                  "DashboardAppLogs4099E214",
                   "Arn",
                 ],
               },
               "\\\\\\",\\\\\\"",
               Object {
                 "Fn::GetAtt": Array [
-                  "DashboardAuditLogGroup3256183C",
+                  "DashboardAuditLogsD6A35512",
                   "Arn",
                 ],
               },
@@ -1736,28 +2272,28 @@ scrape_configs:
               "{\\"service\\":\\"CloudWatchLogs\\",\\"action\\":\\"putResourcePolicy\\",\\"parameters\\":{\\"policyName\\":\\"ESLogPolicyc8fa6d20cfff60d0c384a83a18559bc5232144e611\\",\\"policyDocument\\":\\"{\\\\\\"Statement\\\\\\":[{\\\\\\"Action\\\\\\":[\\\\\\"logs:PutLogEvents\\\\\\",\\\\\\"logs:CreateLogStream\\\\\\"],\\\\\\"Effect\\\\\\":\\\\\\"Allow\\\\\\",\\\\\\"Principal\\\\\\":{\\\\\\"Service\\\\\\":\\\\\\"es.amazonaws.com\\\\\\"},\\\\\\"Resource\\\\\\":[\\\\\\"",
               Object {
                 "Fn::GetAtt": Array [
-                  "DashboardSlowSearchLogGroup4E28752B",
+                  "DashboardSlowSearchLogsD1D4DEE1",
                   "Arn",
                 ],
               },
               "\\\\\\",\\\\\\"",
               Object {
                 "Fn::GetAtt": Array [
-                  "DashboardSlowIndexLogEnabled95FB46D2",
+                  "DashboardSlowIndexLogs61DDE73B",
                   "Arn",
                 ],
               },
               "\\\\\\",\\\\\\"",
               Object {
                 "Fn::GetAtt": Array [
-                  "DashboardAppLogEnabled7F4B2274",
+                  "DashboardAppLogs4099E214",
                   "Arn",
                 ],
               },
               "\\\\\\",\\\\\\"",
               Object {
                 "Fn::GetAtt": Array [
-                  "DashboardAuditLogGroup3256183C",
+                  "DashboardAuditLogsD6A35512",
                   "Arn",
                 ],
               },
@@ -1795,58 +2331,46 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Policy",
     },
-    "DashboardDomainMasterUserRole27869A14": Object {
+    "DashboardDomainKuromojiComponentTemplate715A67D0": Object {
+      "DeletionPolicy": "Delete",
       "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-            Object {
-              "Action": "sts:AssumeRoleWithWebIdentity",
-              "Condition": Object {
-                "ForAnyValue:StringLike": Object {
-                  "cognito-identity.amazonaws.com:amr": "authenticated",
-                },
-                "StringEquals": Object {
-                  "cognito-identity.amazonaws.com:aud": Object {
-                    "Ref": "testUserPoolIdentityPool42D54FD5",
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainProviderframeworkonEvent09950933",
+            "Arn",
+          ],
+        },
+        "body": Object {
+          "template": Object {
+            "settings": Object {
+              "index": Object {
+                "analysis": Object {
+                  "analyzer": Object {
+                    "kuromoji_user_dic": Object {
+                      "type": "kuromoji",
+                    },
                   },
                 },
               },
-              "Effect": "Allow",
-              "Principal": Object {
-                "Federated": "cognito-identity.amazonaws.com",
-              },
             },
-          ],
-          "Version": "2012-10-17",
-        },
-        "Description": "Master user for OpenSearch / fine-grained access control",
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
           },
-        ],
+        },
+        "host": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainED696CAB",
+            "DomainEndpoint",
+          ],
+        },
+        "name": "kuromoji_user_dic",
+        "path": "_component_template/",
       },
-      "Type": "AWS::IAM::Role",
+      "Type": "Custom::OpenSearchComponentTemplate",
+      "UpdateReplacePolicy": "Delete",
     },
     "DashboardDomainOpenSearchResourceFunction6FC3C0C1": Object {
       "DependsOn": Array [
-        "DashboardDomainMasterUserRole27869A14",
+        "DashboardMasterUserRoleDefaultPolicy292966BE",
+        "DashboardMasterUserRoleE088A648",
       ],
       "Properties": Object {
         "Architectures": Array [
@@ -1856,7 +2380,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "204035345530baf7a64df37bb8073a98ed78e8fcff7370e9c01533c924353a18.zip",
+          "S3Key": "5a43a2c48e0bd171aaf1c1daa81bcd4fc3e5ecc9293143b4db6a9e304f637ad8.zip",
         },
         "Description": "Lambda-backed custom resources - OpenSearch resources",
         "Environment": Object {
@@ -1867,11 +2391,11 @@ scrape_configs:
         "Handler": "index.handler",
         "Role": Object {
           "Fn::GetAtt": Array [
-            "DashboardDomainMasterUserRole27869A14",
+            "DashboardMasterUserRoleE088A648",
             "Arn",
           ],
         },
-        "Runtime": "nodejs14.x",
+        "Runtime": "nodejs16.x",
         "Timeout": 300,
       },
       "Type": "AWS::Lambda::Function",
@@ -1984,6 +2508,148 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Policy",
     },
+    "DashboardDomainSnapshotRoleRoleMapping32CD1178": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainProviderframeworkonEvent09950933",
+            "Arn",
+          ],
+        },
+        "body": Object {
+          "backend_roles": Array [
+            Object {
+              "Fn::GetAtt": Array [
+                "DashboardSnapshotRole792BAAA0",
+                "Arn",
+              ],
+            },
+          ],
+        },
+        "host": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainED696CAB",
+            "DomainEndpoint",
+          ],
+        },
+        "name": "manage_snapshots",
+        "path": "_plugins/_security/api/rolesmapping/",
+      },
+      "Type": "Custom::OpenSearchRoleMapping",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "DashboardDomainSocialAnalyticsReadOnlyRoleD23D3D87": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainProviderframeworkonEvent09950933",
+            "Arn",
+          ],
+        },
+        "body": Object {
+          "cluster_permissions": Array [
+            "cluster_composite_ops_ro",
+            "cluster:admin/opendistro/reports/definition/create",
+            "cluster:admin/opendistro/reports/definition/update",
+            "cluster:admin/opendistro/reports/definition/on_demand",
+            "cluster:admin/opendistro/reports/definition/delete",
+            "cluster:admin/opendistro/reports/definition/get",
+            "cluster:admin/opendistro/reports/definition/list",
+            "cluster:admin/opendistro/reports/instance/list",
+            "cluster:admin/opendistro/reports/instance/get",
+            "cluster:admin/opendistro/reports/menu/download",
+          ],
+          "description": "Provide the minimum permissions for all users",
+          "index_permissions": Array [
+            Object {
+              "allowed_actions": Array [
+                "read",
+                "delete",
+                "manage",
+                "index",
+              ],
+              "index_patterns": Array [
+                ".kibana",
+                ".kibana_*",
+                ".opensearch_dashboards",
+                ".opensearch_dashboards_*",
+              ],
+            },
+            Object {
+              "allowed_actions": Array [
+                "indices_all",
+              ],
+              "index_patterns": Array [
+                ".tasks",
+                ".management-beats",
+              ],
+            },
+            Object {
+              "allowed_actions": Array [
+                "read",
+                "indices_monitor",
+              ],
+              "index_patterns": Array [
+                "tweets-*",
+              ],
+            },
+          ],
+          "tenant_permissions": Array [
+            Object {
+              "allowed_actions": Array [
+                "kibana_all_read",
+              ],
+              "tenant_patterns": Array [
+                "global_tenant",
+              ],
+            },
+          ],
+        },
+        "host": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainED696CAB",
+            "DomainEndpoint",
+          ],
+        },
+        "name": "social_analytics_read_only",
+        "path": "_plugins/_security/api/roles/",
+      },
+      "Type": "Custom::OpenSearchRole",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "DashboardDomainSocialAnalyticsReadOnlyRoleMappingE72B9FEA": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainProviderframeworkonEvent09950933",
+            "Arn",
+          ],
+        },
+        "body": Object {
+          "backend_roles": Array [
+            "*",
+          ],
+        },
+        "host": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainED696CAB",
+            "DomainEndpoint",
+          ],
+        },
+        "name": Object {
+          "Fn::GetAtt": Array [
+            "DashboardDomainSocialAnalyticsReadOnlyRoleD23D3D87",
+            "Name",
+          ],
+        },
+        "path": "_plugins/_security/api/rolesmapping/",
+      },
+      "Type": "Custom::OpenSearchRoleMapping",
+      "UpdateReplacePolicy": "Delete",
+    },
     "DashboardDomainTweetsTemplate35A526B1": Object {
       "DeletionPolicy": "Delete",
       "Properties": Object {
@@ -1994,6 +2660,14 @@ scrape_configs:
           ],
         },
         "body": Object {
+          "composed_of": Array [
+            Object {
+              "Fn::GetAtt": Array [
+                "DashboardDomainKuromojiComponentTemplate715A67D0",
+                "Name",
+              ],
+            },
+          ],
           "index_patterns": Array [
             "tweets-*",
           ],
@@ -2003,36 +2677,6 @@ scrape_configs:
                 "enabled": true,
               },
               "properties": Object {
-                "analysis": Object {
-                  "properties": Object {
-                    "entities": Object {
-                      "type": "keyword",
-                    },
-                    "normalized_text": Object {
-                      "index": false,
-                      "type": "keyword",
-                    },
-                    "sentiment": Object {
-                      "type": "keyword",
-                    },
-                    "sentiment_score": Object {
-                      "properties": Object {
-                        "mixed": Object {
-                          "type": "double",
-                        },
-                        "negative": Object {
-                          "type": "double",
-                        },
-                        "neutral": Object {
-                          "type": "double",
-                        },
-                        "positive": Object {
-                          "type": "double",
-                        },
-                      },
-                    },
-                  },
-                },
                 "author": Object {
                   "properties": Object {
                     "id": Object {
@@ -2070,8 +2714,33 @@ scrape_configs:
                   },
                 },
                 "author_id": Object {
-                  "index": false,
                   "type": "keyword",
+                },
+                "comprehend": Object {
+                  "properties": Object {
+                    "entities": Object {
+                      "type": "keyword",
+                    },
+                    "sentiment": Object {
+                      "type": "keyword",
+                    },
+                    "sentiment_score": Object {
+                      "properties": Object {
+                        "mixed": Object {
+                          "type": "double",
+                        },
+                        "negative": Object {
+                          "type": "double",
+                        },
+                        "neutral": Object {
+                          "type": "double",
+                        },
+                        "positive": Object {
+                          "type": "double",
+                        },
+                      },
+                    },
+                  },
                 },
                 "context_annotations": Object {
                   "properties": Object {
@@ -2089,13 +2758,55 @@ scrape_configs:
                 "created_at": Object {
                   "type": "date",
                 },
+                "created_at_year": Object {
+                  "type": "keyword",
+                },
                 "entities": Object {
                   "properties": Object {
                     "annotation": Object {
                       "type": "keyword",
                     },
+                    "cashtag": Object {
+                      "type": "keyword",
+                    },
                     "hashtag": Object {
                       "type": "keyword",
+                    },
+                    "mention": Object {
+                      "type": "keyword",
+                    },
+                    "url": Object {
+                      "properties": Object {
+                        "description": Object {
+                          "analyzer": "kuromoji_user_dic",
+                          "type": "text",
+                        },
+                        "display_domain": Object {
+                          "type": "keyword",
+                        },
+                        "display_url": Object {
+                          "type": "keyword",
+                        },
+                        "expanded_url": Object {
+                          "fielddata": true,
+                          "fields": Object {
+                            "raw": Object {
+                              "type": "keyword",
+                            },
+                          },
+                          "type": "text",
+                        },
+                        "title": Object {
+                          "analyzer": "kuromoji_user_dic",
+                          "fielddata": true,
+                          "fields": Object {
+                            "raw": Object {
+                              "type": "keyword",
+                            },
+                          },
+                          "type": "text",
+                        },
+                      },
                     },
                   },
                 },
@@ -2119,30 +2830,15 @@ scrape_configs:
                 "id": Object {
                   "type": "keyword",
                 },
-                "includes": Object {
-                  "properties": Object {
-                    "tweets": Object {
-                      "enabled": false,
-                      "type": "object",
-                    },
-                    "users": Object {
-                      "enabled": false,
-                      "type": "object",
-                    },
-                  },
+                "in_reply_to_user_id": Object {
+                  "type": "keyword",
                 },
                 "lang": Object {
                   "type": "keyword",
                 },
-                "matching_rules": Object {
-                  "properties": Object {
-                    "id": Object {
-                      "type": "keyword",
-                    },
-                    "tag": Object {
-                      "type": "keyword",
-                    },
-                  },
+                "normalized_text": Object {
+                  "analyzer": "kuromoji_user_dic",
+                  "type": "text",
                 },
                 "possibly_sensitive": Object {
                   "type": "boolean",
@@ -2180,7 +2876,12 @@ scrape_configs:
                   "type": "keyword",
                 },
                 "text": Object {
+                  "analyzer": "kuromoji_user_dic",
                   "type": "text",
+                },
+                "updated_at": Object {
+                  "format": "epoch_second",
+                  "type": "date",
                 },
                 "url": Object {
                   "index": false,
@@ -2189,8 +2890,10 @@ scrape_configs:
               },
             },
             "settings": Object {
-              "number_of_replicas": 1,
-              "number_of_shards": 3,
+              "index": Object {
+                "number_of_replicas": 1,
+                "number_of_shards": 3,
+              },
             },
           },
         },
@@ -2206,145 +2909,33 @@ scrape_configs:
       "Type": "Custom::OpenSearchTemplate",
       "UpdateReplacePolicy": "Delete",
     },
-    "DashboardMasterUserGroup621CF0E3": Object {
+    "DashboardMasterUserRoleDefaultPolicy292966BE": Object {
       "Properties": Object {
-        "Description": "Master user for OpenSearch / fine-grained access control",
-        "GroupName": "MasterUser",
-        "RoleArn": Object {
-          "Fn::GetAtt": Array [
-            "DashboardDomainMasterUserRole27869A14",
-            "Arn",
-          ],
-        },
-        "UserPoolId": Object {
-          "Ref": "testUserPool38F3A57B",
-        },
-      },
-      "Type": "AWS::Cognito::UserPoolGroup",
-    },
-    "DashboardSlowIndexLogEnabled95FB46D2": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "RetentionInDays": 30,
-      },
-      "Type": "AWS::Logs::LogGroup",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "DashboardSlowSearchLogGroup4E28752B": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "RetentionInDays": 30,
-      },
-      "Type": "AWS::Logs::LogGroup",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "EventBus7B8748AA": Object {
-      "Properties": Object {
-        "Name": "testEventBusD3C7AA2F",
-      },
-      "Type": "AWS::Events::EventBus",
-    },
-    "IndexingArchiveStream105402AA": Object {
-      "Properties": Object {
-        "DeliveryStreamType": "KinesisStreamAsSource",
-        "ExtendedS3DestinationConfiguration": Object {
-          "BucketARN": Object {
-            "Fn::GetAtt": Array [
-              "Bucket83908E77",
-              "Arn",
-            ],
-          },
-          "BufferingHints": Object {
-            "IntervalInSeconds": 900,
-            "SizeInMBs": 128,
-          },
-          "CloudWatchLoggingOptions": Object {
-            "Enabled": true,
-            "LogGroupName": Object {
-              "Ref": "IndexingArchiveStreamLogGroup9F333710",
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "iam:PassRole",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "DashboardSnapshotRole792BAAA0",
+                  "Arn",
+                ],
+              },
             },
-            "LogStreamName": "ErrorLogs",
-          },
-          "CompressionFormat": "GZIP",
-          "DynamicPartitioningConfiguration": Object {
-            "Enabled": true,
-          },
-          "ErrorOutputPrefix": "raw-with-analysis/tweets/v2-error/!{firehose:error-output-type}/",
-          "Prefix": "raw-with-analysis/tweets/v2/year=!{partitionKeyFromQuery:year}/month=!{partitionKeyFromQuery:month}/day=!{partitionKeyFromQuery:day}/",
-          "ProcessingConfiguration": Object {
-            "Enabled": true,
-            "Processors": Array [
-              Object {
-                "Parameters": Array [
-                  Object {
-                    "ParameterName": "LambdaArn",
-                    "ParameterValue": Object {
-                      "Fn::GetAtt": Array [
-                        "ArchiveFilterFunction81E5C2D0",
-                        "Arn",
-                      ],
-                    },
-                  },
-                ],
-                "Type": "Lambda",
-              },
-              Object {
-                "Parameters": Array [
-                  Object {
-                    "ParameterName": "MetadataExtractionQuery",
-                    "ParameterValue": "{                    year : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%Y\\"),                    month : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%m\\"),                    day : .data.created_at | split(\\".\\")[0] | strptime(\\"%Y-%m-%dT%H:%M:%S\\") | strftime(\\"%d\\")                  }",
-                  },
-                  Object {
-                    "ParameterName": "JsonParsingEngine",
-                    "ParameterValue": "JQ-1.6",
-                  },
-                ],
-                "Type": "MetadataExtraction",
-              },
-              Object {
-                "Parameters": Array [
-                  Object {
-                    "ParameterName": "Delimiter",
-                    "ParameterValue": "\\\\n",
-                  },
-                ],
-                "Type": "AppendDelimiterToRecord",
-              },
-            ],
-          },
-          "RoleARN": Object {
-            "Fn::GetAtt": Array [
-              "IndexingArchiveStreamRole22DAE3F6",
-              "Arn",
-            ],
-          },
+          ],
+          "Version": "2012-10-17",
         },
-        "KinesisStreamSourceConfiguration": Object {
-          "KinesisStreamARN": Object {
-            "Fn::GetAtt": Array [
-              "IndexingStream9338356A",
-              "Arn",
-            ],
+        "PolicyName": "DashboardMasterUserRoleDefaultPolicy292966BE",
+        "Roles": Array [
+          Object {
+            "Ref": "DashboardMasterUserRoleE088A648",
           },
-          "RoleARN": Object {
-            "Fn::GetAtt": Array [
-              "IndexingArchiveStreamRole22DAE3F6",
-              "Arn",
-            ],
-          },
-        },
+        ],
       },
-      "Type": "AWS::KinesisFirehose::DeliveryStream",
+      "Type": "AWS::IAM::Policy",
     },
-    "IndexingArchiveStreamLogGroup9F333710": Object {
-      "DeletionPolicy": "Retain",
-      "Properties": Object {
-        "RetentionInDays": 14,
-      },
-      "Type": "AWS::Logs::LogGroup",
-      "UpdateReplacePolicy": "Retain",
-    },
-    "IndexingArchiveStreamRole22DAE3F6": Object {
+    "DashboardMasterUserRoleE088A648": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
@@ -2352,149 +2943,118 @@ scrape_configs:
               "Action": "sts:AssumeRole",
               "Effect": "Allow",
               "Principal": Object {
-                "Service": "firehose.amazonaws.com",
+                "Service": "lambda.amazonaws.com",
               },
             },
           ],
           "Version": "2012-10-17",
         },
-        "Policies": Array [
+        "Description": "Master user for OpenSearch / fine-grained access control",
+        "ManagedPolicyArns": Array [
           Object {
-            "PolicyDocument": Object {
-              "Statement": Array [
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
                 Object {
-                  "Action": Array [
-                    "kinesis:DescribeStreamSummary",
-                    "kinesis:GetRecords",
-                    "kinesis:GetShardIterator",
-                    "kinesis:ListShards",
-                    "kinesis:SubscribeToShard",
-                    "kinesis:DescribeStream",
-                    "kinesis:ListStreams",
-                  ],
-                  "Effect": "Allow",
-                  "Resource": Object {
-                    "Fn::GetAtt": Array [
-                      "IndexingStream9338356A",
-                      "Arn",
-                    ],
-                  },
+                  "Ref": "AWS::Partition",
                 },
+                ":iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
               ],
-              "Version": "2012-10-17",
-            },
-            "PolicyName": "SourcePolicy",
-          },
-          Object {
-            "PolicyDocument": Object {
-              "Statement": Array [
-                Object {
-                  "Action": Array [
-                    "s3:GetObject*",
-                    "s3:GetBucket*",
-                    "s3:List*",
-                    "s3:DeleteObject*",
-                    "s3:PutObject",
-                    "s3:Abort*",
-                  ],
-                  "Effect": "Allow",
-                  "Resource": Array [
-                    Object {
-                      "Fn::GetAtt": Array [
-                        "Bucket83908E77",
-                        "Arn",
-                      ],
-                    },
-                    Object {
-                      "Fn::Join": Array [
-                        "",
-                        Array [
-                          Object {
-                            "Fn::GetAtt": Array [
-                              "Bucket83908E77",
-                              "Arn",
-                            ],
-                          },
-                          "/raw-with-analysis/tweets/v2/*",
-                        ],
-                      ],
-                    },
-                    Object {
-                      "Fn::Join": Array [
-                        "",
-                        Array [
-                          Object {
-                            "Fn::GetAtt": Array [
-                              "Bucket83908E77",
-                              "Arn",
-                            ],
-                          },
-                          "/raw-with-analysis/tweets/v2-error/*",
-                        ],
-                      ],
-                    },
-                  ],
-                },
-              ],
-              "Version": "2012-10-17",
-            },
-            "PolicyName": "DestinationPolicy",
-          },
-          Object {
-            "PolicyDocument": Object {
-              "Statement": Array [
-                Object {
-                  "Action": Array [
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents",
-                  ],
-                  "Effect": "Allow",
-                  "Resource": Object {
-                    "Fn::Join": Array [
-                      "",
-                      Array [
-                        Object {
-                          "Fn::GetAtt": Array [
-                            "IndexingArchiveStreamLogGroup9F333710",
-                            "Arn",
-                          ],
-                        },
-                        ":ErrorLogs",
-                      ],
-                    ],
-                  },
-                },
-              ],
-              "Version": "2012-10-17",
-            },
-            "PolicyName": "LoggingPolicy",
-          },
-          Object {
-            "PolicyDocument": Object {
-              "Statement": Array [
-                Object {
-                  "Action": "lambda:InvokeFunction",
-                  "Effect": "Allow",
-                  "Resource": Object {
-                    "Fn::GetAtt": Array [
-                      "ArchiveFilterFunction81E5C2D0",
-                      "Arn",
-                    ],
-                  },
-                },
-              ],
-              "Version": "2012-10-17",
-            },
-            "PolicyName": "ProcessorPolicy",
+            ],
           },
         ],
       },
       "Type": "AWS::IAM::Role",
     },
-    "IndexingFunctionE0FD8B44": Object {
+    "DashboardSlowIndexLogs61DDE73B": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "RetentionInDays": 30,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "DashboardSlowSearchLogsD1D4DEE1": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "RetentionInDays": 30,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "DashboardSnapshotRole792BAAA0": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "opensearchservice.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "DashboardSnapshotRoleDefaultPolicyEF231DDD": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "s3:ListBucket",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:aws:s3:::",
+                    Object {
+                      "Ref": "Bucket83908E77",
+                    },
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:aws:s3:::",
+                    Object {
+                      "Ref": "Bucket83908E77",
+                    },
+                    "/opensearch/snapshot/*",
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "DashboardSnapshotRoleDefaultPolicyEF231DDD",
+        "Roles": Array [
+          Object {
+            "Ref": "DashboardSnapshotRole792BAAA0",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "DynamodbLoaderFunction055F4FB2": Object {
       "DependsOn": Array [
-        "DashboardBulkOperationRoleDefaultPolicy8EA5E3FA",
-        "DashboardBulkOperationRoleFDDFA0D0",
+        "DynamodbLoaderFunctionServiceRoleDefaultPolicy633EC1F5",
+        "DynamodbLoaderFunctionServiceRoleE9182ACC",
       ],
       "Properties": Object {
         "Architectures": Array [
@@ -2504,21 +3064,25 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "5bd93496b87b94240e27da75962af94168926bca1cee53a11320725354093b25.zip",
+          "S3Key": "e52785f7a0a46053a1a03fe0c73952a54f4b3ff377371a835b0a58b6f3297fbd.zip",
         },
-        "Description": "[SocialAnalytics] Bulk operations to load data into OpenSearch",
+        "Description": "[SocialAnalytics] Process stream records to update DynamoDB",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "OPENSEARCH_DOMAIN_ENDPOINT": Object {
-              "Fn::GetAtt": Array [
-                "DashboardDomainED696CAB",
-                "DomainEndpoint",
-              ],
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
             },
-            "POWERTOOLS_METRICS_NAMESPACE": "test",
-            "POWERTOOLS_SERVICE_NAME": "IndexingFunction",
-            "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
+            "POWERTOOLS_SERVICE_NAME": "DynamodbLoaderFunction",
+            "TWEET_TABLE_NAME": Object {
+              "Ref": "TweetTable97F090DB",
+            },
+            "TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME": Object {
+              "Ref": "twitterFilterContextDomainsAC1EB275",
+            },
+            "TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME": Object {
+              "Ref": "twitterFilterSourceLabelsEC9A582C",
+            },
           },
         },
         "Handler": "index.handler",
@@ -2531,7 +3095,7 @@ scrape_configs:
                 Object {
                   "Ref": "AWS::Region",
                 },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
               ],
             ],
           },
@@ -2539,49 +3103,186 @@ scrape_configs:
         "MemorySize": 256,
         "Role": Object {
           "Fn::GetAtt": Array [
-            "DashboardBulkOperationRoleFDDFA0D0",
+            "DynamodbLoaderFunctionServiceRoleE9182ACC",
             "Arn",
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 300,
+        "Timeout": 60,
         "TracingConfig": Object {
           "Mode": "Active",
         },
       },
       "Type": "AWS::Lambda::Function",
     },
-    "IndexingFunctionKinesisEventSourcetestIndexingStream6714392794C96F8F": Object {
+    "DynamodbLoaderFunctionKinesisEventSourcetestIngestionStreamB9108F926FD7A04F": Object {
       "Properties": Object {
         "BatchSize": 100,
         "EventSourceArn": Object {
           "Fn::GetAtt": Array [
-            "IndexingStream9338356A",
+            "IngestionStream56E76A34",
             "Arn",
           ],
         },
         "FunctionName": Object {
-          "Ref": "IndexingFunctionE0FD8B44",
+          "Ref": "DynamodbLoaderFunction055F4FB2",
         },
-        "MaximumBatchingWindowInSeconds": 15,
+        "MaximumBatchingWindowInSeconds": 10,
         "MaximumRecordAgeInSeconds": 86400,
+        "ParallelizationFactor": 3,
         "StartingPosition": "LATEST",
       },
       "Type": "AWS::Lambda::EventSourceMapping",
     },
-    "IndexingStream9338356A": Object {
+    "DynamodbLoaderFunctionServiceRoleDefaultPolicy633EC1F5": Object {
       "Properties": Object {
-        "RetentionPeriodHours": 24,
-        "ShardCount": 1,
-        "StreamEncryption": Object {
-          "EncryptionType": "KMS",
-          "KeyId": "alias/aws/kinesis",
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "ssm:GetParameter",
+                "ssm:GetParametersByPath",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:aws:ssm:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/test/Twitter/*",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "kinesis:DescribeStreamSummary",
+                "kinesis:GetRecords",
+                "kinesis:GetShardIterator",
+                "kinesis:ListShards",
+                "kinesis:SubscribeToShard",
+                "kinesis:DescribeStream",
+                "kinesis:ListStreams",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "IngestionStream56E76A34",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": "kinesis:DescribeStream",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "IngestionStream56E76A34",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "dynamodb:BatchWriteItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:DescribeTable",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TweetTable97F090DB",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TweetTable97F090DB",
+                          "Arn",
+                        ],
+                      },
+                      "/index/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
         },
-        "StreamModeDetails": Object {
-          "StreamMode": "PROVISIONED",
-        },
+        "PolicyName": "DynamodbLoaderFunctionServiceRoleDefaultPolicy633EC1F5",
+        "Roles": Array [
+          Object {
+            "Ref": "DynamodbLoaderFunctionServiceRoleE9182ACC",
+          },
+        ],
       },
-      "Type": "AWS::Kinesis::Stream",
+      "Type": "AWS::IAM::Policy",
+    },
+    "DynamodbLoaderFunctionServiceRoleE9182ACC": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
     },
     "IngestionArchiveStreamA57D2968": Object {
       "Properties": Object {
@@ -2844,177 +3545,10 @@ scrape_configs:
       },
       "Type": "AWS::Kinesis::Stream",
     },
-    "ProxyAccessRole5EE336D1": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "build.apprunner.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "Policies": Array [
-          Object {
-            "PolicyDocument": Object {
-              "Statement": Array [
-                Object {
-                  "Action": "ecr:GetAuthorizationToken",
-                  "Effect": "Allow",
-                  "Resource": "*",
-                },
-                Object {
-                  "Action": Array [
-                    "ecr:BatchCheckLayerAvailability",
-                    "ecr:GetDownloadUrlForLayer",
-                    "ecr:BatchGetImage",
-                  ],
-                  "Effect": "Allow",
-                  "Resource": Object {
-                    "Fn::Join": Array [
-                      "",
-                      Array [
-                        "arn:",
-                        Object {
-                          "Ref": "AWS::Partition",
-                        },
-                        ":ecr:",
-                        Object {
-                          "Ref": "AWS::Region",
-                        },
-                        ":",
-                        Object {
-                          "Ref": "AWS::AccountId",
-                        },
-                        ":repository/",
-                        Object {
-                          "Fn::Sub": "cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}",
-                        },
-                      ],
-                    ],
-                  },
-                },
-              ],
-              "Version": "2012-10-17",
-            },
-            "PolicyName": "PullImagePolicy",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "ProxySecurityGroup31CCABE3": Object {
-      "Properties": Object {
-        "GroupDescription": "test/Proxy/SecurityGroup",
-        "SecurityGroupEgress": Array [
-          Object {
-            "CidrIp": "0.0.0.0/0",
-            "Description": "Allow all outbound traffic by default",
-            "IpProtocol": "-1",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::SecurityGroup",
-    },
-    "ProxyServiceDE4C54BC": Object {
-      "Properties": Object {
-        "NetworkConfiguration": Object {
-          "EgressConfiguration": Object {
-            "EgressType": "VPC",
-            "VpcConnectorArn": Object {
-              "Fn::GetAtt": Array [
-                "ProxyVpcConnector7827835A",
-                "VpcConnectorArn",
-              ],
-            },
-          },
-        },
-        "SourceConfiguration": Object {
-          "AuthenticationConfiguration": Object {
-            "AccessRoleArn": Object {
-              "Fn::GetAtt": Array [
-                "ProxyAccessRole5EE336D1",
-                "Arn",
-              ],
-            },
-          },
-          "ImageRepository": Object {
-            "ImageConfiguration": Object {
-              "RuntimeEnvironmentVariables": Array [
-                Object {
-                  "Name": "DASHBOARDS_HOST",
-                  "Value": Object {
-                    "Fn::GetAtt": Array [
-                      "DashboardDomainED696CAB",
-                      "DomainEndpoint",
-                    ],
-                  },
-                },
-                Object {
-                  "Name": "COGNITO_HOST",
-                  "Value": Object {
-                    "Fn::Join": Array [
-                      "",
-                      Array [
-                        Object {
-                          "Ref": "testUserPoolUserPoolDomainA261789D",
-                        },
-                        ".auth.",
-                        Object {
-                          "Ref": "AWS::Region",
-                        },
-                        ".amazoncognito.com",
-                      ],
-                    ],
-                  },
-                },
-                Object {
-                  "Name": "NAME_SERVER",
-                  "Value": "1.1.1.1 1.0.0.1",
-                },
-              ],
-            },
-            "ImageIdentifier": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:eaa219d4db0681295261c2cd14c7d7eb0262af22bf139598d7e5e6ebb010bd98",
-            },
-            "ImageRepositoryType": "ECR",
-          },
-        },
-      },
-      "Type": "AWS::AppRunner::Service",
-    },
-    "ProxyVpcConnector7827835A": Object {
-      "Properties": Object {
-        "SecurityGroups": Array [
-          Object {
-            "Fn::GetAtt": Array [
-              "ProxySecurityGroup31CCABE3",
-              "GroupId",
-            ],
-          },
-        ],
-        "Subnets": Array [
-          Object {
-            "Ref": "VPCPrivateSubnet1Subnet8BCA10E0",
-          },
-          Object {
-            "Ref": "VPCPrivateSubnet2SubnetCFCDAA7A",
-          },
-        ],
-      },
-      "Type": "AWS::AppRunner::VpcConnector",
-    },
-    "PutEventsFunction630061C6": Object {
+    "OpenSearchLoaderFunction713423B0": Object {
       "DependsOn": Array [
-        "PutEventsFunctionServiceRoleDefaultPolicyA92037D7",
-        "PutEventsFunctionServiceRole5945BF82",
+        "OpenSearchLoaderFunctionServiceRoleDefaultPolicyE6EF7929",
+        "OpenSearchLoaderFunctionServiceRole32276686",
       ],
       "Properties": Object {
         "Architectures": Array [
@@ -3024,15 +3558,22 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "81d69a9fd6ec09f52f0a0df57f459c454faa5f76a51712264b9f38a816382c8b.zip",
+          "S3Key": "bd8deb68182296d3eda614bc59c6ad880d3b01d50958d9fa93a0c37047986bbd.zip",
         },
-        "Description": "[SocialAnalytics] Put events to EventBus",
+        "Description": "[SocialAnalytics] OpenSearch Bulk Loader",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "EVENT_BUS_NAME": Object {
-              "Ref": "EventBus7B8748AA",
+            "OPENSEARCH_DOMAIN_ENDPOINT": Object {
+              "Fn::GetAtt": Array [
+                "DashboardDomainED696CAB",
+                "DomainEndpoint",
+              ],
             },
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "OpenSearchLoaderFunction",
           },
         },
         "Handler": "index.handler",
@@ -3045,44 +3586,45 @@ scrape_configs:
                 Object {
                   "Ref": "AWS::Region",
                 },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
               ],
             ],
           },
         ],
+        "MemorySize": 256,
         "Role": Object {
           "Fn::GetAtt": Array [
-            "PutEventsFunctionServiceRole5945BF82",
+            "OpenSearchLoaderFunctionServiceRole32276686",
             "Arn",
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 300,
+        "Timeout": 60,
         "TracingConfig": Object {
           "Mode": "Active",
         },
       },
       "Type": "AWS::Lambda::Function",
     },
-    "PutEventsFunctionKinesisEventSourcetestIndexingStream67143927F679BA5C": Object {
+    "OpenSearchLoaderFunctionDynamoDBEventSourcetestTweetTable04D57799E7FA3624": Object {
       "Properties": Object {
         "BatchSize": 100,
         "EventSourceArn": Object {
           "Fn::GetAtt": Array [
-            "IndexingStream9338356A",
-            "Arn",
+            "TweetTable97F090DB",
+            "StreamArn",
           ],
         },
         "FunctionName": Object {
-          "Ref": "PutEventsFunction630061C6",
+          "Ref": "OpenSearchLoaderFunction713423B0",
         },
-        "MaximumBatchingWindowInSeconds": 15,
+        "MaximumBatchingWindowInSeconds": 10,
         "MaximumRecordAgeInSeconds": 86400,
         "StartingPosition": "LATEST",
       },
       "Type": "AWS::Lambda::EventSourceMapping",
     },
-    "PutEventsFunctionServiceRole5945BF82": Object {
+    "OpenSearchLoaderFunctionServiceRole32276686": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
@@ -3125,7 +3667,7 @@ scrape_configs:
       },
       "Type": "AWS::IAM::Role",
     },
-    "PutEventsFunctionServiceRoleDefaultPolicyA92037D7": Object {
+    "OpenSearchLoaderFunctionServiceRoleDefaultPolicyE6EF7929": Object {
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
@@ -3138,59 +3680,78 @@ scrape_configs:
               "Resource": "*",
             },
             Object {
+              "Action": "dynamodb:ListStreams",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
               "Action": Array [
-                "kinesis:DescribeStreamSummary",
-                "kinesis:GetRecords",
-                "kinesis:GetShardIterator",
-                "kinesis:ListShards",
-                "kinesis:SubscribeToShard",
-                "kinesis:DescribeStream",
-                "kinesis:ListStreams",
+                "dynamodb:DescribeStream",
+                "dynamodb:GetRecords",
+                "dynamodb:GetShardIterator",
               ],
               "Effect": "Allow",
               "Resource": Object {
                 "Fn::GetAtt": Array [
-                  "IndexingStream9338356A",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "kinesis:DescribeStream",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "IndexingStream9338356A",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "events:PutEvents",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "EventBus7B8748AA",
-                  "Arn",
+                  "TweetTable97F090DB",
+                  "StreamArn",
                 ],
               },
             },
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "PutEventsFunctionServiceRoleDefaultPolicyA92037D7",
+        "PolicyName": "OpenSearchLoaderFunctionServiceRoleDefaultPolicyE6EF7929",
         "Roles": Array [
           Object {
-            "Ref": "PutEventsFunctionServiceRole5945BF82",
+            "Ref": "OpenSearchLoaderFunctionServiceRole32276686",
           },
         ],
       },
       "Type": "AWS::IAM::Policy",
     },
-    "ReindexTweetsV2Function1508A276": Object {
+    "OpenSearchPackagesDeploymentAwsCliLayerADF8F738": Object {
+      "Properties": Object {
+        "Content": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "02927fd0ce5bb130cbc8d11f17469e74496526efe5186a9ab36e8a8138e9a557.zip",
+        },
+        "Description": "/opt/awscli/aws",
+      },
+      "Type": "AWS::Lambda::LayerVersion",
+    },
+    "OpenSearchPackagesDeploymentCustomResource4C6D16B3": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "DestinationBucketKeyPrefix": "opensearch/packages/",
+        "DestinationBucketName": Object {
+          "Ref": "Bucket83908E77",
+        },
+        "Prune": true,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536",
+            "Arn",
+          ],
+        },
+        "SourceBucketNames": Array [
+          Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+        ],
+        "SourceObjectKeys": Array [
+          "84dee23cdc779098a9b1b4db90506e493154570f712c115474e24da8b2a6e965.zip",
+        ],
+      },
+      "Type": "Custom::CDKBucketDeployment",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "OpenSearchPackagesRegisterFunction7CDCEE20": Object {
       "DependsOn": Array [
-        "ReindexTweetsV2FunctionServiceRoleDefaultPolicyF70624C7",
-        "ReindexTweetsV2FunctionServiceRoleA72F4EAA",
+        "OpenSearchPackagesRegisterFunctionServiceRoleDefaultPolicy3DE31E27",
+        "OpenSearchPackagesRegisterFunctionServiceRoleB0065A50",
       ],
       "Properties": Object {
         "Architectures": Array [
@@ -3200,106 +3761,27 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "6463f1ce05fab2fbf823b6218676bc3ce813533a3b074a36081277c6a07c7b09.zip",
+          "S3Key": "159767368f4b46b295468fbc456e65189d9a9ed9873b95d1db5564d2adaca85b.zip",
         },
-        "Description": "Re-index for TweetsV2",
+        "Description": "[SocialAnalytics] OpenSearch package register",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "DEST_STREAM_NAME": Object {
-              "Ref": "IndexingStream9338356A",
-            },
-            "POWERTOOLS_METRICS_NAMESPACE": Object {
-              "Ref": "AWS::StackName",
-            },
-            "POWERTOOLS_SERVICE_NAME": "ReindexTweetsV2Function",
-            "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
-            "TWITTER_PARAMETER_PREFIX": "/test/Twitter/",
           },
         },
         "Handler": "index.handler",
-        "Layers": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:aws:lambda:",
-                Object {
-                  "Ref": "AWS::Region",
-                },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
-              ],
-            ],
-          },
-        ],
-        "MemorySize": 512,
-        "ReservedConcurrentExecutions": 1,
         "Role": Object {
           "Fn::GetAtt": Array [
-            "ReindexTweetsV2FunctionServiceRoleA72F4EAA",
+            "OpenSearchPackagesRegisterFunctionServiceRoleB0065A50",
             "Arn",
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 300,
-        "TracingConfig": Object {
-          "Mode": "Active",
-        },
+        "Timeout": 5,
       },
       "Type": "AWS::Lambda::Function",
     },
-    "ReindexTweetsV2FunctionQueue24CDEFA4": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "MessageRetentionPeriod": 1209600,
-        "VisibilityTimeout": 300,
-      },
-      "Type": "AWS::SQS::Queue",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "ReindexTweetsV2FunctionQueuePolicyA269E64C": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "sqs:SendMessage",
-                "sqs:GetQueueAttributes",
-                "sqs:GetQueueUrl",
-              ],
-              "Condition": Object {
-                "ArnLike": Object {
-                  "aws:SourceArn": Object {
-                    "Fn::GetAtt": Array [
-                      "Bucket83908E77",
-                      "Arn",
-                    ],
-                  },
-                },
-              },
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "s3.amazonaws.com",
-              },
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "ReindexTweetsV2FunctionQueue24CDEFA4",
-                  "Arn",
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "Queues": Array [
-          Object {
-            "Ref": "ReindexTweetsV2FunctionQueue24CDEFA4",
-          },
-        ],
-      },
-      "Type": "AWS::SQS::QueuePolicy",
-    },
-    "ReindexTweetsV2FunctionServiceRoleA72F4EAA": Object {
+    "OpenSearchPackagesRegisterFunctionServiceRoleB0065A50": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
@@ -3326,105 +3808,25 @@ scrape_configs:
               ],
             ],
           },
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
-              ],
-            ],
-          },
         ],
       },
       "Type": "AWS::IAM::Role",
     },
-    "ReindexTweetsV2FunctionServiceRoleDefaultPolicyF70624C7": Object {
+    "OpenSearchPackagesRegisterFunctionServiceRoleDefaultPolicy3DE31E27": Object {
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
             Object {
               "Action": Array [
-                "ssm:GetParameter",
-                "ssm:GetParametersByPath",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:aws:ssm:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":parameter/test/Twitter/*",
-                  ],
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "xray:PutTraceSegments",
-                "xray:PutTelemetryRecords",
+                "es:CreatePackage",
+                "es:DescribePackages",
+                "es:UpdatePackage",
               ],
               "Effect": "Allow",
               "Resource": "*",
             },
             Object {
-              "Action": Array [
-                "sqs:ReceiveMessage",
-                "sqs:ChangeMessageVisibility",
-                "sqs:GetQueueUrl",
-                "sqs:DeleteMessage",
-                "sqs:GetQueueAttributes",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "ReindexTweetsV2FunctionQueue24CDEFA4",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "s3:GetObject*",
-                "s3:GetBucket*",
-                "s3:List*",
-              ],
-              "Effect": "Allow",
-              "Resource": Array [
-                Object {
-                  "Fn::GetAtt": Array [
-                    "Bucket83908E77",
-                    "Arn",
-                  ],
-                },
-                Object {
-                  "Fn::Join": Array [
-                    "",
-                    Array [
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "Bucket83908E77",
-                          "Arn",
-                        ],
-                      },
-                      "/reindex/tweets/v2/*",
-                    ],
-                  ],
-                },
-              ],
-            },
-            Object {
-              "Action": "s3:DeleteObject*",
+              "Action": "s3:GetObject",
               "Effect": "Allow",
               "Resource": Object {
                 "Fn::Join": Array [
@@ -3436,51 +3838,22 @@ scrape_configs:
                         "Arn",
                       ],
                     },
-                    "/reindex/tweets/v2/*",
+                    "/opensearch/packages/*",
                   ],
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "kinesis:ListShards",
-                "kinesis:PutRecord",
-                "kinesis:PutRecords",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "IndexingStream9338356A",
-                  "Arn",
                 ],
               },
             },
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "ReindexTweetsV2FunctionServiceRoleDefaultPolicyF70624C7",
+        "PolicyName": "OpenSearchPackagesRegisterFunctionServiceRoleDefaultPolicy3DE31E27",
         "Roles": Array [
           Object {
-            "Ref": "ReindexTweetsV2FunctionServiceRoleA72F4EAA",
+            "Ref": "OpenSearchPackagesRegisterFunctionServiceRoleB0065A50",
           },
         ],
       },
       "Type": "AWS::IAM::Policy",
-    },
-    "ReindexTweetsV2FunctionSqsEventSourcetestReindexTweetsV2FunctionQueue9DE0F4FDA5A0C855": Object {
-      "Properties": Object {
-        "EventSourceArn": Object {
-          "Fn::GetAtt": Array [
-            "ReindexTweetsV2FunctionQueue24CDEFA4",
-            "Arn",
-          ],
-        },
-        "FunctionName": Object {
-          "Ref": "ReindexTweetsV2Function1508A276",
-        },
-        "MaximumBatchingWindowInSeconds": 10,
-      },
-      "Type": "AWS::Lambda::EventSourceMapping",
     },
     "ReingestTweetsV1Function1B873B33": Object {
       "DependsOn": Array [
@@ -3495,7 +3868,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "efd52cc3f5937e35d2be4df8411d75c6ce6fbbbc438991f9f4677150dd9f4a1c.zip",
+          "S3Key": "e228dcd60fb25e6ccc0e88542da5c9913885d82a034be3abb2ceca4dec8a2893.zip",
         },
         "Description": "Re-ingest for TweetsV1",
         "Environment": Object {
@@ -3509,7 +3882,7 @@ scrape_configs:
             },
             "POWERTOOLS_SERVICE_NAME": "ReingestTweetsV1Function",
             "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
-            "TWITTER_PARAMETER_PREFIX": "/test/Twitter/",
+            "TWITTER_PARAMETER_PATH": "/test/Twitter",
           },
         },
         "Handler": "index.handler",
@@ -3522,7 +3895,7 @@ scrape_configs:
                 Object {
                   "Ref": "AWS::Region",
                 },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
               ],
             ],
           },
@@ -3790,7 +4163,7 @@ scrape_configs:
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "6463f1ce05fab2fbf823b6218676bc3ce813533a3b074a36081277c6a07c7b09.zip",
+          "S3Key": "d5d436b01c5ecc41912e3048c6bf50fbb58a578358d7b3b1b349440b2c2c4c72.zip",
         },
         "Description": "Re-ingest for TweetsV2",
         "Environment": Object {
@@ -3804,7 +4177,6 @@ scrape_configs:
             },
             "POWERTOOLS_SERVICE_NAME": "ReingestTweetsV2Function",
             "POWERTOOLS_TRACER_CAPTURE_RESPONSE": "false",
-            "TWITTER_PARAMETER_PREFIX": "/test/Twitter/",
           },
         },
         "Handler": "index.handler",
@@ -3817,12 +4189,12 @@ scrape_configs:
                 Object {
                   "Ref": "AWS::Region",
                 },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:1",
+                ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
               ],
             ],
           },
         ],
-        "MemorySize": 512,
+        "MemorySize": 1536,
         "ReservedConcurrentExecutions": 1,
         "Role": Object {
           "Fn::GetAtt": Array [
@@ -3831,7 +4203,7 @@ scrape_configs:
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 300,
+        "Timeout": 900,
         "TracingConfig": Object {
           "Mode": "Active",
         },
@@ -3842,7 +4214,7 @@ scrape_configs:
       "DeletionPolicy": "Delete",
       "Properties": Object {
         "MessageRetentionPeriod": 1209600,
-        "VisibilityTimeout": 300,
+        "VisibilityTimeout": 900,
       },
       "Type": "AWS::SQS::Queue",
       "UpdateReplacePolicy": "Delete",
@@ -4072,6 +4444,55 @@ scrape_configs:
       },
       "Type": "AWS::Lambda::EventSourceMapping",
     },
+    "TweetTable97F090DB": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "AttributeDefinitions": Array [
+          Object {
+            "AttributeName": "id",
+            "AttributeType": "S",
+          },
+          Object {
+            "AttributeName": "created_at_year",
+            "AttributeType": "S",
+          },
+          Object {
+            "AttributeName": "created_at",
+            "AttributeType": "S",
+          },
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "GlobalSecondaryIndexes": Array [
+          Object {
+            "IndexName": "created_at-index",
+            "KeySchema": Array [
+              Object {
+                "AttributeName": "created_at_year",
+                "KeyType": "HASH",
+              },
+              Object {
+                "AttributeName": "created_at",
+                "KeyType": "RANGE",
+              },
+            ],
+            "Projection": Object {
+              "ProjectionType": "ALL",
+            },
+          },
+        ],
+        "KeySchema": Array [
+          Object {
+            "AttributeName": "id",
+            "KeyType": "HASH",
+          },
+        ],
+        "StreamSpecification": Object {
+          "StreamViewType": "NEW_IMAGE",
+        },
+      },
+      "Type": "AWS::DynamoDB::Table",
+      "UpdateReplacePolicy": "Retain",
+    },
     "TwitterBearerTokenCBE899A9": Object {
       "Properties": Object {
         "Description": "Twitter Bearer Token",
@@ -4197,12 +4618,27 @@ scrape_configs:
                 "ContainerName": "log-router",
               },
             ],
+            "Environment": Array [
+              Object {
+                "Name": "LOGGER_TYPE",
+                "Value": "fluent",
+              },
+            ],
             "Essential": true,
             "Image": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:c5a0eaf7886beb2d4f759bc9f72e9dc7f4b53e4feda69464a1d370e19de2b283",
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:8b652b702b188ea23493c4c65d651a163958f4bc9c8af00be5886e5b57bbe11e",
             },
             "LogConfiguration": Object {
-              "LogDriver": "awsfirelens",
+              "LogDriver": "awslogs",
+              "Options": Object {
+                "awslogs-group": Object {
+                  "Ref": "TwitterStreamingReaderLogGroupFAD6413F",
+                },
+                "awslogs-region": Object {
+                  "Ref": "AWS::Region",
+                },
+                "awslogs-stream-prefix": "app",
+              },
             },
             "MemoryReservation": 256,
             "Name": "app",
@@ -4272,21 +4708,17 @@ scrape_configs:
                 },
               },
               Object {
-                "Name": "STREAM_NAME",
+                "Name": "OUTPUT_PLUGIN_NAME",
+                "Value": "kinesis_streams",
+              },
+              Object {
+                "Name": "OUTPUT_STREAM_NAME",
                 "Value": Object {
                   "Ref": "IngestionStream56E76A34",
                 },
               },
             ],
             "Essential": true,
-            "FirelensConfiguration": Object {
-              "Options": Object {
-                "config-file-type": "file",
-                "config-file-value": "/fluent-bit/etc/extra.conf",
-                "enable-ecs-log-metadata": "false",
-              },
-              "Type": "fluentbit",
-            },
             "HealthCheck": Object {
               "Command": Array [
                 "CMD",
@@ -4305,7 +4737,7 @@ scrape_configs:
               "Timeout": 5,
             },
             "Image": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:70d24a18f8ddaf023204fda41f3a225a0b1dc24574582bf2c19ad97979880e43",
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:e377174b428ec056ee86c68035bcff03f5a75c10ef6513089fb1eb42611222a4",
             },
             "LogConfiguration": Object {
               "LogDriver": "awslogs",
@@ -4316,7 +4748,7 @@ scrape_configs:
                 "awslogs-region": Object {
                   "Ref": "AWS::Region",
                 },
-                "awslogs-stream-prefix": "firelens",
+                "awslogs-stream-prefix": "log-router",
               },
             },
             "MemoryReservation": 128,
@@ -4415,6 +4847,19 @@ scrape_configs:
             },
             Object {
               "Action": Array [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TwitterStreamingReaderLogGroupFAD6413F",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
                 "ssm:DescribeParameters",
                 "ssm:GetParameters",
                 "ssm:GetParameter",
@@ -4474,19 +4919,6 @@ scrape_configs:
                       "Ref": "TwitterFieldsParamsDD9504EE",
                     },
                   ],
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "logs:CreateLogStream",
-                "logs:PutLogEvents",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterStreamingReaderLogGroupFAD6413F",
-                  "Arn",
                 ],
               },
             },
@@ -4913,464 +5345,6 @@ scrape_configs:
       },
       "Type": "AWS::EC2::VPCGatewayAttachment",
     },
-    "testUserPool38F3A57B": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "AccountRecoverySetting": Object {
-          "RecoveryMechanisms": Array [
-            Object {
-              "Name": "verified_phone_number",
-              "Priority": 1,
-            },
-            Object {
-              "Name": "verified_email",
-              "Priority": 2,
-            },
-          ],
-        },
-        "AdminCreateUserConfig": Object {
-          "AllowAdminCreateUserOnly": false,
-        },
-        "AutoVerifiedAttributes": Array [
-          "email",
-        ],
-        "LambdaConfig": Object {
-          "PreSignUp": Object {
-            "Fn::GetAtt": Array [
-              "testUserPoolPreSignUpFunction9FAF4483",
-              "Arn",
-            ],
-          },
-        },
-        "SmsVerificationMessage": "The verification code to your new account is {####}",
-        "UsernameAttributes": Array [
-          "email",
-        ],
-        "VerificationMessageTemplate": Object {
-          "DefaultEmailOption": "CONFIRM_WITH_LINK",
-          "EmailMessageByLink": "Verify your account by clicking on {##Verify Email##}",
-          "EmailSubjectByLink": "Verify your new account",
-          "SmsMessage": "The verification code to your new account is {####}",
-        },
-      },
-      "Type": "AWS::Cognito::UserPool",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "testUserPoolAuthRole24574640": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRoleWithWebIdentity",
-              "Condition": Object {
-                "ForAnyValue:StringLike": Object {
-                  "cognito-identity.amazonaws.com:amr": "authenticated",
-                },
-                "StringEquals": Object {
-                  "cognito-identity.amazonaws.com:aud": Object {
-                    "Ref": "testUserPoolIdentityPool42D54FD5",
-                  },
-                },
-              },
-              "Effect": "Allow",
-              "Principal": Object {
-                "Federated": "cognito-identity.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "Description": "IdentityPool Auth Role for OpenSearch Dashbord",
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "testUserPoolEnableRoleFromToken009C1758": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "ServiceToken": Object {
-          "Fn::GetAtt": Array [
-            "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventE2EE26B8",
-            "Arn",
-          ],
-        },
-        "appClinetPrefix": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "AmazonOpenSearchService-",
-              Object {
-                "Ref": "DashboardDomainED696CAB",
-              },
-              "-",
-            ],
-          ],
-        },
-        "identityPoolId": Object {
-          "Ref": "testUserPoolIdentityPool42D54FD5",
-        },
-        "userPoolId": Object {
-          "Ref": "testUserPool38F3A57B",
-        },
-      },
-      "Type": "Custom::EnableRoleFromToken",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "testUserPoolEnableRoleFromTokenFunctionBB76C189": Object {
-      "DependsOn": Array [
-        "testUserPoolEnableRoleFromTokenFunctionServiceRoleDefaultPolicy8BD675EC",
-        "testUserPoolEnableRoleFromTokenFunctionServiceRoleA333455B",
-      ],
-      "Properties": Object {
-        "Architectures": Array [
-          "arm64",
-        ],
-        "Code": Object {
-          "S3Bucket": Object {
-            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
-          },
-          "S3Key": "6ed3f622805f73b6afaac826711dcd1d14beb735e941dd8c6f828f954337e20a.zip",
-        },
-        "Description": "Lambda-backed custom resources - Enable role from token",
-        "Environment": Object {
-          "Variables": Object {
-            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-          },
-        },
-        "Handler": "index.handler",
-        "Role": Object {
-          "Fn::GetAtt": Array [
-            "testUserPoolEnableRoleFromTokenFunctionServiceRoleA333455B",
-            "Arn",
-          ],
-        },
-        "Runtime": "nodejs14.x",
-      },
-      "Type": "AWS::Lambda::Function",
-    },
-    "testUserPoolEnableRoleFromTokenFunctionServiceRoleA333455B": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "testUserPoolEnableRoleFromTokenFunctionServiceRoleDefaultPolicy8BD675EC": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "cognito-identity:GetIdentityPoolRoles",
-                "cognito-identity:SetIdentityPoolRoles",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:aws:cognito-identity:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":identitypool/",
-                    Object {
-                      "Ref": "testUserPoolIdentityPool42D54FD5",
-                    },
-                  ],
-                ],
-              },
-            },
-            Object {
-              "Action": "cognito-idp:ListUserPoolClients",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "testUserPool38F3A57B",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "iam:PassRole",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "testUserPoolAuthRole24574640",
-                  "Arn",
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "testUserPoolEnableRoleFromTokenFunctionServiceRoleDefaultPolicy8BD675EC",
-        "Roles": Array [
-          Object {
-            "Ref": "testUserPoolEnableRoleFromTokenFunctionServiceRoleA333455B",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "testUserPoolIdentityPool42D54FD5": Object {
-      "Properties": Object {
-        "AllowUnauthenticatedIdentities": false,
-      },
-      "Type": "AWS::Cognito::IdentityPool",
-    },
-    "testUserPoolIdentityPoolRoleAttachmentB2E3CDA9": Object {
-      "Properties": Object {
-        "IdentityPoolId": Object {
-          "Ref": "testUserPoolIdentityPool42D54FD5",
-        },
-        "Roles": Object {
-          "authenticated": Object {
-            "Fn::GetAtt": Array [
-              "testUserPoolAuthRole24574640",
-              "Arn",
-            ],
-          },
-        },
-      },
-      "Type": "AWS::Cognito::IdentityPoolRoleAttachment",
-    },
-    "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventE2EE26B8": Object {
-      "DependsOn": Array [
-        "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventServiceRoleDefaultPolicyDB83C511",
-        "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventServiceRoleE5EEA8BA",
-      ],
-      "Properties": Object {
-        "Code": Object {
-          "S3Bucket": Object {
-            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
-          },
-          "S3Key": "eaeb69bc290b516fe3b049f89d6118b22249df682fbabf56af300cf345198574.zip",
-        },
-        "Description": "AWS CDK resource provider framework - onEvent (test/test-UserPool/IdentityPoolTokenEnableProvider)",
-        "Environment": Object {
-          "Variables": Object {
-            "USER_ON_EVENT_FUNCTION_ARN": Object {
-              "Fn::GetAtt": Array [
-                "testUserPoolEnableRoleFromTokenFunctionBB76C189",
-                "Arn",
-              ],
-            },
-          },
-        },
-        "Handler": "framework.onEvent",
-        "Role": Object {
-          "Fn::GetAtt": Array [
-            "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventServiceRoleE5EEA8BA",
-            "Arn",
-          ],
-        },
-        "Runtime": "nodejs12.x",
-        "Timeout": 900,
-      },
-      "Type": "AWS::Lambda::Function",
-    },
-    "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventServiceRoleDefaultPolicyDB83C511": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "lambda:InvokeFunction",
-              "Effect": "Allow",
-              "Resource": Array [
-                Object {
-                  "Fn::GetAtt": Array [
-                    "testUserPoolEnableRoleFromTokenFunctionBB76C189",
-                    "Arn",
-                  ],
-                },
-                Object {
-                  "Fn::Join": Array [
-                    "",
-                    Array [
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "testUserPoolEnableRoleFromTokenFunctionBB76C189",
-                          "Arn",
-                        ],
-                      },
-                      ":*",
-                    ],
-                  ],
-                },
-              ],
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventServiceRoleDefaultPolicyDB83C511",
-        "Roles": Array [
-          Object {
-            "Ref": "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventServiceRoleE5EEA8BA",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "testUserPoolIdentityPoolTokenEnableProviderframeworkonEventServiceRoleE5EEA8BA": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "testUserPoolPreSignUpFunction9FAF4483": Object {
-      "DependsOn": Array [
-        "testUserPoolPreSignUpFunctionServiceRole353E967F",
-      ],
-      "Properties": Object {
-        "Architectures": Array [
-          "arm64",
-        ],
-        "Code": Object {
-          "S3Bucket": Object {
-            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
-          },
-          "S3Key": "54e99ecf8c5d944361385b47bdae697cbb3fdebdeaafe4ca83f6c6708503f679.zip",
-        },
-        "Description": "Social Analytics - PreSignUp trigger",
-        "Environment": Object {
-          "Variables": Object {
-            "ALLOWED_SIGNUP_DOMAINS": "amazon.com,amazon.co.jp",
-            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-          },
-        },
-        "Handler": "index.handler",
-        "Role": Object {
-          "Fn::GetAtt": Array [
-            "testUserPoolPreSignUpFunctionServiceRole353E967F",
-            "Arn",
-          ],
-        },
-        "Runtime": "nodejs14.x",
-      },
-      "Type": "AWS::Lambda::Function",
-    },
-    "testUserPoolPreSignUpFunctionPreSignUpCognito6AC6B041": Object {
-      "Properties": Object {
-        "Action": "lambda:InvokeFunction",
-        "FunctionName": Object {
-          "Fn::GetAtt": Array [
-            "testUserPoolPreSignUpFunction9FAF4483",
-            "Arn",
-          ],
-        },
-        "Principal": "cognito-idp.amazonaws.com",
-        "SourceArn": Object {
-          "Fn::GetAtt": Array [
-            "testUserPool38F3A57B",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::Lambda::Permission",
-    },
-    "testUserPoolPreSignUpFunctionServiceRole353E967F": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "testUserPoolUserPoolDomainA261789D": Object {
-      "Properties": Object {
-        "Domain": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "test-",
-              Object {
-                "Ref": "AWS::AccountId",
-              },
-            ],
-          ],
-        },
-        "UserPoolId": Object {
-          "Ref": "testUserPool38F3A57B",
-        },
-      },
-      "Type": "AWS::Cognito::UserPoolDomain",
-    },
     "twitterFilterContextDomainsAC1EB275": Object {
       "Properties": Object {
         "Description": "Context domains for filtering",
@@ -5385,7 +5359,7 @@ scrape_configs:
         "Description": "Tweet source labels for filtering",
         "Name": "/test/Twitter/Filter/SourceLabels",
         "Type": "StringList",
-        "Value": "twittbot.net,Mk00JapanBot,Gakeppu Tweet,BelugaCampaignSEA,rare_zaiko,Wn32ShimaneBot,uhiiman_bot,atulsbots",
+        "Value": "Twitter for Advertisers,twittbot.net,Mk00JapanBot,Gakeppu Tweet,BelugaCampaignSEA,rare_zaiko,Wn32ShimaneBot,uhiiman_bot,atulsbots",
       },
       "Type": "AWS::SSM::Parameter",
     },

@@ -14,7 +14,6 @@ RUN npm run build
 FROM public.ecr.aws/docker/library/node:18-alpine
 
 RUN apk add --no-cache tini
-ENTRYPOINT ["/sbin/tini", "--"]
 
 USER node
 WORKDIR /home/node
@@ -24,4 +23,5 @@ RUN npm install --production --cache /tmp/empty-cache && rm -rf /tmp/empty-cache
 
 COPY --from=builder /home/node/lib/ ./lib
 
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD [ "node", "./lib/app.js" ]

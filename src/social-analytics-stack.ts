@@ -144,7 +144,7 @@ export class SocialAnalyticsStack extends Stack {
         new KinesisEventSource(ingestionStream, {
           startingPosition: lambda.StartingPosition.LATEST,
           batchSize: 100,
-          maxBatchingWindow: Duration.seconds(10),
+          maxBatchingWindow: Duration.seconds(5),
           maxRecordAge: Duration.days(1),
           parallelizationFactor: 3,
         }),
@@ -170,7 +170,7 @@ export class SocialAnalyticsStack extends Stack {
         new DynamoEventSource(tweetTable, {
           startingPosition: lambda.StartingPosition.LATEST,
           batchSize: 100,
-          maxBatchingWindow: Duration.seconds(10),
+          maxBatchingWindow: Duration.seconds(5),
           maxRecordAge: Duration.days(1),
         }),
       ],
@@ -178,19 +178,19 @@ export class SocialAnalyticsStack extends Stack {
     tweetTable.grantWriteData(analyzeFunction);
     comprehendJob.stateMachine.grantStartSyncExecution(analyzeFunction);
 
-    const archiveFilterFunction = new Function(this, 'ArchiveFilterFunction', {
-      description: '[SocialAnalytics] Filtering with backup flag',
-      entry: './src/functions/archive-filter/index.ts',
-      timeout: Duration.minutes(5),
-      environment: {
-        POWERTOOLS_SERVICE_NAME: 'ArchiveFilterFunction',
-        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
-      },
-    });
+    //const archiveFilterFunction = new Function(this, 'ArchiveFilterFunction', {
+    //  description: '[SocialAnalytics] Filtering with backup flag',
+    //  entry: './src/functions/archive-filter/index.ts',
+    //  timeout: Duration.minutes(5),
+    //  environment: {
+    //    POWERTOOLS_SERVICE_NAME: 'ArchiveFilterFunction',
+    //    POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
+    //  },
+    //});
 
     const ingestionArchiveStream = new DeliveryStream(this, 'IngestionArchiveStream', {
       sourceStream: ingestionStream,
-      processorFunction: archiveFilterFunction,
+      //processorFunction: archiveFilterFunction,
       destinationBucket: bucket,
       prefix: 'raw/tweets/v2/',
       errorOutputPrefix: 'raw/tweets/v2-error/',
@@ -234,7 +234,7 @@ export class SocialAnalyticsStack extends Stack {
         new DynamoEventSource(tweetTable, {
           startingPosition: lambda.StartingPosition.LATEST,
           batchSize: 100,
-          maxBatchingWindow: Duration.seconds(10),
+          maxBatchingWindow: Duration.seconds(5),
           maxRecordAge: Duration.days(1),
         }),
       ],

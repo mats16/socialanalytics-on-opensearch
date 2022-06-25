@@ -42,23 +42,21 @@ export class TwitterStreamingReader extends Construct {
       cpu: 128,
       memoryReservationMiB: 256,
       essential: true,
+      environment: {
+        LOGGER_TYPE: 'fluent',
+      },
       secrets: {
         TWITTER_BEARER_TOKEN: ecs.Secret.fromSsmParameter(twitterBearerToken),
         TWITTER_FIELDS_PARAMS: ecs.Secret.fromSsmParameter(twitterFieldsParams),
       },
       readonlyRootFilesystem: true,
-      logging: new ecs.FireLensLogDriver({}),
+      logging: new ecs.AwsLogDriver({
+        logGroup: logGroup,
+        streamPrefix: 'app',
+      }),
     });
 
-    const logRouterContainer = taskDefinition.addFirelensLogRouter('LogRouter', {
-      firelensConfig: {
-        type: ecs.FirelensLogRouterType.FLUENTBIT,
-        options: {
-          configFileType: ecs.FirelensConfigFileType.FILE,
-          configFileValue: '/fluent-bit/etc/extra.conf',
-          enableECSLogMetadata: false,
-        },
-      },
+    const logRouterContainer = taskDefinition.addContainer('LogRouter', {
       containerName: 'log-router',
       image: ecs.ContainerImage.fromAsset('./src/containers/log-router'),
       cpu: 64,
@@ -72,12 +70,13 @@ export class TwitterStreamingReader extends Construct {
       },
       environment: {
         LOG_GROUP_NAME: logGroup.logGroupName,
-        STREAM_NAME: ingestionStream.streamName,
+        OUTPUT_PLUGIN_NAME: 'kinesis_streams',
+        OUTPUT_STREAM_NAME: ingestionStream.streamName,
       },
       readonlyRootFilesystem: true,
       logging: new ecs.AwsLogDriver({
         logGroup: logGroup,
-        streamPrefix: 'firelens',
+        streamPrefix: 'log-router',
       }),
     });
 

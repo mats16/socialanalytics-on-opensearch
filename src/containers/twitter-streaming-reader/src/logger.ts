@@ -8,7 +8,7 @@ log4js.addLayout('json', function(config) {
     const log = {
       time: dateString,
       level: logEvent.level.levelStr,
-      category: logEvent.categoryName,
+      //category: logEvent.categoryName,
       ...logEventData,
     };
     return JSON.stringify(log);

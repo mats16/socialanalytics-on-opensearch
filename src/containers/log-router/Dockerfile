@@ -1,3 +1,3 @@
-FROM public.ecr.aws/aws-observability/aws-for-fluent-bit:2.25.1
+FROM public.ecr.aws/aws-observability/aws-for-fluent-bit:2.26.0
 
-ADD extra.conf /fluent-bit/etc/
+ADD fluent-bit.conf /fluent-bit/etc/fluent-bit.conf
