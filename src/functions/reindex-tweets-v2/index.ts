@@ -8,7 +8,7 @@ import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 import { fromUtf8 } from '@aws-sdk/util-utf8-node';
 import { SQSHandler, SQSRecord, S3Event, S3EventRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
-import { TweetStreamRecord, KinesisEmulatedEvent, KinesisEmulatedRecord } from '../utils';
+import { TweetStreamRecord, KinesisEmulatedEvent, KinesisEmulatedRecord } from '../common-utils';
 
 const region = process.env.AWS_REGION || 'us-west-2';
 const indexingFunctionArn = process.env.INDEXING_FUNCTION_ARN!;

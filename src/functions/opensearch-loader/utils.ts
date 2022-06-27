@@ -1,35 +1,11 @@
-import { Readable } from 'stream';
-import { Sha256 } from '@aws-crypto/sha256-js';
 import { Entity } from '@aws-sdk/client-comprehend';
-import { defaultProvider } from '@aws-sdk/credential-provider-node';
-import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
-import { HttpRequest, HttpResponse } from '@aws-sdk/protocol-http';
-import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { UserV2, TweetPublicMetricsV2, TTweetReplySettingsV2, ReferencedTweetV2, TweetGeoV2, TweetEntitiesV2, TweetContextAnnotationV2 } from 'twitter-api-v2';
-import { TweetItem, ComprehendJobOutput, Deduplicate } from '../utils';
+import { TweetItem, ComprehendJobOutput, Deduplicate } from '../common-utils';
 
 const entityScoreThreshold = 0.8;
-const region = process.env.AWS_REGION || 'us-west-2';
-
-export interface BulkUpdateHeader {
-  update: {
-    _index: string;
-    _id?: string;
-  };
-};;
-
-export interface BulkUpdateDocument {
-  doc: Document;
-  doc_as_upsert?: boolean;
-}
-
-interface Metadata {
-  _index: string;
-  _id?: string;
-};
 
 // https://developer.twitter.com/en/docs/twitter-api/data-dictionary/object-model/tweet
-interface Document {
+export interface Document {
   id: string;
   text?: string;
   normalized_text?: string;
@@ -81,42 +57,6 @@ interface Document {
       mixed?: number;
     };
   };
-};
-
-type BulkResponseItem = {
-  [key in 'create'|'delete'|'index'|'update']: {
-    [key: string]: any;
-    _index: string;
-    _id: string;
-    status: number;
-    error?: {
-      type: string;
-      reason: string;
-      index: string;
-      shard: string;
-      index_uuid: string;
-    };
-  };
-};;
-interface BulkResponse {
-  took: number;
-  errors: boolean;
-  items: BulkResponseItem[];
-};
-
-const asBuffer = async (response: HttpResponse) => {
-  const stream = response.body as Readable;
-  const chunks: Buffer[] = [];
-  return new Promise<Buffer>((resolve, reject) => {
-    stream.on('data', (chunk) => chunks.push(chunk));
-    stream.on('error', (err) => reject(err));
-    stream.on('end', () => resolve(Buffer.concat(chunks)));
-  });
-};
-const responseParse = async (response: HttpResponse) => {
-  const buffer = await asBuffer(response);
-  const bufferString = buffer.toString();
-  return JSON.parse(bufferString);
 };
 
 const convertContextAnnotations = (contextAnnotations?: TweetContextAnnotationV2[]) => {
@@ -209,7 +149,7 @@ const convertComprehendOutput = (output?: ComprehendJobOutput) => {
   return result;
 };
 
-const toDocument = (tweet: TweetItem): Document => {
+export const toDocument = (tweet: TweetItem): Document => {
   const doc: Document = {
     ...tweet,
     comprehend: convertComprehendOutput(tweet.comprehend),
@@ -228,43 +168,4 @@ const toDocument = (tweet: TweetItem): Document => {
     };
   }
   return doc;
-};
-
-export const toBulkAction = (tweet: TweetItem): [BulkUpdateHeader, BulkUpdateDocument] => {
-  const date = (tweet.created_at) ? new Date(tweet.created_at) : new Date();
-  const index = 'tweets-' + date.toISOString().substring(0, 7);
-  const header: BulkUpdateHeader = {
-    update: {
-      _index: index,
-      _id: tweet.id,
-    },
-  };
-  const updateDoc: BulkUpdateDocument = {
-    doc: toDocument(tweet),
-    doc_as_upsert: true,
-  };
-  return [header, updateDoc];
-};
-
-const httpClient = new NodeHttpHandler();
-
-export const sendBulkOperation = async(host: string, operations: [BulkUpdateHeader, BulkUpdateDocument][]): Promise<BulkResponse> => {
-  const body = operations.flatMap(ops => ops.map(x => JSON.stringify(x))).join('\n') + '\n';
-  const request = new HttpRequest({
-    headers: { 'Content-Type': 'application/json', host },
-    hostname: host,
-    method: 'POST',
-    path: '_bulk',
-    body: body,
-  });
-  const signer = new SignatureV4({
-    credentials: defaultProvider(),
-    region: region,
-    service: 'es',
-    sha256: Sha256,
-  });
-  const signedRequest = await signer.sign(request) as HttpRequest;
-  const { response } = await httpClient.handle(signedRequest);
-  const res: BulkResponse = await responseParse(response);
-  return res;
 };

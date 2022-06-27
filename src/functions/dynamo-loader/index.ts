@@ -4,10 +4,11 @@ import { Tracer } from '@aws-lambda-powertools/tracer';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { KinesisStreamHandler, KinesisStreamRecord } from 'aws-lambda';
+import { EventBridgeHandler } from 'aws-lambda';
+//import * as xray from 'aws-xray-sdk';
 import { Promise } from 'bluebird';
 import { TweetV2SingleStreamResult, TweetV2 } from 'twitter-api-v2';
-import { TweetItem, parseKinesisData } from '../common-utils';
+import { TweetItem } from '../common-utils';
 
 const allowedDateAfter = new Date('2019-12-01T00:00:00.000Z');
 const region = process.env.AWS_REGION || 'us-west-2';
@@ -127,20 +128,13 @@ const processTweetStreamResult = async (result: TweetV2SingleStreamResult) => {
 
 };
 
-export const handler: KinesisStreamHandler = async(event, _context) => {
+export const handler: EventBridgeHandler<'Tweet', TweetV2SingleStreamResult, void> = async(event, _context) => {
   await loadParameters();
 
-  const records = event.Records;
-  metrics.addMetric('IncomingRecordCount', MetricUnits.Count, records.length);
-
-  const tweetStreamResults = records.map(record => parseKinesisData(record.kinesis.data));
-  const validResults = tweetStreamResults
-    .filter(x => sourceLabelFilter(x.data))
-    .filter(x => contextDomainFilter(x.data))
-    .filter(x => createdAtFilter(x.data));
-  metrics.addMetric('FilteredRecordCount', MetricUnits.Count, tweetStreamResults.length-validResults.length);
-
-  await Promise.map(validResults, processTweetStreamResult);
+  const result = event.detail;
+  if (sourceLabelFilter(result.data) && contextDomainFilter(result.data) && createdAtFilter(result.data)) {
+    await processTweetStreamResult(result);
+  }
 
   metrics.publishStoredMetrics();
 };

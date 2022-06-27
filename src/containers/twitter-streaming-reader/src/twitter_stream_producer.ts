@@ -1,24 +1,41 @@
-import * as fluentLogger from 'fluent-logger';
+import { EventBridgeClient, PutEventsCommand, PutEventsRequestEntry } from '@aws-sdk/client-eventbridge';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+import * as xray from 'aws-xray-sdk';
 import { TwitterApi, ETwitterStreamEvent, Tweetv2FieldsParams, TweetV2SingleStreamResult } from 'twitter-api-v2';
 import { getLogger } from './logger';
 
+xray.enableManualMode();
+const logger = getLogger();
+
+const region = process.env.AWS_REGION || 'us-west-2';
+const eventBusArn = process.env.EVENT_BUS_ARN;
+const deadLetterQueueUrl = process.env.DEAD_LETTER_QUEUE_URL;
 const twitterBearerToken: string = process.env.TWITTER_BEARER_TOKEN!;
 const twitterFieldsParams: Partial<Tweetv2FieldsParams> = JSON.parse(process.env.TWITTER_FIELDS_PARAMS || '{}');
-const loggerType: string = process.env.LOGGER_TYPE || 'stdout';
 
-const logger = getLogger();
-fluentLogger.configure('tweets', {
-  host: 'localhost',
-  port: 24224,
-  timeout: 3.0,
-  reconnectInterval: 600000, // 10 minutes
-});
-const tweetLogger = (result: TweetV2SingleStreamResult) => {
-  if (loggerType == 'fluent') {
-    const eventTime = (typeof result.data.created_at == 'string') ? new Date(result.data.created_at) : new Date();
-    fluentLogger.emit(result, eventTime);
-  } else {
-    console.log(JSON.stringify(result));
+const eventBridge = new EventBridgeClient({ region });
+const sqs = new SQSClient({ region });
+
+const publishEvent = async (event: TweetV2SingleStreamResult, segment: xray.Segment) => {
+  try {
+    const client = xray.captureAWSv3Client(eventBridge, segment);
+    const entry: PutEventsRequestEntry = {
+      Time: (typeof event.data.created_at == 'string') ? new Date(event.data.created_at) : new Date(),
+      EventBusName: eventBusArn,
+      Source: 'twitter.api.v2',
+      DetailType: 'Tweet',
+      Detail: JSON.stringify(event),
+    };
+    const cmd = new PutEventsCommand({ Entries: [entry] });
+    await client.send(cmd);
+  } catch (e) {
+    logger.error({ message: 'An error has occurred and will be sent to DLQ.' });
+    const client = xray.captureAWSv3Client(sqs, segment);
+    const cmd = new SendMessageCommand({
+      QueueUrl: deadLetterQueueUrl,
+      MessageBody: JSON.stringify(event),
+    });
+    await client.send(cmd);
   }
 };
 
@@ -32,7 +49,7 @@ export const twitterStreamProducer = async () => {
   stream.on(
     // Emitted when Node.js {response} emits a 'error' event (contains its payload).
     ETwitterStreamEvent.ConnectionError,
-    err => logger.error(err),
+    err => logger.error({ name: err.name, message: err.message, cause: err.cause, stack: err.stack }),
   );
 
   stream.on(
@@ -45,8 +62,13 @@ export const twitterStreamProducer = async () => {
     // Emitted when a Twitter payload (a tweet or not, given the endpoint).
     ETwitterStreamEvent.Data,
     eventData => {
-      eventData.errors?.map(error => logger.error(error));
-      tweetLogger(eventData);
+      const seg = new xray.Segment('twitter.com');
+      seg.addMetadata('tweet_id', eventData.data.id);
+      publishEvent(eventData, seg).finally(() => {
+        seg.close();
+        seg.flush();
+      });
+      eventData.errors?.map(err => logger.error(err));
     },
   );
 

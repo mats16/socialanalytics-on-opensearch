@@ -1,74 +1,94 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
-import { Tracer } from '@aws-lambda-powertools/tracer';
+//import { Tracer } from '@aws-lambda-powertools/tracer';
 import { AttributeValue } from '@aws-sdk/client-dynamodb';
+import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
-import { Handler, DynamoDBStreamEvent, KinesisStreamEvent, DynamoDBRecord, KinesisStreamRecord } from 'aws-lambda';
-import { TweetItem, b64decode } from '../utils';
-import { sendBulkOperation, toBulkAction, BulkUpdateHeader, BulkUpdateDocument } from './opensearch_utils';
+import { Client, Connection } from '@opensearch-project/opensearch';
+import { Handler, DynamoDBStreamEvent, DynamoDBRecord } from 'aws-lambda';
+import * as xray from 'aws-xray-sdk';
+import * as aws4 from 'aws4';
+import { TweetItem } from '../common-utils';
+import { Document, toDocument } from './utils';
 
-const region = process.env.AWS_REGION || 'us-west-2';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+xray.captureHTTPsGlobal(require('https'));
+
 const opensearchDomainEndpoint = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
 
 const logger = new Logger();
 const metrics = new Metrics();
-const tracer = new Tracer();
+//const tracer = new Tracer();
 
 const unmarshallOptions = {
   wrapNumbers: false, // false, by default.
 };
 
-const toTweetItem = (record: DynamoDBRecord|KinesisStreamRecord): TweetItem|undefined => {
-  if (record.eventSource == 'aws:dynamodb' && record.eventName == 'MODIFY') {
-    const r = record as DynamoDBRecord;
-    const newImage = r.dynamodb?.NewImage as Record<string, AttributeValue>;
-    const tweet = unmarshall(newImage, unmarshallOptions) as TweetItem;
-    return tweet;
-  } else if (record.eventSource == 'aws:kinesis') {
-    const r = record as KinesisStreamRecord;
-    const decodedText = b64decode(r.kinesis.data);
-    const tweet: TweetItem = JSON.parse(decodedText);
-    return tweet;
-  } else {
-    return undefined;
-  }
-};
+const createAwsConnector = (credentials: aws4.Credentials) => {
+  class AmazonConnection extends Connection {
+    buildRequestObject(params: any) {
+      const request = super.buildRequestObject(params) as aws4.Request;
+      request.service = 'es';
+      request.region = process.env.AWS_REGION || 'us-east-1';
+      request.headers = request.headers || {};
+      request.headers.host = request.hostname;
 
-// eslint-disable-next-line max-len
-const bulkLoader = async (host: string, records: (DynamoDBRecord|KinesisStreamRecord)[], inprogress: [BulkUpdateHeader, BulkUpdateDocument][] = [], i: number = 0) => {
-  const record = records[i];
-  const tweet = toTweetItem(record);
-  if (typeof tweet != 'undefined') {
-    const bulkAction = toBulkAction(tweet);
-    inprogress.push(bulkAction);
-  }
-
-  if (i+1 == records.length || inprogress.length == 100) {
-    if (inprogress.length > 0) {
-      const { took, items, errors } = await sendBulkOperation(host, inprogress);
-      metrics.addMetric('OpenSearchBulkApiTookTime', MetricUnits.Milliseconds, took);
-      if (errors) {
-        const errorItems = items.filter(item => typeof item.update.error != 'undefined');
-        metrics.addMetric('OpenSearchBulkApiErrorCount', MetricUnits.Count, errorItems.length);
-        errorItems.map(item => {
-          logger.error({ message: item.update.error!.reason, item });
-        });
-      }
-    }
-    if (i+1 == records.length) {
-      return;
-    } else {
-      inprogress.length = 0;
+      return aws4.sign(request, credentials);
     }
   }
-  await bulkLoader(host, records, inprogress, i+1);
-  return;
+  return {
+    Connection: AmazonConnection,
+  };
 };
 
-export const handler: Handler<DynamoDBStreamEvent|KinesisStreamEvent> = async(event, _context) => {
+const getClient = async (host: string) => {
+  const credentials = await defaultProvider()();
+  return new Client({
+    ...createAwsConnector(credentials),
+    node: `https://${host}`,
+  });
+};
+
+const bulk = async (host: string, docs: Document[]) => {
+  const client = await getClient(host);
+  const stats = await client.helpers.bulk({
+    datasource: docs,
+    onDocument (doc: Document) {
+      const date = new Date(doc.created_at!);
+      const index = 'tweets-' + date.toISOString().substring(0, 7);
+      return [
+        { update: { _index: index, _id: doc.id } },
+        { doc_as_upsert: true },
+      ];
+    },
+    onDrop (doc) {
+      logger.warn({ message: 'doc is dropped', doc: JSON.stringify(doc) });
+    },
+  });
+  return stats;
+};
+
+const toTweetItem = (record: DynamoDBRecord): TweetItem => {
+  const r = record as DynamoDBRecord;
+  const newImage = r.dynamodb?.NewImage as Record<string, AttributeValue>;
+  const tweet = unmarshall(newImage, unmarshallOptions) as TweetItem;
+  return tweet;
+};
+
+export const handler: Handler<DynamoDBStreamEvent> = async(event, _context) => {
   metrics.addMetric('IncomingRecordCount', MetricUnits.Count, event.Records.length);
 
-  await bulkLoader(opensearchDomainEndpoint, event.Records);
+  const records = event.Records.filter(record => record.eventSource == 'aws:dynamodb' && record.eventName == 'MODIFY');
+  const tweetItems = records.map(toTweetItem).filter(tweet => typeof tweet.created_at == 'string');
+  const docs = tweetItems.map(toDocument);
+
+  const stats = await bulk(opensearchDomainEndpoint, docs);
+  metrics.addMetric('RequestTotalDocCount', MetricUnits.Count, stats.total);
+  metrics.addMetric('RequestFailedDocCount', MetricUnits.Count, stats.failed);
+  metrics.addMetric('RequestSuccessfulDocCount', MetricUnits.Count, stats.successful);
+  metrics.addMetric('RequestRetryDocCount', MetricUnits.Count, stats.retry);
+  metrics.addMetric('RequestTookTime', MetricUnits.Milliseconds, stats.time);
+  metrics.addMetric('RequestBytes', MetricUnits.Bytes, stats.bytes);
 
   metrics.publishStoredMetrics();
 };

@@ -9,7 +9,7 @@ import { SSMClient, GetParametersByPathCommand } from '@aws-sdk/client-ssm';
 import { SQSHandler, S3Event, S3EventRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
 import { TweetV1, TwitterApi, TweetV2LookupResult, Tweetv2FieldsParams } from 'twitter-api-v2';
-import { TweetV2a, TweetStreamRecord, Deduplicate } from '../utils';
+import { TweetV2a, TweetStreamRecord, Deduplicate } from '../common-utils';
 
 const twitterApiLookupInterval = 2180; // Quota: 300req/900s
 let twitterBearerToken: string;

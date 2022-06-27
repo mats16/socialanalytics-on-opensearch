@@ -1,6 +1,10 @@
 {
   "dependencies": [
     {
+      "name": "@types/aws4",
+      "type": "build"
+    },
+    {
       "name": "@types/bluebird",
       "type": "build"
     },
@@ -29,7 +33,7 @@
     },
     {
       "name": "aws-cdk",
-      "version": "^2.27.0",
+      "version": "^2.29.1",
       "type": "build"
     },
     {
@@ -90,11 +94,6 @@
       "type": "build"
     },
     {
-      "name": "@aws-cdk/aws-apprunner-alpha",
-      "version": "2.26.0-alpha.0",
-      "type": "runtime"
-    },
-    {
       "name": "@aws-crypto/sha256-js",
       "type": "runtime"
     },
@@ -136,6 +135,11 @@
     },
     {
       "name": "@aws-sdk/client-eventbridge",
+      "version": "^3.100.0",
+      "type": "runtime"
+    },
+    {
+      "name": "@aws-sdk/client-firehose",
       "version": "^3.100.0",
       "type": "runtime"
     },
@@ -204,12 +208,27 @@
       "type": "runtime"
     },
     {
+      "name": "@opensearch-project/opensearch",
+      "version": "2.0.0",
+      "type": "runtime"
+    },
+    {
       "name": "@types/aws-lambda",
       "type": "runtime"
     },
     {
       "name": "aws-cdk-lib",
-      "version": "^2.27.0",
+      "version": "^2.29.1",
+      "type": "runtime"
+    },
+    {
+      "name": "aws-xray-sdk",
+      "version": "^3.3.6",
+      "type": "runtime"
+    },
+    {
+      "name": "aws4",
+      "version": "1.11.0",
       "type": "runtime"
     },
     {
@@ -229,7 +248,7 @@
     },
     {
       "name": "twitter-api-v2",
-      "version": "1.12.0",
+      "version": "1.12.2",
       "type": "runtime"
     },
     {

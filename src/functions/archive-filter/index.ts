@@ -1,6 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { FirehoseTransformationHandler, FirehoseTransformationEventRecord, FirehoseTransformationResultRecord, FirehoseRecordTransformationStatus } from 'aws-lambda';
-import { parseKinesisData } from '../utils';
+import { parseKinesisData } from '../common-utils';
 
 const logger = new Logger({ logLevel: 'INFO', serviceName: 'filter' });
 

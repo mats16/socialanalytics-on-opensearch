@@ -1,14 +1,12 @@
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { IStream } from 'aws-cdk-lib/aws-kinesis';
 import { CfnDeliveryStream } from 'aws-cdk-lib/aws-kinesisfirehose';
-//import { IFunction } from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 interface DeliveryStreamProps {
-  sourceStream: IStream;
-  //processorFunction: IFunction;
+  sourceStream?: IStream;
   destinationBucket: IBucket;
   prefix: string;
   errorOutputPrefix: string;
@@ -16,14 +14,12 @@ interface DeliveryStreamProps {
 
 export class DeliveryStream extends Construct {
   deliveryStreamArn: string;
+  deliveryStreamName: string;
 
   constructor(scope: Construct, id: string, props: DeliveryStreamProps) {
     super(scope, id);
 
-    const sourceStreamArn = props.sourceStream.streamArn;
-    //const processorFunctionArn = props.processorFunction.functionArn;
-    const bucketArn = props.destinationBucket.bucketArn;
-    const { prefix, errorOutputPrefix } = props;
+    const { sourceStream, destinationBucket, prefix, errorOutputPrefix } = props;
 
     const logGroup = new logs.LogGroup(this, 'LogGroup', {
       retention: logs.RetentionDays.TWO_WEEKS,
@@ -32,79 +28,33 @@ export class DeliveryStream extends Construct {
 
     const role = new iam.Role(this, 'Role', {
       assumedBy: new iam.ServicePrincipal('firehose.amazonaws.com'),
-      inlinePolicies: {
-        SourcePolicy: new iam.PolicyDocument({
-          statements: [
-            new iam.PolicyStatement({
-              actions: [
-                'kinesis:DescribeStreamSummary',
-                'kinesis:GetRecords',
-                'kinesis:GetShardIterator',
-                'kinesis:ListShards',
-                'kinesis:SubscribeToShard',
-                'kinesis:DescribeStream',
-                'kinesis:ListStreams',
-              ],
-              resources: [sourceStreamArn],
-            }),
-          ],
-        }),
-        DestinationPolicy: new iam.PolicyDocument({
-          statements: [
-            new iam.PolicyStatement({
-              actions: [
-                's3:GetObject*',
-                's3:GetBucket*',
-                's3:List*',
-                's3:DeleteObject*',
-                's3:PutObject',
-                's3:Abort*',
-              ],
-              resources: [
-                bucketArn,
-                `${bucketArn}/${prefix}*`,
-                `${bucketArn}/${errorOutputPrefix}*`,
-              ],
-            }),
-          ],
-        }),
-        LoggingPolicy: new iam.PolicyDocument({
-          statements: [
-            new iam.PolicyStatement({
-              actions: [
-                'logs:CreateLogStream',
-                'logs:PutLogEvents',
-              ],
-              resources: [`${logGroup.logGroupArn}:${logStreamName}`],
-            }),
-          ],
-        }),
-        //ProcessorPolicy: new iam.PolicyDocument({
-        //  statements: [
-        //    new iam.PolicyStatement({
-        //      actions: [
-        //        'lambda:InvokeFunction',
-        //      ],
-        //      resources: [processorFunctionArn],
-        //    }),
-        //  ],
-        //}),
-      },
     });
+    destinationBucket.grantPut(role, { prefix });
+    destinationBucket.grantPut(role, { prefix: errorOutputPrefix });
+    logGroup.grantWrite(role);
+
+    let deliveryStreamType: 'DirectPut'|'KinesisStreamAsSource' = 'DirectPut';
+    let kinesisStreamSourceConfiguration: CfnDeliveryStream.KinesisStreamSourceConfigurationProperty|undefined = undefined;
+
+    if (typeof sourceStream != 'undefined') {
+      deliveryStreamType = 'KinesisStreamAsSource';
+      kinesisStreamSourceConfiguration = {
+        kinesisStreamArn: sourceStream.streamArn,
+        roleArn: role.roleArn,
+      };
+      sourceStream.grantRead(role);
+    }
 
     const deliveryStream = new CfnDeliveryStream(this, id, {
-      deliveryStreamType: 'KinesisStreamAsSource',
-      kinesisStreamSourceConfiguration: {
-        kinesisStreamArn: sourceStreamArn,
-        roleArn: role.roleArn,
-      },
+      deliveryStreamType,
+      kinesisStreamSourceConfiguration,
       extendedS3DestinationConfiguration: {
         cloudWatchLoggingOptions: {
           enabled: true,
           logGroupName: logGroup.logGroupName,
           logStreamName: logStreamName,
         },
-        bucketArn,
+        bucketArn: destinationBucket.bucketArn,
         roleArn: role.roleArn,
         prefix: `${prefix}year=!{partitionKeyFromQuery:year}/month=!{partitionKeyFromQuery:month}/day=!{partitionKeyFromQuery:day}/`,
         errorOutputPrefix: `${errorOutputPrefix}!{firehose:error-output-type}/`,
@@ -119,15 +69,6 @@ export class DeliveryStream extends Construct {
         processingConfiguration: {
           enabled: true,
           processors: [
-            //{
-            //  type: 'Lambda',
-            //  parameters: [
-            //    {
-            //      parameterName: 'LambdaArn',
-            //      parameterValue: processorFunctionArn,
-            //    },
-            //  ],
-            //},
             {
               type: 'MetadataExtraction',
               parameters: [
@@ -159,5 +100,6 @@ export class DeliveryStream extends Construct {
       },
     });
     this.deliveryStreamArn = deliveryStream.attrArn;
+    this.deliveryStreamName = deliveryStream.ref;
   };
 };

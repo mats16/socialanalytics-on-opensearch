@@ -1,6 +1,6 @@
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
 import { Handler } from 'aws-lambda';
-import { b64decode } from '../utils';
+import { b64decode } from '../common-utils';
 
 const metrics = new Metrics();
 

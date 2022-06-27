@@ -6,8 +6,9 @@ import { SFNClient, StartSyncExecutionCommand } from '@aws-sdk/client-sfn';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { DynamoDBStreamHandler, DynamoDBRecord } from 'aws-lambda';
+//import * as xray from 'aws-xray-sdk';
 import { Promise } from 'bluebird';
-import { TweetItem, ComprehendJobOutput } from '../utils';
+import { TweetItem, ComprehendJobOutput } from '../common-utils';
 
 const region = process.env.AWS_REGION || 'us-west-2';
 const tweetTableName = process.env.TWEET_TABLE_NAME!;
@@ -27,8 +28,8 @@ const unmarshallOptions = {
 };
 const translateConfig = { marshallOptions, unmarshallOptions };
 
-const ddbClient = tracer.captureAWSv3Client(new DynamoDBClient({ region }));
-const ddbDocClient = DynamoDBDocumentClient.from(ddbClient, translateConfig);
+const ddbClient = new DynamoDBClient({ region });
+const ddbDocClient = tracer.captureAWSv3Client(DynamoDBDocumentClient.from(ddbClient, translateConfig));
 const sfn = tracer.captureAWSv3Client(new SFNClient({ region }));
 
 const comprehendJob = async (text: string, lang?: string): Promise<ComprehendJobOutput> => {

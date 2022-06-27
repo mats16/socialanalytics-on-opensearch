@@ -1,8 +1,10 @@
 import { Stack } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
-import * as kinesis from 'aws-cdk-lib/aws-kinesis';
+import { IEventBus } from 'aws-cdk-lib/aws-events';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { IStringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
@@ -10,7 +12,7 @@ interface TwitterStreamingReaderProps {
   vpc: ec2.IVpc;
   twitterBearerToken: IStringParameter;
   twitterFieldsParams: IStringParameter;
-  ingestionStream: kinesis.IStream;
+  eventBus: IEventBus;
 };
 
 export class TwitterStreamingReader extends Construct {
@@ -19,7 +21,9 @@ export class TwitterStreamingReader extends Construct {
   constructor(scope: Stack, id: string, props: TwitterStreamingReaderProps) {
     super(scope, id);
 
-    const { vpc, twitterBearerToken, twitterFieldsParams, ingestionStream } = props;
+    const { vpc, twitterBearerToken, twitterFieldsParams, eventBus } = props;
+
+    const deadLetterQueue = new Queue(this, 'DeadLetterQueue');
 
     const logGroup = new logs.LogGroup(this, 'LogGroup', {
       retention: logs.RetentionDays.TWO_WEEKS,
@@ -33,8 +37,11 @@ export class TwitterStreamingReader extends Construct {
         cpuArchitecture: ecs.CpuArchitecture.X86_64,
       },
     });
-    logGroup.grantWrite(taskDefinition.taskRole);
-    ingestionStream.grantWrite(taskDefinition.taskRole);
+    const taskRole = taskDefinition.taskRole;
+    taskRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess'));
+    logGroup.grantWrite(taskRole);
+    eventBus.grantPutEventsTo(taskRole);
+    deadLetterQueue.grantSendMessages(taskRole);
 
     const appContainer = taskDefinition.addContainer('App', {
       containerName: 'app',
@@ -43,7 +50,8 @@ export class TwitterStreamingReader extends Construct {
       memoryReservationMiB: 256,
       essential: true,
       environment: {
-        LOGGER_TYPE: 'fluent',
+        EVENT_BUS_ARN: eventBus.eventBusArn,
+        DEAD_LETTER_QUEUE_URL: deadLetterQueue.queueUrl,
       },
       secrets: {
         TWITTER_BEARER_TOKEN: ecs.Secret.fromSsmParameter(twitterBearerToken),
@@ -56,32 +64,25 @@ export class TwitterStreamingReader extends Construct {
       }),
     });
 
-    const logRouterContainer = taskDefinition.addContainer('LogRouter', {
-      containerName: 'log-router',
-      image: ecs.ContainerImage.fromAsset('./src/containers/log-router'),
+    const xrayContainer = taskDefinition.addContainer('xray', {
+      containerName: 'xray-daemon',
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/xray/aws-xray-daemon:3.x'),
+      user: '1337',
       cpu: 64,
-      memoryReservationMiB: 128,
+      memoryReservationMiB: 256,
       portMappings: [{
-        containerPort: 2020,
-        protocol: ecs.Protocol.TCP,
+        containerPort: 2000,
+        protocol: ecs.Protocol.UDP,
       }],
-      healthCheck: {
-        command: ['echo', '\'{"health": "check"}\'', '|', 'nc', '127.0.0.1', '8877', '||', 'exit', '1'],
-      },
-      environment: {
-        LOG_GROUP_NAME: logGroup.logGroupName,
-        OUTPUT_PLUGIN_NAME: 'kinesis_streams',
-        OUTPUT_STREAM_NAME: ingestionStream.streamName,
-      },
       readonlyRootFilesystem: true,
       logging: new ecs.AwsLogDriver({
         logGroup: logGroup,
-        streamPrefix: 'log-router',
+        streamPrefix: 'xray',
       }),
     });
 
     appContainer.addContainerDependencies({
-      container: logRouterContainer,
+      container: xrayContainer,
       condition: ecs.ContainerDependencyCondition.START,
     });
 

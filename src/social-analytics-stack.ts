@@ -1,15 +1,15 @@
 import { Stack, StackProps, Duration, CfnParameter, Aws } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Vpc, SubnetType } from 'aws-cdk-lib/aws-ec2';
+import { EventBus, Rule, EventPattern } from 'aws-cdk-lib/aws-events';
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as kinesis from 'aws-cdk-lib/aws-kinesis';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { KinesisEventSource, DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { tweetFieldsParams } from './parameter';
-import { ContainerInsights } from './resources/container-insights';
 import { Dashboard } from './resources/dashboard';
 import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { Function, RetryFunction } from './resources/lambda-nodejs';
@@ -67,11 +67,6 @@ export class SocialAnalyticsStack extends Stack {
       resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter${twitterParameterPath}/*`],
     });
 
-    const comprehendPolicyStatement = new iam.PolicyStatement({
-      actions: ['comprehend:Detect*', 'translate:TranslateText'],
-      resources: ['*'],
-    });
-
     const bucket = new s3.Bucket(this, 'Bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
       lifecycleRules: [{
@@ -104,6 +99,19 @@ export class SocialAnalyticsStack extends Stack {
       //projectionType: dynamodb.ProjectionType.KEYS_ONLY,
     });
 
+    const twitterEventBus = new EventBus(this, 'TwitterEventBus');
+
+    const allowedEventPattern: EventPattern = {
+      source: ['twitter.api.v2'],
+      detail: {
+        data: {
+          source: [{ 'anything-but': twitterFilterSourceLabels.stringListValue }],
+        },
+      },
+    };
+
+    twitterEventBus.archive('Archive', { eventPattern: allowedEventPattern });
+
     const vpc = new Vpc(this, 'VPC', {
       natGateways: 1,
       subnetConfiguration: [
@@ -120,38 +128,55 @@ export class SocialAnalyticsStack extends Stack {
       ],
     });
 
-    const ingestionStream = new kinesis.Stream(this, 'IngestionStream', {
-      encryption: kinesis.StreamEncryption.MANAGED,
+    const archiveStream = new DeliveryStream(this, 'ArchiveStream', {
+      destinationBucket: bucket,
+      prefix: 'raw/tweets/v2/',
+      errorOutputPrefix: 'raw/tweets/v2-error/',
     });
 
     const comprehendJob = new ComprehendWithCache(this, 'ComprehendJob', { cacheExpireDays: 14 });
 
-    const dynamodbLoaderFunction = new Function(this, 'DynamodbLoaderFunction', {
-      description: '[SocialAnalytics] Process stream records to update DynamoDB',
-      entry: './src/functions/dynamodb-loader/index.ts',
-      memorySize: 256,
-      timeout: Duration.minutes(1),
+    const archiveEventFunction = new Function(this, 'ArchiveEventFunction', {
+      description: '[SocialAnalytics] Archive event for Firehose-S3',
+      entry: './src/functions/archive-event/index.ts',
       insightsVersion,
       tracing,
       environment: {
-        POWERTOOLS_SERVICE_NAME: 'DynamodbLoaderFunction',
+        POWERTOOLS_SERVICE_NAME: 'ArchiveEventFunction',
+        POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
+        DELIVERY_STREAM_NAME: archiveStream.deliveryStreamName,
+      },
+    });
+    archiveEventFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['firehose:PutRecord'],
+      resources: [archiveStream.deliveryStreamArn],
+    }));
+    new Rule(this, 'ArchiveEventRule', {
+      eventBus: twitterEventBus,
+      eventPattern: allowedEventPattern,
+      targets: [new eventsTargets.LambdaFunction(archiveEventFunction)],
+    });
+
+    const dynamoLoaderFunction = new Function(this, 'DynamoLoaderFunction', {
+      description: '[SocialAnalytics] Tweet event processor to update DynamoDB',
+      entry: './src/functions/dynamo-loader/index.ts',
+      insightsVersion,
+      tracing,
+      environment: {
+        POWERTOOLS_SERVICE_NAME: 'DynamoLoaderFunction',
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
         TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME: twitterFilterContextDomains.parameterName,
         TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME: twitterFilterSourceLabels.parameterName,
         TWEET_TABLE_NAME: tweetTable.tableName,
       },
-      events: [
-        new KinesisEventSource(ingestionStream, {
-          startingPosition: lambda.StartingPosition.LATEST,
-          batchSize: 100,
-          maxBatchingWindow: Duration.seconds(5),
-          maxRecordAge: Duration.days(1),
-          parallelizationFactor: 3,
-        }),
-      ],
       initialPolicy: [twitterParameterPolicyStatement],
     });
-    tweetTable.grantWriteData(dynamodbLoaderFunction);
+    tweetTable.grantWriteData(dynamoLoaderFunction);
+    new Rule(this, 'DynamoLoaderRule', {
+      eventBus: twitterEventBus,
+      eventPattern: allowedEventPattern,
+      targets: [new eventsTargets.LambdaFunction(dynamoLoaderFunction)],
+    });
 
     const analyzeFunction = new Function(this, 'AnalyzeFunction', {
       description: '[SocialAnalytics] Amazon Comprehend',
@@ -178,33 +203,11 @@ export class SocialAnalyticsStack extends Stack {
     tweetTable.grantWriteData(analyzeFunction);
     comprehendJob.stateMachine.grantStartSyncExecution(analyzeFunction);
 
-    //const archiveFilterFunction = new Function(this, 'ArchiveFilterFunction', {
-    //  description: '[SocialAnalytics] Filtering with backup flag',
-    //  entry: './src/functions/archive-filter/index.ts',
-    //  timeout: Duration.minutes(5),
-    //  environment: {
-    //    POWERTOOLS_SERVICE_NAME: 'ArchiveFilterFunction',
-    //    POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
-    //  },
-    //});
-
-    const ingestionArchiveStream = new DeliveryStream(this, 'IngestionArchiveStream', {
-      sourceStream: ingestionStream,
-      //processorFunction: archiveFilterFunction,
-      destinationBucket: bucket,
-      prefix: 'raw/tweets/v2/',
-      errorOutputPrefix: 'raw/tweets/v2-error/',
-    });
-
     const twitterStreamingReader = new TwitterStreamingReader(this, 'TwitterStreamingReader', {
       vpc,
       twitterBearerToken,
       twitterFieldsParams,
-      ingestionStream,
-    });
-
-    const containerInsights = new ContainerInsights(this, 'ContainerInsights', {
-      targetService: twitterStreamingReader.service,
+      eventBus: twitterEventBus,
     });
 
     new OpenSearchPackages(this, 'OpenSearchPackages', {
@@ -258,35 +261,35 @@ export class SocialAnalyticsStack extends Stack {
       },
     });
 
-    const reingestTweetsV1Function = new RetryFunction(this, 'ReingestTweetsV1Function', {
-      source: { bucket, prefix: 'reingest/tweets/v1/' },
-      description: 'Re-ingest for TweetsV1',
-      entry: './src/functions/reingest-tweets-v1/index.ts',
-      timeout: Duration.minutes(5),
-      insightsVersion,
-      tracing,
-      initialPolicy: [twitterParameterPolicyStatement],
-      environment: {
-        TWITTER_PARAMETER_PATH: twitterParameterPath,
-        DEST_STREAM_NAME: ingestionStream.streamName,
-      },
-    });
-    ingestionStream.grantWrite(reingestTweetsV1Function);
+    //const reingestTweetsV1Function = new RetryFunction(this, 'ReingestTweetsV1Function', {
+    //  source: { bucket, prefix: 'reingest/tweets/v1/' },
+    //  description: 'Re-ingest for TweetsV1',
+    //  entry: './src/functions/reingest-tweets-v1/index.ts',
+    //  timeout: Duration.minutes(5),
+    //  insightsVersion,
+    //  tracing,
+    //  initialPolicy: [twitterParameterPolicyStatement],
+    //  environment: {
+    //    TWITTER_PARAMETER_PATH: twitterParameterPath,
+    //    DEST_STREAM_NAME: ingestionStream.streamName,
+    //  },
+    //});
+    //ingestionStream.grantWrite(reingestTweetsV1Function);
 
-    const reingestTweetsV2Function = new RetryFunction(this, 'ReingestTweetsV2Function', {
-      source: { bucket, prefix: 'reingest/tweets/v2/' },
-      description: 'Re-ingest for TweetsV2',
-      entry: './src/functions/reingest-tweets-v2/index.ts',
-      memorySize: 1536,
-      timeout: Duration.minutes(15),
-      insightsVersion,
-      tracing,
-      initialPolicy: [twitterParameterPolicyStatement],
-      environment: {
-        DEST_STREAM_NAME: ingestionStream.streamName,
-      },
-    });
-    ingestionStream.grantWrite(reingestTweetsV2Function);
+    //const reingestTweetsV2Function = new RetryFunction(this, 'ReingestTweetsV2Function', {
+    //  source: { bucket, prefix: 'reingest/tweets/v2/' },
+    //  description: 'Re-ingest for TweetsV2',
+    //  entry: './src/functions/reingest-tweets-v2/index.ts',
+    //  memorySize: 1536,
+    //  timeout: Duration.minutes(15),
+    //  insightsVersion,
+    //  tracing,
+    //  initialPolicy: [twitterParameterPolicyStatement],
+    //  environment: {
+    //    DEST_STREAM_NAME: ingestionStream.streamName,
+    //  },
+    //});
+    //ingestionStream.grantWrite(reingestTweetsV2Function);
 
     //const reindexTweetsV2Function = new RetryFunction(this, 'ReindexTweetsV2Function', {
     //  source: { bucket, prefix: 'reindex/tweets/v2/' },

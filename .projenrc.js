@@ -2,7 +2,7 @@ const awsSdkVersion = '^3.100.0';
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
   typescriptVersion: '4.6.4',
-  cdkVersion: '2.27.0',
+  cdkVersion: '2.29.1',
   defaultReleaseBranch: 'main',
   name: 'social-analytics',
   // cdkDependencies: undefined,  /* Which AWS CDK modules (those that start with "@aws-cdk/") this app uses. */
@@ -12,12 +12,12 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   // packageName: undefined,      /* The "name" in package.json. */
   // release: undefined,          /* Add release management to this project. */
   deps: [
-    '@aws-cdk/aws-apprunner-alpha@2.26.0-alpha.0',
     `@aws-sdk/client-cognito-identity@${awsSdkVersion}`,
     `@aws-sdk/client-cognito-identity-provider@${awsSdkVersion}`,
     `@aws-sdk/client-comprehend@${awsSdkVersion}`,
     `@aws-sdk/client-dynamodb@${awsSdkVersion}`,
     `@aws-sdk/client-eventbridge@${awsSdkVersion}`,
+    `@aws-sdk/client-firehose@${awsSdkVersion}`,
     `@aws-sdk/client-kinesis@${awsSdkVersion}`,
     `@aws-sdk/client-lambda@${awsSdkVersion}`,
     `@aws-sdk/client-opensearch@${awsSdkVersion}`,
@@ -38,12 +38,16 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@aws-lambda-powertools/metrics',
     '@aws-lambda-powertools/tracer',
     '@types/aws-lambda',
+    '@opensearch-project/opensearch@2.0.0',
+    'aws-xray-sdk@^3.3.6',
+    'aws4@1.11.0',
     'bluebird@3.7.2',
     'node-html-parser@5.3.3',
-    'twitter-api-v2@1.12.0',
+    'twitter-api-v2@1.12.2',
     'yaml@2.0.1',
   ],
   devDeps: [
+    '@types/aws4',
     '@types/bluebird',
     '@types/log4js',
   ],

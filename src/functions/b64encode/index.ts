@@ -1,5 +1,5 @@
 import { Handler } from 'aws-lambda';
-import { b64encode } from '../utils';
+import { b64encode } from '../common-utils';
 
 interface Result {
   Value: string;

@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
 import { Handler } from 'aws-lambda';
-import { Normalize } from '../utils';
+import { Normalize } from '../common-utils';
 
 interface Event {
   Text: string;
