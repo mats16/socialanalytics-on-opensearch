@@ -7,44 +7,60 @@ import { getLogger } from './logger';
 xray.enableManualMode();
 const logger = getLogger();
 
-const region = process.env.AWS_REGION || 'us-west-2';
+const region = process.env.AWS_REGION;
 const eventBusArn = process.env.EVENT_BUS_ARN;
-const deadLetterQueueUrl = process.env.DEAD_LETTER_QUEUE_URL;
 const twitterBearerToken: string = process.env.TWITTER_BEARER_TOKEN!;
 const twitterFieldsParams: Partial<Tweetv2FieldsParams> = JSON.parse(process.env.TWITTER_FIELDS_PARAMS || '{}');
 
 const eventBridge = new EventBridgeClient({ region });
 const sqs = new SQSClient({ region });
 
-const publishEvent = async (event: TweetV2SingleStreamResult, segment: xray.Segment) => {
+const putEvent = async (event: TweetV2SingleStreamResult, segment: xray.Segment) => {
+  const client = xray.captureAWSv3Client(eventBridge, segment);
+  const eventTime = (typeof event.data.created_at == 'string') ? new Date(event.data.created_at) : undefined;
+  const entry: PutEventsRequestEntry = {
+    EventBusName: eventBusArn,
+    Source: 'twitter.api.v2',
+    DetailType: 'Tweet',
+    Detail: JSON.stringify(event),
+    Time: eventTime,
+  };
+  const cmd = new PutEventsCommand({ Entries: [entry] });
+  await client.send(cmd);
+};
+
+const sendDeadLetterQueueMessage = async (message: object, segment: xray.Segment) => {
+  logger.warn({ message: 'An error has occurred and will be sent to DLQ.' });
   try {
-    const client = xray.captureAWSv3Client(eventBridge, segment);
-    const entry: PutEventsRequestEntry = {
-      Time: (typeof event.data.created_at == 'string') ? new Date(event.data.created_at) : new Date(),
-      EventBusName: eventBusArn,
-      Source: 'twitter.api.v2',
-      DetailType: 'Tweet',
-      Detail: JSON.stringify(event),
-    };
-    const cmd = new PutEventsCommand({ Entries: [entry] });
-    await client.send(cmd);
-  } catch (e) {
-    logger.error({ message: 'An error has occurred and will be sent to DLQ.' });
     const client = xray.captureAWSv3Client(sqs, segment);
     const cmd = new SendMessageCommand({
-      QueueUrl: deadLetterQueueUrl,
-      MessageBody: JSON.stringify(event),
+      QueueUrl: process.env.DEAD_LETTER_QUEUE_URL,
+      MessageBody: JSON.stringify(message),
     });
     await client.send(cmd);
+  } catch (err) {
+    logger.error(err);
   }
 };
 
-const client = new TwitterApi(twitterBearerToken);
+const publishEvent = async (event: TweetV2SingleStreamResult, segment: xray.Segment) => {
+  if (typeof eventBusArn == 'string') {
+    try {
+      await putEvent(event, segment);
+    } catch {
+      await sendDeadLetterQueueMessage(event, segment);
+    }
+  } else {
+    console.log(JSON.stringify(event));
+  }
+};
+
+const tw = new TwitterApi(twitterBearerToken);
 
 export const twitterStreamProducer = async () => {
 
   logger.info({ message: 'Connect to twitter api v2...' });
-  const stream = await client.v2.searchStream({ ...twitterFieldsParams, autoConnect: true });
+  const stream = await tw.v2.searchStream({ ...twitterFieldsParams, autoConnect: true });
 
   stream.on(
     // Emitted when Node.js {response} emits a 'error' event (contains its payload).
@@ -62,11 +78,10 @@ export const twitterStreamProducer = async () => {
     // Emitted when a Twitter payload (a tweet or not, given the endpoint).
     ETwitterStreamEvent.Data,
     eventData => {
-      const seg = new xray.Segment('twitter.com');
-      seg.addMetadata('tweet_id', eventData.data.id);
-      publishEvent(eventData, seg).finally(() => {
-        seg.close();
-        seg.flush();
+      const segment = new xray.Segment('twitter.com');
+      segment.addMetadata('tweet_id', eventData.data.id);
+      publishEvent(eventData, segment).finally(() => {
+        segment.close();
       });
       eventData.errors?.map(err => logger.error(err));
     },

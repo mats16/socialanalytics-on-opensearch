@@ -3,10 +3,14 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import { IEventBus } from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { IStringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { Function } from './lambda-nodejs';
+
+const xrayPolicy = iam.ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess');
 
 interface TwitterStreamingReaderProps {
   vpc: ec2.IVpc;
@@ -23,7 +27,15 @@ export class TwitterStreamingReader extends Construct {
 
     const { vpc, twitterBearerToken, twitterFieldsParams, eventBus } = props;
 
-    const deadLetterQueue = new Queue(this, 'DeadLetterQueue');
+    const dlq = new Queue(this, 'DLQ');
+    const dlqFunction = new Function(this, 'DLQFunction', {
+      description: '[SocialAnalytics] Process dead letter queue (DLQ)',
+      entry: './src/functions/dlq-processor/index.ts',
+      environment: { EVENT_BUS_ARN: eventBus.eventBusArn },
+      events: [new SqsEventSource(dlq)],
+    });
+    dlqFunction.role?.addManagedPolicy(xrayPolicy);
+    eventBus.grantPutEventsTo(dlqFunction);
 
     const logGroup = new logs.LogGroup(this, 'LogGroup', {
       retention: logs.RetentionDays.TWO_WEEKS,
@@ -38,10 +50,10 @@ export class TwitterStreamingReader extends Construct {
       },
     });
     const taskRole = taskDefinition.taskRole;
-    taskRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess'));
+    taskRole.addManagedPolicy(xrayPolicy);
     logGroup.grantWrite(taskRole);
     eventBus.grantPutEventsTo(taskRole);
-    deadLetterQueue.grantSendMessages(taskRole);
+    dlq.grantSendMessages(taskRole);
 
     const appContainer = taskDefinition.addContainer('App', {
       containerName: 'app',
@@ -51,7 +63,7 @@ export class TwitterStreamingReader extends Construct {
       essential: true,
       environment: {
         EVENT_BUS_ARN: eventBus.eventBusArn,
-        DEAD_LETTER_QUEUE_URL: deadLetterQueue.queueUrl,
+        DEAD_LETTER_QUEUE_URL: dlq.queueUrl,
       },
       secrets: {
         TWITTER_BEARER_TOKEN: ecs.Secret.fromSsmParameter(twitterBearerToken),
