@@ -11,6 +11,7 @@
     "@aws-sdk/client-eventbridge": "^3.118.0",
     "@aws-sdk/client-sqs": "^3.118.0",
     "aws-xray-sdk": "^3.3.6",
+    "axios": "^0.27.2",
     "fluent-logger": "^3.4.1",
     "log4js": "^6.4.0",
     "twitter-api-v2": "^1.9.1"
