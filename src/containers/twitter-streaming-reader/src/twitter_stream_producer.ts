@@ -6,6 +6,7 @@ import { TwitterApi, ETwitterStreamEvent, Tweetv2FieldsParams, TweetV2SingleStre
 import { getLogger } from './logger';
 
 xray.enableManualMode();
+xray.config([xray.plugins.ECSPlugin]);
 
 const region = process.env.AWS_REGION;
 const ecsMetadataUri = process.env.ECS_CONTAINER_METADATA_URI_V4;
@@ -22,9 +23,11 @@ const getPluginData = async () => {
   if (typeof ecsMetadataUri == 'string') {
     const { data } = await axios.get(ecsMetadataUri);
     const pluginData = {
-      container: data.DockerName as string,
-      container_id: data.DockerId as string,
-      container_arn: data.ContainerARN as string,
+      ecs: {
+        container: process.env.HOSTNAME as string,
+        container_id: data.DockerId as string,
+        container_arn: data.ContainerARN as string,
+      },
     };
     return pluginData;
   } else {
@@ -34,7 +37,6 @@ const getPluginData = async () => {
 
 const startSegment = (event: TweetV2SingleStreamResult) => {
   const segment = new xray.Segment('Twitter Stream Producer');
-  segment.origin = 'AWS::ECS::Container';
   getPluginData()
     .then(data => segment.addPluginData(data))
     .catch(err => logger.error(err));
