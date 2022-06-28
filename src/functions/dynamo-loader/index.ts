@@ -1,27 +1,26 @@
-import { Logger } from '@aws-lambda-powertools/logger';
+//import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
-import { Tracer } from '@aws-lambda-powertools/tracer';
+//import { Tracer } from '@aws-lambda-powertools/tracer';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { EventBridgeHandler } from 'aws-lambda';
-//import * as xray from 'aws-xray-sdk';
+import * as xray from 'aws-xray-sdk';
+import axios from 'axios';
 import { Promise } from 'bluebird';
 import { TweetV2SingleStreamResult, TweetV2 } from 'twitter-api-v2';
 import { TweetItem } from '../common-utils';
 
 const allowedDateAfter = new Date('2019-12-01T00:00:00.000Z');
-const region = process.env.AWS_REGION || 'us-west-2';
+const region = process.env.AWS_REGION;
+const appConfigBaseUrl = process.env.APPCONFIG_BASE_URL;
 const tweetTableName = process.env.TWEET_TABLE_NAME!;
-const twitterFilterContextDomainsParameterName = process.env.TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME!;
-const twitterFilterSourceLabelsParameterName = process.env.TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME!;
 
 let twitterFilterContextDomains: string[];
 let twitterFilterSourceLabels: string[];
 
-const logger = new Logger();
+//const logger = new Logger();
 const metrics = new Metrics();
-const tracer = new Tracer();
+//const tracer = new Tracer();
 
 const marshallOptions = {
   convertEmptyValues: true, // false, by default.
@@ -33,19 +32,13 @@ const unmarshallOptions = {
 };
 const translateConfig = { marshallOptions, unmarshallOptions };
 
-const ssm = tracer.captureAWSv3Client(new SSMClient({ region }));
-const ddbClient = tracer.captureAWSv3Client(new DynamoDBClient({ region }));
+const ddbClient = xray.captureAWSv3Client(new DynamoDBClient({ region }));
 const ddbDocClient = DynamoDBDocumentClient.from(ddbClient, translateConfig);
 
-const getParameter = async(name: string): Promise<string[]> => {
-  const cmd = new GetParameterCommand({ Name: name });
-  const { Parameter } = await ssm.send(cmd);
-  return Parameter?.Value?.split(',') || [];
-};
-
-const loadParameters = async () => {
-  twitterFilterContextDomains = await getParameter(twitterFilterContextDomainsParameterName);
-  twitterFilterSourceLabels = await getParameter(twitterFilterSourceLabelsParameterName);
+const getConfig = async (name: string): Promise<string[]> => {
+  const res = await axios.get(`${appConfigBaseUrl}/${name}`);
+  const data: string = res.data;
+  return data.split(',');
 };
 
 const putTweet = async (item: TweetItem) => {
@@ -72,7 +65,6 @@ const updateTweetMetrics = async (item: TweetItem) => {
   try {
     const output = await ddbDocClient.send(cmd);
     const newItem = output.Attributes as Partial<TweetItem>;
-    console.log(newItem);
     if (typeof newItem.text == 'undefined') {
       metrics.addMetric('UpdateMetricsItemNotExistCount', MetricUnits.Count, 1);
       await putTweet(item);
@@ -125,14 +117,15 @@ const processTweetStreamResult = async (result: TweetV2SingleStreamResult) => {
       updated_at,
     });
   });
-
 };
 
 export const handler: EventBridgeHandler<'Tweet', TweetV2SingleStreamResult, void> = async(event, _context) => {
-  await loadParameters();
+  twitterFilterContextDomains = await getConfig('TwitterFilterContextDomains');
+  twitterFilterSourceLabels = await getConfig('TwitterFilterSourceLabels');
 
   const result = event.detail;
-  if (sourceLabelFilter(result.data) && contextDomainFilter(result.data) && createdAtFilter(result.data)) {
+  const tweet = result.data;
+  if ( sourceLabelFilter(tweet) && contextDomainFilter(tweet) && createdAtFilter(tweet)) {
     await processTweetStreamResult(result);
   }
 

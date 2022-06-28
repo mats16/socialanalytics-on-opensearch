@@ -232,6 +232,11 @@
       "type": "runtime"
     },
     {
+      "name": "axios",
+      "version": "0.27.2",
+      "type": "runtime"
+    },
+    {
       "name": "bluebird",
       "version": "3.7.2",
       "type": "runtime"

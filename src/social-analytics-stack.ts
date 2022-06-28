@@ -10,6 +10,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { tweetFieldsParams } from './parameter';
+import { Application } from './resources/appconfig';
 import { Dashboard } from './resources/dashboard';
 import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { Function, RetryFunction } from './resources/lambda-nodejs';
@@ -66,6 +67,20 @@ export class SocialAnalyticsStack extends Stack {
       actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
       resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter${twitterParameterPath}/*`],
     });
+
+    const app = new Application(this, 'AppConfigApplication', { name: this.stackName });
+    const appEnv = app.addEnvironment('Production');
+    const twitterFilterContextDomainsProfile = app.addSSMParameterConfigProfile('TwitterFilterContextDomains', twitterFilterContextDomains);
+    const twitterFilterSourceLabelsProfile = app.addSSMParameterConfigProfile('TwitterFilterSourceLabels', twitterFilterSourceLabels);
+    appEnv.deploy('TwitterFilterContextDomainsDeploy', twitterFilterContextDomainsProfile.configurationProfileId);
+    appEnv.deploy('TwitterFilterSourceLabelsDeploy', twitterFilterSourceLabelsProfile.configurationProfileId);
+
+    const appConfigPolicyStatement = new iam.PolicyStatement({
+      actions: ['appconfig:StartConfigurationSession', 'appconfig:GetLatestConfiguration'],
+      resources: [`arn:${Aws.PARTITION}:appconfig:${Aws.REGION}:${Aws.ACCOUNT_ID}:application/${app.applicationId}/environment/${appEnv.environmentId}/configuration/*`],
+    });
+
+    const appConfigExtension = lambda.LayerVersion.fromLayerVersionArn(this, 'AppConfig-Extension', 'arn:aws:lambda:us-west-2:359756378197:layer:AWS-AppConfig-Extension-Arm64:3');
 
     const bucket = new s3.Bucket(this, 'Bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -160,16 +175,16 @@ export class SocialAnalyticsStack extends Stack {
     const dynamoLoaderFunction = new Function(this, 'DynamoLoaderFunction', {
       description: '[SocialAnalytics] Tweet event processor to update DynamoDB',
       entry: './src/functions/dynamo-loader/index.ts',
+      layers: [appConfigExtension],
       insightsVersion,
       tracing,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'DynamoLoaderFunction',
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
-        TWITTER_FILTER_CONTEXT_DOMAINS_PARAMETER_NAME: twitterFilterContextDomains.parameterName,
-        TWITTER_FILTER_SOURCE_LABELS_PARAMETER_NAME: twitterFilterSourceLabels.parameterName,
+        APPCONFIG_BASE_URL: `http://localhost:2772/applications/${app.applicationName}/environments/${appEnv.environmentName}/configurations`,
         TWEET_TABLE_NAME: tweetTable.tableName,
       },
-      initialPolicy: [twitterParameterPolicyStatement],
+      initialPolicy: [appConfigPolicyStatement],
     });
     tweetTable.grantWriteData(dynamoLoaderFunction);
     new Rule(this, 'DynamoLoaderRule', {

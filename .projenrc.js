@@ -41,6 +41,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@opensearch-project/opensearch@2.0.0',
     'aws-xray-sdk@^3.3.6',
     'aws4@1.11.0',
+    'axios@0.27.2',
     'bluebird@3.7.2',
     'node-html-parser@5.3.3',
     'twitter-api-v2@1.12.2',
