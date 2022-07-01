@@ -11,22 +11,6 @@ import { Construct } from 'constructs';
 import { Function } from './lambda-nodejs';
 
 const xrayPolicy = iam.ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess');
-//const awsOtelCollectorStatement = new iam.PolicyStatement({
-//  actions: [
-//    'logs:PutLogEvents',
-//    'logs:CreateLogGroup',
-//    'logs:CreateLogStream',
-//    'logs:DescribeLogStreams',
-//    'logs:DescribeLogGroups',
-//    'xray:PutTraceSegments',
-//    'xray:PutTelemetryRecords',
-//    'xray:GetSamplingRules',
-//    'xray:GetSamplingTargets',
-//    'xray:GetSamplingStatisticSummaries',
-//    'ssm:GetParameters',
-//  ],
-//  resources: ['*'],
-//});
 
 interface TwitterStreamingReaderProps {
   vpc: ec2.IVpc;
@@ -71,7 +55,6 @@ export class TwitterStreamingReader extends Construct {
       },
     });
     const taskRole = taskDefinition.taskRole;
-    //taskRole.addToPrincipalPolicy(awsOtelCollectorStatement);
     taskRole.addManagedPolicy(xrayPolicy);
     logGroup.grantWrite(taskRole);
     eventBus.grantPutEventsTo(taskRole);
@@ -107,16 +90,12 @@ export class TwitterStreamingReader extends Construct {
 
     //const otelContainer = taskDefinition.addContainer('otel', {
     //  containerName: 'aws-otel-collector',
-    //  image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.17.1'),
-    //  //command: ['--config=/etc/ecs/container-insights/otel-task-metrics-config.yaml'], // To consume application metrics, traces (using OTLP and Xray) and container resource utilization metrics (using awsecscontainermetrics receiver)
-    //  command: ['--config=/etc/ecs/ecs-default-config.yaml'], // To consume OTLP metrics/traces and X-Ray SDK traces (custom application metrics/traces)
+    //  image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.18.0'),
+    //  command: ['--config=/etc/ecs/ecs-xray.yaml'],
     //  cpu: 64,
     //  memoryReservationMiB: 128,
     //  readonlyRootFilesystem: true,
-    //  logging: new ecs.AwsLogDriver({
-    //    logGroup: logGroup,
-    //    streamPrefix: 'ecs',
-    //  }),
+    //  logging: awsLogDriver,
     //});
 
     appContainer.addContainerDependencies({

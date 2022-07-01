@@ -6,7 +6,7 @@ import { TwitterApi, ETwitterStreamEvent, Tweetv2FieldsParams, TweetV2SingleStre
 import { getLogger } from './logger';
 
 xray.enableManualMode();
-xray.config([xray.plugins.ECSPlugin]);
+//xray.config([xray.plugins.ECSPlugin]);
 
 const region = process.env.AWS_REGION;
 const ecsMetadataUri = process.env.ECS_CONTAINER_METADATA_URI_V4;
@@ -35,12 +35,14 @@ const getPluginData = async () => {
   }
 };
 
-const startSegment = (event: TweetV2SingleStreamResult) => {
-  const segment = new xray.Segment('Twitter Stream Producer');
-  getPluginData()
-    .then(data => segment.addPluginData(data))
-    .catch(err => logger.error(err));
-  segment.addMetadata('id', event.data.id, 'tweet');
+const startSegment = (name: string, origin?: string, parentSegment?: xray.Segment) => {
+  const segment = new xray.Segment(name, parentSegment?.trace_id, parentSegment?.id);
+  segment.origin = origin;
+  if (origin?.startsWith('AWS:ECS')) {
+    getPluginData()
+      .then(data => segment.addPluginData(data))
+      .catch(err => logger.error(err));
+  }
   return segment;
 };
 
@@ -107,7 +109,11 @@ export const twitterStreamProducer = async () => {
     // Emitted when a Twitter payload (a tweet or not, given the endpoint).
     ETwitterStreamEvent.Data,
     eventData => {
-      const segment = startSegment(eventData);
+      const twSegment = startSegment('twitter.com');
+      twSegment.start_time = new Date(eventData.data.created_at!).valueOf() / 1000;
+      twSegment.end_time = new Date().valueOf() / 1000;;
+      twSegment.close();
+      const segment = startSegment('Twitter Stream Producer', 'AWS::ECS::Fargate', twSegment);
       publishEvent(eventData, segment).finally(() => {
         segment.close();
       });
