@@ -78,28 +78,18 @@ export class TwitterStreamingReader extends Construct {
       logging: awsLogDriver,
     });
 
-    const xrayContainer = taskDefinition.addContainer('xray', {
-      containerName: 'xray-daemon',
-      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/xray/aws-xray-daemon:3.x'),
-      user: '1337',
+    const otelContainer = taskDefinition.addContainer('otel', {
+      containerName: 'aws-otel-collector',
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.19.0'),
+      command: ['--config=/etc/ecs/ecs-xray.yaml'],
       cpu: 64,
       memoryReservationMiB: 128,
       readonlyRootFilesystem: true,
       logging: awsLogDriver,
     });
 
-    //const otelContainer = taskDefinition.addContainer('otel', {
-    //  containerName: 'aws-otel-collector',
-    //  image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.18.0'),
-    //  command: ['--config=/etc/ecs/ecs-xray.yaml'],
-    //  cpu: 64,
-    //  memoryReservationMiB: 128,
-    //  readonlyRootFilesystem: true,
-    //  logging: awsLogDriver,
-    //});
-
     appContainer.addContainerDependencies({
-      container: xrayContainer,
+      container: otelContainer,
       condition: ecs.ContainerDependencyCondition.START,
     });
 

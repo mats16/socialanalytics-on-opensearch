@@ -175,7 +175,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "701689f6102de2fd78df1ecde2f26ab1cbb28e7003b8512cb6965b3b25d4abbe.zip",
+          "S3Key": "f35b58e11074a7741fdfd3b9dbdc61a3d7c36fad04656140453099b069e10c6a.zip",
         },
         "Description": "[SocialAnalytics] Amazon Comprehend",
         "Environment": Object {
@@ -596,7 +596,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "2bbc9eba7007992cb496afa08a81efcaca514faae595ace09d58a287c9c38d7e.zip",
+          "S3Key": "60250dcaf86d0bb479122d0640714dec7a12f7dc769f3491cbb2d724865fe52a.zip",
         },
         "Description": "[SocialAnalytics] Archive event for Firehose-S3",
         "Environment": Object {
@@ -2437,7 +2437,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "ade9673828e16616fbc68f52529bdce86eea547a594f29aed47b131c04a3c011.zip",
+          "S3Key": "3a84b99a70325c391d0a404fe224f6ba26e899f36592c7c02a934d386a54a20a.zip",
         },
         "Description": "Lambda-backed custom resources - OpenSearch resources",
         "Environment": Object {
@@ -3121,7 +3121,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "ef12a50535efa82ef3e934bb14712a1329af6fece959751ca3e1c0b1bdab144b.zip",
+          "S3Key": "c09f89c80af00d26b35abeabd40592553e3a60f0138ea7727608a06fcc077cba.zip",
         },
         "Description": "[SocialAnalytics] Tweet event processor to update DynamoDB",
         "Environment": Object {
@@ -3377,7 +3377,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "77cc636dff8d50be9c5543d21cd32f4412473f54576781de1a94987dbe070177.zip",
+          "S3Key": "bbe237de16571f95ccafa5666b28b3d01e61eb4f159426989e0170acdb556360.zip",
         },
         "Description": "[SocialAnalytics] OpenSearch Bulk Loader",
         "Environment": Object {
@@ -3580,7 +3580,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "6db3e796026c253586323f07ab00d2c249bafb8729de32eb4d540572777d1239.zip",
+          "S3Key": "74b0f2b149102cb204b7537351255a09d3379622c3a7a71931ab412821412de5.zip",
         },
         "Description": "[SocialAnalytics] OpenSearch package register",
         "Environment": Object {
@@ -3826,7 +3826,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "62d3897bebb0673a8a9b1ebfdc223025da0c53a4424d9db0088982a5bf2c0fae.zip",
+          "S3Key": "80d959a7ad7e11185a381b7fcff6fb5597d17ad954cb842c05724b8362eb4b1d.zip",
         },
         "Description": "[SocialAnalytics] Process dead letter queue (DLQ)",
         "Environment": Object {
@@ -4021,7 +4021,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
             "DependsOn": Array [
               Object {
                 "Condition": "START",
-                "ContainerName": "xray-daemon",
+                "ContainerName": "aws-otel-collector",
               },
             ],
             "Environment": Array [
@@ -4043,7 +4043,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
             ],
             "Essential": true,
             "Image": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:06e2e332a8e469eac01ef23ae7fdec3386555fed6343cc44e7a013a39c00b612",
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:d4c317ecb34a3dc3975738cb7177bd4842f29e963ff5ae863892feecbe89695e",
             },
             "LogConfiguration": Object {
               "LogDriver": "awslogs",
@@ -4054,7 +4054,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
                 "awslogs-region": Object {
                   "Ref": "AWS::Region",
                 },
-                "awslogs-stream-prefix": "app",
+                "awslogs-stream-prefix": "ecs",
               },
             },
             "MemoryReservation": 256,
@@ -4116,9 +4116,12 @@ def submit_response(event: dict, context, response_status: str, error_message: s
             ],
           },
           Object {
+            "Command": Array [
+              "--config=/etc/ecs/ecs-xray.yaml",
+            ],
             "Cpu": 64,
             "Essential": true,
-            "Image": "public.ecr.aws/xray/aws-xray-daemon:3.x",
+            "Image": "public.ecr.aws/aws-observability/aws-otel-collector:v0.19.0",
             "LogConfiguration": Object {
               "LogDriver": "awslogs",
               "Options": Object {
@@ -4128,19 +4131,12 @@ def submit_response(event: dict, context, response_status: str, error_message: s
                 "awslogs-region": Object {
                   "Ref": "AWS::Region",
                 },
-                "awslogs-stream-prefix": "xray",
+                "awslogs-stream-prefix": "ecs",
               },
             },
-            "MemoryReservation": 256,
-            "Name": "xray-daemon",
-            "PortMappings": Array [
-              Object {
-                "ContainerPort": 2000,
-                "Protocol": "udp",
-              },
-            ],
+            "MemoryReservation": 128,
+            "Name": "aws-otel-collector",
             "ReadonlyRootFilesystem": true,
-            "User": "1337",
           },
         ],
         "Cpu": "256",
@@ -4359,6 +4355,16 @@ def submit_response(event: dict, context, response_status: str, error_message: s
               "Resource": Object {
                 "Fn::GetAtt": Array [
                   "TwitterStreamingReaderLogGroupFAD6413F",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": "events:PutEvents",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TwitterEventBusC40513FF",
                   "Arn",
                 ],
               },

@@ -3,7 +3,7 @@ FROM public.ecr.aws/docker/library/node:18-alpine as builder
 USER node
 WORKDIR /home/node
 
-COPY package.json ./
+COPY ["package.json", "package-lock.json", "./"]
 RUN npm install
 
 COPY tsconfig.json ./
@@ -18,7 +18,7 @@ RUN apk add --no-cache tini
 USER node
 WORKDIR /home/node
 
-COPY package.json ./
+COPY ["package.json", "package-lock.json", "./"]
 RUN npm install --production --cache /tmp/empty-cache && rm -rf /tmp/empty-cache
 
 COPY --from=builder /home/node/lib/ ./lib
