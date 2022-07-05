@@ -69,6 +69,7 @@ export class TwitterStreamingReader extends Construct {
       environment: {
         EVENT_BUS_ARN: eventBus.eventBusArn,
         DEAD_LETTER_QUEUE_URL: dlq.queueUrl,
+        OTEL_SERVICE_NAME: 'Twitter Stream Producer',
       },
       secrets: {
         TWITTER_BEARER_TOKEN: ecs.Secret.fromSsmParameter(twitterBearerToken),

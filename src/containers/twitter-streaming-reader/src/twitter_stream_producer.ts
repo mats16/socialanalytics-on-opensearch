@@ -1,7 +1,6 @@
-import { SpanKind } from '@opentelemetry/api';
+import { trace, SpanKind } from '@opentelemetry/api';
 import { TwitterApi, ETwitterStreamEvent, Tweetv2FieldsParams, TweetV2SingleStreamResult } from 'twitter-api-v2';
 import { getLogger } from './logger';
-import tracer from './tracer';
 import { putTweetEvent, sendQueueMessage } from './utils';
 
 const eventBusArn = process.env.EVENT_BUS_ARN;
@@ -9,6 +8,7 @@ const deadLetterQueueUrl = process.env.DEAD_LETTER_QUEUE_URL || 'N/A';
 const twitterBearerToken: string = process.env.TWITTER_BEARER_TOKEN!;
 const twitterFieldsParams: Partial<Tweetv2FieldsParams> = JSON.parse(process.env.TWITTER_FIELDS_PARAMS || '{}');
 
+const tracer = trace.getTracer('my-tracer');
 const logger = getLogger();
 
 const publishEvent = async (event: TweetV2SingleStreamResult) => {

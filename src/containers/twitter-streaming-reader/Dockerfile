@@ -21,7 +21,7 @@ WORKDIR /home/node
 COPY ["package.json", "package-lock.json", "./"]
 RUN npm install --production --cache /tmp/empty-cache && rm -rf /tmp/empty-cache
 
-COPY --from=builder /home/node/lib/ ./lib
+COPY --from=builder /home/node/lib/ ./
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD [ "node", "./lib/app.js" ]
+CMD [ "node", "--require", "./tracing.js", "./app.js" ]
