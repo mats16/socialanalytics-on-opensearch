@@ -1,4 +1,4 @@
-import { trace, SpanKind } from '@opentelemetry/api';
+import { trace, SpanKind, ROOT_CONTEXT } from '@opentelemetry/api';
 import { TwitterApi, ETwitterStreamEvent, Tweetv2FieldsParams, TweetV2SingleStreamResult } from 'twitter-api-v2';
 import { getLogger } from './logger';
 import { putTweetEvent, sendQueueMessage } from './utils';
@@ -46,11 +46,14 @@ export const twitterStreamProducer = async () => {
     // Emitted when a Twitter payload (a tweet or not, given the endpoint).
     ETwitterStreamEvent.Data,
     eventData => {
-      const eventTime = new Date(eventData.data.created_at!);
       const now = new Date();
+      const eventTime = (typeof eventData.data.created_at == 'string') ? new Date(eventData.data.created_at) : now;
 
-      tracer.startActiveSpan('server', { startTime: eventTime, kind: SpanKind.SERVER }, (span) => {
-        tracer.startSpan('(Twitter Internal)', { startTime: eventTime, kind: SpanKind.INTERNAL }).end(now);
+      const twitterSpan = tracer.startSpan('twitter', { startTime: eventTime, kind: SpanKind.SERVER, attributes: { 'peer.service': 'twitter.com' } });
+      twitterSpan.end(now);
+      const ctx = trace.setSpan(ROOT_CONTEXT, twitterSpan);
+
+      tracer.startActiveSpan('server', { startTime: now, kind: SpanKind.SERVER }, ctx, (span) => {
         publishEvent(eventData).finally(() => {
           span.end();
         });
