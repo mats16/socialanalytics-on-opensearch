@@ -1,8 +1,9 @@
-import { Stack } from 'aws-cdk-lib';
+import { Stack, Aws } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import { IEventBus } from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
@@ -31,10 +32,10 @@ export class TwitterStreamingReader extends Construct {
     const dlqFunction = new Function(this, 'DLQFunction', {
       description: '[SocialAnalytics] Process dead letter queue (DLQ)',
       entry: './src/functions/dlq-processor/index.ts',
+      tracing: lambda.Tracing.ACTIVE,
       environment: { EVENT_BUS_ARN: eventBus.eventBusArn },
       events: [new SqsEventSource(dlq)],
     });
-    dlqFunction.role?.addManagedPolicy(xrayPolicy);
     eventBus.grantPutEventsTo(dlqFunction);
 
     const logGroup = new logs.LogGroup(this, 'LogGroup', {

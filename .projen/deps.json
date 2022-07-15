@@ -115,72 +115,72 @@
     },
     {
       "name": "@aws-sdk/client-cognito-identity-provider",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-cognito-identity",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-comprehend",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-dynamodb",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-eventbridge",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-firehose",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-kinesis",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-lambda",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-opensearch",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-s3",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-sfn",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-ssm",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-sts",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/credential-provider-node",
-      "version": "^3.100.0",
+      "version": "^3.121.0",
       "type": "runtime"
     },
     {
@@ -210,6 +210,66 @@
     {
       "name": "@opensearch-project/opensearch",
       "version": "2.0.0",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/api",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/core",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/exporter-trace-otlp-http",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/exporter-trace-otlp-proto",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/id-generator-aws-xray",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/instrumentation",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/instrumentation-aws-lambda",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/instrumentation-aws-sdk",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/instrumentation-http",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/propagator-aws-xray",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/resource-detector-aws",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/sdk-trace-base",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/sdk-trace-node",
+      "type": "runtime"
+    },
+    {
+      "name": "@opentelemetry/semantic-conventions",
       "type": "runtime"
     },
     {
@@ -253,7 +313,7 @@
     },
     {
       "name": "twitter-api-v2",
-      "version": "1.12.2",
+      "version": "1.12.3",
       "type": "runtime"
     },
     {

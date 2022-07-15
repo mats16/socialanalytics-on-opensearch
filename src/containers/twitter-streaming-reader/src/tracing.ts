@@ -18,7 +18,8 @@ const toTraceHeader = (span: Span): string => {
   const ctx = trace.setSpan(ROOT_CONTEXT, span);
   const carrier: { [key: string]: string } = {};
   propagation.inject(ctx, carrier);
-  return carrier[AWSXRAY_TRACE_ID_HEADER];
+  const traceHeader = carrier[AWSXRAY_TRACE_ID_HEADER];
+  return traceHeader;
 };
 
 const instrumentations = [
@@ -26,6 +27,7 @@ const instrumentations = [
     suppressInternalInstrumentation: true,
     preRequestHook: (span, info) => {
       const { serviceName, commandName, commandInput } = info.request;
+      span.setAttribute('aws.service', serviceName);
       if (serviceName == 'EventBridge' && commandName == 'PutEvents') {
         (commandInput as PutEventsCommandInput).Entries?.map(entry => {
           entry.TraceHeader = toTraceHeader(span);

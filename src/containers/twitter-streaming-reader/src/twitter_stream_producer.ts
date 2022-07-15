@@ -49,11 +49,8 @@ export const twitterStreamProducer = async () => {
       const now = new Date();
       const eventTime = (typeof eventData.data.created_at == 'string') ? new Date(eventData.data.created_at) : now;
 
-      const twitterSpan = tracer.startSpan('twitter', { startTime: eventTime, kind: SpanKind.SERVER, attributes: { 'peer.service': 'twitter.com' } });
-      twitterSpan.end(now);
-      const ctx = trace.setSpan(ROOT_CONTEXT, twitterSpan);
-
-      tracer.startActiveSpan('server', { startTime: now, kind: SpanKind.SERVER }, ctx, (span) => {
+      tracer.startActiveSpan('server', { startTime: eventTime, kind: SpanKind.SERVER }, (span) => {
+        tracer.startSpan('Twitter Internal', { startTime: eventTime }).end(now);
         publishEvent(eventData).finally(() => {
           span.end();
         });

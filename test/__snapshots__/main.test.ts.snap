@@ -175,7 +175,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "f35b58e11074a7741fdfd3b9dbdc61a3d7c36fad04656140453099b069e10c6a.zip",
+          "S3Key": "81ff8001c678a76e981257090add4a7aaeee38bf10e315d57c8a1e17725062a4.zip",
         },
         "Description": "[SocialAnalytics] Amazon Comprehend",
         "Environment": Object {
@@ -195,6 +195,18 @@ Object {
         },
         "Handler": "index.handler",
         "Layers": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
+                ":901920570463:layer:aws-otel-nodejs-arm64-ver-1-2-0:1",
+              ],
+            ],
+          },
           Object {
             "Fn::Join": Array [
               "",
@@ -596,7 +608,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "60250dcaf86d0bb479122d0640714dec7a12f7dc769f3491cbb2d724865fe52a.zip",
+          "S3Key": "8534562cda436b93df2fb42b50f32915e5b6408f35532dcb405b0893d68c57bf.zip",
         },
         "Description": "[SocialAnalytics] Archive event for Firehose-S3",
         "Environment": Object {
@@ -621,6 +633,18 @@ Object {
                 Object {
                   "Ref": "AWS::Region",
                 },
+                ":901920570463:layer:aws-otel-nodejs-arm64-ver-1-2-0:1",
+              ],
+            ],
+          },
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
                 ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
               ],
             ],
@@ -633,7 +657,7 @@ Object {
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 5,
+        "Timeout": 10,
         "TracingConfig": Object {
           "Mode": "Active",
         },
@@ -1233,7 +1257,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 5,
+        "Timeout": 10,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -1300,7 +1324,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 5,
+        "Timeout": 10,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -1398,7 +1422,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 5,
+        "Timeout": 10,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -2437,7 +2461,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "3a84b99a70325c391d0a404fe224f6ba26e899f36592c7c02a934d386a54a20a.zip",
+          "S3Key": "8f27413482d461d2e80ff8281a15e0163f0133f656b49b7c6255906e646a9f86.zip",
         },
         "Description": "Lambda-backed custom resources - OpenSearch resources",
         "Environment": Object {
@@ -3121,7 +3145,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "c09f89c80af00d26b35abeabd40592553e3a60f0138ea7727608a06fcc077cba.zip",
+          "S3Key": "dc2b3ab0944fbce490952cdc23afbe0950160d549a0389820375d0d6b4ea13ae.zip",
         },
         "Description": "[SocialAnalytics] Tweet event processor to update DynamoDB",
         "Environment": Object {
@@ -3148,6 +3172,18 @@ def submit_response(event: dict, context, response_status: str, error_message: s
                 Object {
                   "Ref": "AWS::Region",
                 },
+                ":901920570463:layer:aws-otel-nodejs-arm64-ver-1-2-0:1",
+              ],
+            ],
+          },
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
                 ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
               ],
             ],
@@ -3160,7 +3196,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 5,
+        "Timeout": 10,
         "TracingConfig": Object {
           "Mode": "Active",
         },
@@ -3377,7 +3413,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "bbe237de16571f95ccafa5666b28b3d01e61eb4f159426989e0170acdb556360.zip",
+          "S3Key": "8b3d7a244de0dab5b2b3a3e39535dc3d6bf22cabcf22d1f553962b9d567f92d7.zip",
         },
         "Description": "[SocialAnalytics] OpenSearch Bulk Loader",
         "Environment": Object {
@@ -3397,6 +3433,18 @@ def submit_response(event: dict, context, response_status: str, error_message: s
         },
         "Handler": "index.handler",
         "Layers": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
+                ":901920570463:layer:aws-otel-nodejs-arm64-ver-1-2-0:1",
+              ],
+            ],
+          },
           Object {
             "Fn::Join": Array [
               "",
@@ -3580,7 +3628,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "74b0f2b149102cb204b7537351255a09d3379622c3a7a71931ab412821412de5.zip",
+          "S3Key": "9e8cbb328b48d0ccabbe45d98a378ce78d6f845552aae2d821e2086cf5912f9d.zip",
         },
         "Description": "[SocialAnalytics] OpenSearch package register",
         "Environment": Object {
@@ -3596,7 +3644,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 5,
+        "Timeout": 10,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -3826,7 +3874,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "80d959a7ad7e11185a381b7fcff6fb5597d17ad954cb842c05724b8362eb4b1d.zip",
+          "S3Key": "c6730e98f4997f92dd0a4d363db73c63b60da764eac6b50233482f21639465d5.zip",
         },
         "Description": "[SocialAnalytics] Process dead letter queue (DLQ)",
         "Environment": Object {
@@ -3838,9 +3886,24 @@ def submit_response(event: dict, context, response_status: str, error_message: s
                 "Arn",
               ],
             },
+            "OTEL_SERVICE_NAME": "DLQ process",
           },
         },
         "Handler": "index.handler",
+        "Layers": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
+                ":901920570463:layer:aws-otel-nodejs-arm64-ver-1-2-0:1",
+              ],
+            ],
+          },
+        ],
         "Role": Object {
           "Fn::GetAtt": Array [
             "TwitterStreamingReaderDLQFunctionServiceRole3C529AD5",
@@ -3848,7 +3911,10 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
         },
         "Runtime": "nodejs16.x",
-        "Timeout": 5,
+        "Timeout": 10,
+        "TracingConfig": Object {
+          "Mode": "Active",
+        },
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -3879,18 +3945,6 @@ def submit_response(event: dict, context, response_status: str, error_message: s
               ],
             ],
           },
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/AWSXRayDaemonWriteAccess",
-              ],
-            ],
-          },
         ],
       },
       "Type": "AWS::IAM::Role",
@@ -3899,6 +3953,14 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
             Object {
               "Action": Array [
                 "sqs:ReceiveMessage",
@@ -4040,10 +4102,14 @@ def submit_response(event: dict, context, response_status: str, error_message: s
                   "Ref": "TwitterStreamingReaderDLQC3457825",
                 },
               },
+              Object {
+                "Name": "OTEL_SERVICE_NAME",
+                "Value": "Twitter Stream Producer",
+              },
             ],
             "Essential": true,
             "Image": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:d4c317ecb34a3dc3975738cb7177bd4842f29e963ff5ae863892feecbe89695e",
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:72cd4001a3110fb93e17e45a71245b68af4c7d5ac06c3d0a5fcde56866818bbc",
             },
             "LogConfiguration": Object {
               "LogDriver": "awslogs",
@@ -4355,16 +4421,6 @@ def submit_response(event: dict, context, response_status: str, error_message: s
               "Resource": Object {
                 "Fn::GetAtt": Array [
                   "TwitterStreamingReaderLogGroupFAD6413F",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "events:PutEvents",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterEventBusC40513FF",
                   "Arn",
                 ],
               },

@@ -1,4 +1,4 @@
-const awsSdkVersion = '^3.100.0';
+const awsSdkVersion = '^3.121.0';
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
   typescriptVersion: '4.6.4',
@@ -39,12 +39,27 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@aws-lambda-powertools/tracer',
     '@types/aws-lambda',
     '@opensearch-project/opensearch@2.0.0',
+    '@opentelemetry/api',
+    '@opentelemetry/core',
+    '@opentelemetry/exporter-trace-otlp-http',
+    '@opentelemetry/exporter-trace-otlp-proto',
+    '@opentelemetry/id-generator-aws-xray',
+    '@opentelemetry/instrumentation',
+    '@opentelemetry/instrumentation-aws-lambda',
+    '@opentelemetry/instrumentation-aws-sdk',
+    '@opentelemetry/instrumentation-http',
+    '@opentelemetry/propagator-aws-xray',
+    '@opentelemetry/resource-detector-aws',
+    '@opentelemetry/resources',
+    '@opentelemetry/sdk-trace-base',
+    '@opentelemetry/sdk-trace-node',
+    '@opentelemetry/semantic-conventions',
     'aws-xray-sdk@^3.3.6',
     'aws4@1.11.0',
     'axios@0.27.2',
     'bluebird@3.7.2',
     'node-html-parser@5.3.3',
-    'twitter-api-v2@1.12.2',
+    'twitter-api-v2@1.12.3',
     'yaml@2.0.1',
   ],
   devDeps: [

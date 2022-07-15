@@ -4,7 +4,6 @@ import { Tracer } from '@aws-lambda-powertools/tracer';
 import { EventBridgeClient, PutEventsCommand, PutEventsRequestEntry } from '@aws-sdk/client-eventbridge';
 import { SQSHandler, SQSRecord } from 'aws-lambda';
 import * as xray from 'aws-xray-sdk';
-import { Promise } from 'bluebird';
 import { TweetV2SingleStreamResult } from 'twitter-api-v2';
 
 const region = process.env.AWS_REGION;
@@ -18,7 +17,7 @@ const eventBridge = new EventBridgeClient({ region });
 
 const startSegment = (startTime: number, traceHeader?: string) => {
   const traceData = xray.utils.processTraceData(traceHeader);
-  const segment = new xray.Segment('DLQ Processor', traceData.root, traceData.parent);
+  const segment = new xray.Segment('DLQ process', traceData.root, traceData.parent);
   segment.origin = 'AWS::Lambda::Function';
   segment.start_time = startTime;
   //segment.addPluginData({
@@ -60,7 +59,5 @@ const processRecord = async (record: SQSRecord) => {
 };
 
 export const handler: SQSHandler = async (event, _context) => {
-  await Promise.map(event.Records, async (record) => {
-    await processRecord(record);
-  });
+  await Promise.all(event.Records.map(processRecord));
 };

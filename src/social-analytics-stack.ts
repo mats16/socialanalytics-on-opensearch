@@ -23,7 +23,6 @@ interface SocialAnalyticsStackProps extends StackProps {
 };
 
 const insightsVersion = lambda.LambdaInsightsVersion.VERSION_1_0_135_0;
-const tracing = lambda.Tracing.ACTIVE;
 
 export class SocialAnalyticsStack extends Stack {
   constructor(scope: Construct, id: string, props: SocialAnalyticsStackProps) {
@@ -155,7 +154,7 @@ export class SocialAnalyticsStack extends Stack {
       description: '[SocialAnalytics] Archive event for Firehose-S3',
       entry: './src/functions/archive-event/index.ts',
       insightsVersion,
-      tracing,
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'ArchiveEventFunction',
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
@@ -177,7 +176,7 @@ export class SocialAnalyticsStack extends Stack {
       entry: './src/functions/dynamo-loader/index.ts',
       layers: [appConfigExtension],
       insightsVersion,
-      tracing,
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'DynamoLoaderFunction',
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
@@ -199,7 +198,7 @@ export class SocialAnalyticsStack extends Stack {
       memorySize: 256,
       timeout: Duration.minutes(1),
       insightsVersion,
-      tracing,
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'AnalyzeFunction',
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
@@ -242,7 +241,7 @@ export class SocialAnalyticsStack extends Stack {
       memorySize: 256,
       timeout: Duration.minutes(1),
       insightsVersion,
-      tracing,
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         POWERTOOLS_SERVICE_NAME: 'OpenSearchLoaderFunction',
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
