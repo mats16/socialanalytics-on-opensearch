@@ -15,6 +15,7 @@ import { Dashboard } from './resources/dashboard';
 import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { Function, RetryFunction } from './resources/lambda-nodejs';
 import { OpenSearchPackages } from './resources/opensearch-packages';
+import { ReIndexBatch } from './resources/sfn-reindex-batch';
 import { ComprehendWithCache } from './resources/sfn-state-machines';
 import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
 
@@ -110,7 +111,7 @@ export class SocialAnalyticsStack extends Stack {
         name: 'created_at',
         type: dynamodb.AttributeType.STRING,
       },
-      //projectionType: dynamodb.ProjectionType.KEYS_ONLY,
+      projectionType: dynamodb.ProjectionType.KEYS_ONLY,
     });
 
     const twitterEventBus = new EventBus(this, 'TwitterEventBus');
@@ -273,6 +274,11 @@ export class SocialAnalyticsStack extends Stack {
       body: {
         backend_roles: [`${openSearchLoaderFunction.role?.roleArn}`],
       },
+    });
+
+    new ReIndexBatch(this, 'ReIndexBatch', {
+      tweetTable: tweetTable,
+      dataLoadFunction: openSearchLoaderFunction,
     });
 
     //const reingestTweetsV1Function = new RetryFunction(this, 'ReingestTweetsV1Function', {

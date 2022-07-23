@@ -69,16 +69,16 @@ const bulk = async (host: string, docs: Document[]) => {
 };
 
 const toTweetItem = (record: DynamoDBRecord): TweetItem => {
-  const r = record as DynamoDBRecord;
-  const newImage = r.dynamodb?.NewImage as Record<string, AttributeValue>;
-  const tweet = unmarshall(newImage, unmarshallOptions) as TweetItem;
+  const newImage = record.dynamodb?.NewImage;
+  const validImage = JSON.parse(JSON.stringify(newImage).replace(/"Bool"/g, '"BOOL"').replace(/"Nul"/g, '"NULL"')); // for Java SDK
+  const tweet = unmarshall(validImage, unmarshallOptions) as TweetItem;
   return tweet;
 };
 
 export const handler: Handler<DynamoDBStreamEvent> = async(event, _context) => {
   metrics.addMetric('IncomingRecordCount', MetricUnits.Count, event.Records.length);
 
-  const records = event.Records.filter(record => record.eventSource == 'aws:dynamodb' && record.eventName == 'MODIFY');
+  const records = event.Records.filter(record => record.eventName == 'MODIFY');
   const tweetItems = records.map(toTweetItem).filter(tweet => typeof tweet.created_at == 'string');
   const docs = tweetItems.map(toDocument);
 
