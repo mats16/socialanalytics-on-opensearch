@@ -25,7 +25,7 @@ export class Dashboard extends Construct {
 
     this.Domain = new Domain(this, 'Domain', {
       domainName,
-      version: opensearch.EngineVersion.openSearch('1.3'),
+      version: opensearch.EngineVersion.openSearch('2.3'),
       enableVersionUpgrade: true,
       zoneAwareness: { availabilityZoneCount: 3 },
       vpc,

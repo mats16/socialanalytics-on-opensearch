@@ -2223,7 +2223,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
         "EncryptionAtRestOptions": Object {
           "Enabled": true,
         },
-        "EngineVersion": "OpenSearch_1.3",
+        "EngineVersion": "OpenSearch_2.3",
         "LogPublishingOptions": Object {
           "AUDIT_LOGS": Object {
             "CloudWatchLogsLogGroupArn": Object {
