@@ -4,7 +4,7 @@ USER node
 WORKDIR /home/node
 
 COPY ["package.json", "package-lock.json", "./"]
-RUN npm install
+RUN npm ci
 
 COPY tsconfig.json ./
 COPY src src
@@ -19,7 +19,7 @@ USER node
 WORKDIR /home/node
 
 COPY ["package.json", "package-lock.json", "./"]
-RUN npm install --production --cache /tmp/empty-cache && rm -rf /tmp/empty-cache
+RUN npm ci --production --cache /tmp/empty-cache && rm -rf /tmp/empty-cache
 
 COPY --from=builder /home/node/lib/ ./
 
