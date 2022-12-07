@@ -134,10 +134,6 @@
         }
       ]
     },
-    "post-upgrade": {
-      "name": "post-upgrade",
-      "description": "Runs after upgrading dependencies"
-    },
     "pre-compile": {
       "name": "pre-compile",
       "description": "Prepare the project for compilation"
@@ -187,78 +183,6 @@
       "steps": [
         {
           "exec": "jest --watch"
-        }
-      ]
-    },
-    "upgrade": {
-      "name": "upgrade",
-      "description": "upgrade dependencies",
-      "env": {
-        "CI": "0"
-      },
-      "steps": [
-        {
-          "exec": "npm-check-updates --dep dev --upgrade --target=minor --reject='typescript,@opensearch-project/opensearch,aws4,axios,bluebird,node-html-parser,twitter-api-v2,yaml,projen'"
-        },
-        {
-          "exec": "npm-check-updates --dep optional --upgrade --target=minor --reject='typescript,@opensearch-project/opensearch,aws4,axios,bluebird,node-html-parser,twitter-api-v2,yaml,projen'"
-        },
-        {
-          "exec": "npm-check-updates --dep peer --upgrade --target=minor --reject='typescript,@opensearch-project/opensearch,aws4,axios,bluebird,node-html-parser,twitter-api-v2,yaml,projen'"
-        },
-        {
-          "exec": "npm-check-updates --dep prod --upgrade --target=minor --reject='typescript,@opensearch-project/opensearch,aws4,axios,bluebird,node-html-parser,twitter-api-v2,yaml,projen'"
-        },
-        {
-          "exec": "npm-check-updates --dep bundle --upgrade --target=minor --reject='typescript,@opensearch-project/opensearch,aws4,axios,bluebird,node-html-parser,twitter-api-v2,yaml,projen'"
-        },
-        {
-          "exec": "yarn install --check-files"
-        },
-        {
-          "exec": "yarn upgrade @types/aws4 @types/bluebird @types/jest @types/log4js @types/node @typescript-eslint/eslint-plugin @typescript-eslint/parser aws-cdk esbuild eslint-import-resolver-node eslint-import-resolver-typescript eslint-plugin-import eslint jest jest-junit json-schema npm-check-updates ts-jest ts-node typescript @aws-crypto/sha256-js @aws-lambda-powertools/commons @aws-lambda-powertools/logger @aws-lambda-powertools/metrics @aws-lambda-powertools/tracer @aws-sdk/client-cognito-identity-provider @aws-sdk/client-cognito-identity @aws-sdk/client-comprehend @aws-sdk/client-dynamodb @aws-sdk/client-eventbridge @aws-sdk/client-firehose @aws-sdk/client-kinesis @aws-sdk/client-lambda @aws-sdk/client-opensearch @aws-sdk/client-s3 @aws-sdk/client-sfn @aws-sdk/client-ssm @aws-sdk/client-sts @aws-sdk/credential-provider-node @aws-sdk/lib-dynamodb @aws-sdk/node-http-handler @aws-sdk/protocol-http @aws-sdk/signature-v4 @aws-sdk/util-dynamodb @aws-sdk/util-utf8-node @opensearch-project/opensearch @opentelemetry/api @opentelemetry/core @opentelemetry/exporter-trace-otlp-http @opentelemetry/exporter-trace-otlp-proto @opentelemetry/id-generator-aws-xray @opentelemetry/instrumentation @opentelemetry/instrumentation-aws-lambda @opentelemetry/instrumentation-aws-sdk @opentelemetry/instrumentation-http @opentelemetry/propagator-aws-xray @opentelemetry/resource-detector-aws @opentelemetry/resources @opentelemetry/sdk-trace-base @opentelemetry/sdk-trace-node @opentelemetry/semantic-conventions @types/aws-lambda aws-cdk-lib aws-xray-sdk aws4 axios bluebird constructs node-html-parser twitter-api-v2 yaml"
-        },
-        {
-          "exec": "npx projen"
-        },
-        {
-          "spawn": "post-upgrade"
-        }
-      ]
-    },
-    "upgrade-projen": {
-      "name": "upgrade-projen",
-      "description": "upgrade projen",
-      "env": {
-        "CI": "0"
-      },
-      "steps": [
-        {
-          "exec": "npm-check-updates --dep dev --upgrade --target=minor --filter='projen'"
-        },
-        {
-          "exec": "npm-check-updates --dep optional --upgrade --target=minor --filter='projen'"
-        },
-        {
-          "exec": "npm-check-updates --dep peer --upgrade --target=minor --filter='projen'"
-        },
-        {
-          "exec": "npm-check-updates --dep prod --upgrade --target=minor --filter='projen'"
-        },
-        {
-          "exec": "npm-check-updates --dep bundle --upgrade --target=minor --filter='projen'"
-        },
-        {
-          "exec": "yarn install --check-files"
-        },
-        {
-          "exec": "yarn upgrade projen"
-        },
-        {
-          "exec": "npx projen"
-        },
-        {
-          "spawn": "post-upgrade"
         }
       ]
     },

@@ -33,7 +33,7 @@
     },
     {
       "name": "aws-cdk",
-      "version": "^2.29.1",
+      "version": "^2.53.0",
       "type": "build"
     },
     {
@@ -68,11 +68,6 @@
     },
     {
       "name": "json-schema",
-      "type": "build"
-    },
-    {
-      "name": "npm-check-updates",
-      "version": "^12",
       "type": "build"
     },
     {
@@ -115,72 +110,72 @@
     },
     {
       "name": "@aws-sdk/client-cognito-identity-provider",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-cognito-identity",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-comprehend",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-dynamodb",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-eventbridge",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-firehose",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-kinesis",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-lambda",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-opensearch",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-s3",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-sfn",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-ssm",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/client-sts",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
       "name": "@aws-sdk/credential-provider-node",
-      "version": "^3.121.0",
+      "version": "^3.224.0",
       "type": "runtime"
     },
     {
@@ -278,7 +273,7 @@
     },
     {
       "name": "aws-cdk-lib",
-      "version": "^2.29.1",
+      "version": "^2.53.0",
       "type": "runtime"
     },
     {
