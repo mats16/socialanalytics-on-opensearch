@@ -1,7 +1,6 @@
 const awsSdkVersion = '^3.224.0';
 const { awscdk } = require('projen');
 const project = new awscdk.AwsCdkTypeScriptApp({
-  typescriptVersion: '4.6.4',
   cdkVersion: '2.53.0',
   defaultReleaseBranch: 'main',
   name: 'social-analytics',

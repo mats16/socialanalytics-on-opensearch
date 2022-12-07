@@ -63,7 +63,7 @@ export class TwitterStreamingReader extends Construct {
 
     const appContainer = taskDefinition.addContainer('App', {
       containerName: 'app',
-      image: ecs.ContainerImage.fromAsset('./src/containers/twitter-streaming-reader'),
+      image: ecs.ContainerImage.fromAsset('./containers/twitter-streaming-reader'),
       cpu: 128,
       memoryReservationMiB: 256,
       essential: true,
