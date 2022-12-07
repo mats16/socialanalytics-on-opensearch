@@ -2223,7 +2223,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
         "EncryptionAtRestOptions": Object {
           "Enabled": true,
         },
-        "EngineVersion": "OpenSearch_1.2",
+        "EngineVersion": "OpenSearch_1.3",
         "LogPublishingOptions": Object {
           "AUDIT_LOGS": Object {
             "CloudWatchLogsLogGroupArn": Object {
@@ -4230,7 +4230,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
             ],
             "Essential": true,
             "Image": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:eccd8e1eb91a19887efc8f7f1ac63249e40ae41a8c179b35dead9756d474833b",
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:59552f77d1758a500c02b4d4a4aae439296b619f5c7892c5494c8df0c1abe9cb",
             },
             "LogConfiguration": Object {
               "LogDriver": "awslogs",
