@@ -17,7 +17,7 @@ import { Function, RetryFunction } from './resources/lambda-nodejs';
 import { OpenSearchPackages } from './resources/opensearch-packages';
 import { ReIndexBatch } from './resources/sfn-reindex-batch';
 import { ComprehendWithCache } from './resources/sfn-state-machines';
-import { TwitterStreamingReader } from './resources/twitter-streaming-reader';
+import { TweetProducer } from './resources/tweet-producer';
 
 interface SocialAnalyticsStackProps extends StackProps {
   defaultTwitterBearerToken?: string;
@@ -29,24 +29,15 @@ export class SocialAnalyticsStack extends Stack {
   constructor(scope: Construct, id: string, props: SocialAnalyticsStackProps) {
     super(scope, id, props);
 
-    const twitterBearerTokenParameter = new CfnParameter(this, 'TwitterBearerTokenParameter', {
-      type: 'String',
-      default: props.defaultTwitterBearerToken,
-      noEcho: true,
-    });
+    const defaultTwitterBearerToken = props.defaultTwitterBearerToken;
 
-    const twitterParameterPath = `/${this.stackName}/Twitter`;
-
-    const twitterBearerToken = new StringParameter(this, 'TwitterBearerToken', {
-      description: 'Twitter Bearer Token',
-      parameterName: `${twitterParameterPath}/BearerToken`,
-      stringValue: twitterBearerTokenParameter.valueAsString,
-    });
+    const twitterParameterPath = `/${Aws.STACK_NAME}/Twitter`;
 
     const twitterFieldsParams = new StringParameter(this, 'TwitterFieldsParams', {
       description: 'Tweet fields params for API calls',
       parameterName: `${twitterParameterPath}/FieldsParams`,
       stringValue: JSON.stringify(tweetFieldsParams),
+      simpleName: false,
     });
 
     const twitterFilterContextDomains = new StringListParameter(this, 'twitterFilterContextDomains', {
@@ -54,6 +45,7 @@ export class SocialAnalyticsStack extends Stack {
       description: 'Context domains for filtering',
       parameterName: `${twitterParameterPath}/Filter/ContextDomains`,
       stringListValue: ['Musician', 'Music Genre', 'Actor', 'TV Shows', 'Multimedia Franchise', 'Fictional Character', 'Entertainment Personality'],
+      simpleName: false,
     });
 
     const twitterFilterSourceLabels = new StringListParameter(this, 'twitterFilterSourceLabels', {
@@ -61,6 +53,7 @@ export class SocialAnalyticsStack extends Stack {
       description: 'Tweet source labels for filtering',
       parameterName: `${twitterParameterPath}/Filter/SourceLabels`,
       stringListValue: ['Twitter for Advertisers', 'twittbot.net', 'Mk00JapanBot', 'Gakeppu Tweet', 'BelugaCampaignSEA', 'rare_zaiko', 'Wn32ShimaneBot', 'uhiiman_bot', 'atulsbots'],
+      simpleName: false,
     });
 
     const twitterParameterPolicyStatement = new iam.PolicyStatement({
@@ -126,22 +119,6 @@ export class SocialAnalyticsStack extends Stack {
     };
 
     twitterEventBus.archive('Archive', { eventPattern: allowedEventPattern });
-
-    const vpc = new Vpc(this, 'VPC', {
-      natGateways: 1,
-      subnetConfiguration: [
-        {
-          cidrMask: 24,
-          name: 'Public',
-          subnetType: SubnetType.PUBLIC,
-        },
-        {
-          cidrMask: 24,
-          name: 'Private',
-          subnetType: SubnetType.PRIVATE_WITH_NAT,
-        },
-      ],
-    });
 
     const archiveStream = new DeliveryStream(this, 'ArchiveStream', {
       destinationBucket: bucket,
@@ -218,12 +195,14 @@ export class SocialAnalyticsStack extends Stack {
     tweetTable.grantWriteData(analyzeFunction);
     comprehendJob.stateMachine.grantStartSyncExecution(analyzeFunction);
 
-    const twitterStreamingReader = new TwitterStreamingReader(this, 'TwitterStreamingReader', {
-      vpc,
-      twitterBearerToken,
+    const tweetProducer = new TweetProducer(this, 'TweetProducer', {
       twitterFieldsParams,
       eventBus: twitterEventBus,
+      producerCount: 3,
     });
+    if (typeof defaultTwitterBearerToken == 'string') {
+      tweetProducer.streamReader[0].bearerToken.default = defaultTwitterBearerToken;
+    }
 
     new OpenSearchPackages(this, 'OpenSearchPackages', {
       sourcePath: './src/opensearch-packages',

@@ -17,7 +17,7 @@ const eventBridge = new EventBridgeClient({ region });
 
 const startSegment = (startTime: number, traceHeader?: string) => {
   const traceData = xray.utils.processTraceData(traceHeader);
-  const segment = new xray.Segment('DLQ process', traceData.root, traceData.parent);
+  const segment = new xray.Segment('Queue Processor', traceData.root, traceData.parent);
   segment.origin = 'AWS::Lambda::Function';
   segment.start_time = startTime;
   //segment.addPluginData({

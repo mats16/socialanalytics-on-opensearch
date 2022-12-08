@@ -1,25 +1,43 @@
-import { trace, SpanKind, ROOT_CONTEXT } from '@opentelemetry/api';
+import { trace, SpanKind } from '@opentelemetry/api';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { TwitterApi, ETwitterStreamEvent, Tweetv2FieldsParams, TweetV2SingleStreamResult } from 'twitter-api-v2';
 import { getLogger } from './logger';
-import { putTweetEvent, sendQueueMessage } from './utils';
 
-const eventBusArn = process.env.EVENT_BUS_ARN;
-const deadLetterQueueUrl = process.env.DEAD_LETTER_QUEUE_URL || 'N/A';
+const region = process.env.AWS_REGION;
 const twitterBearerToken: string = process.env.TWITTER_BEARER_TOKEN!;
 const twitterFieldsParams: Partial<Tweetv2FieldsParams> = JSON.parse(process.env.TWITTER_FIELDS_PARAMS || '{}');
 
 const tracer = trace.getTracer('my-tracer');
 const logger = getLogger();
 
+const sqs = new SQSClient({ region });
+
+const queueUrls = Object.keys(process.env).filter(key => key.startsWith('QUEUE_URL_')).sort().map(key => process.env[key]!);
+
+const sendQueueMessage = async (queueUrls: string[], event: TweetV2SingleStreamResult) => {
+  for await (let url of queueUrls) {
+    const QueueUrl = url;
+    const MessageBody = JSON.stringify(event);
+    const MessageDeduplicationId = event.data.id;
+    const MessageGroupId = event.data.id;
+    const isFifo = QueueUrl.endsWith('.fifo');
+    const cmd = (isFifo)
+      ? new SendMessageCommand({ QueueUrl, MessageBody, MessageDeduplicationId, MessageGroupId })
+      : new SendMessageCommand({ QueueUrl, MessageBody });
+    try {
+      await sqs.send(cmd);
+      break;
+    } catch (err) {
+      logger.error({ message: err });
+    }
+  }
+};
+
 const publishEvent = async (event: TweetV2SingleStreamResult) => {
-  if (typeof eventBusArn == 'undefined') {
+  if (queueUrls.length == 0) {
     console.log(JSON.stringify(event));
   } else {
-    try {
-      await putTweetEvent(eventBusArn, event);
-    } catch {
-      await sendQueueMessage(deadLetterQueueUrl, event);
-    }
+    await sendQueueMessage(queueUrls, event);
   }
 };
 

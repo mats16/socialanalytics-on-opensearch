@@ -32,7 +32,7 @@ const unmarshallOptions = {
 };
 const translateConfig = { marshallOptions, unmarshallOptions };
 
-const ddbClient = xray.captureAWSv3Client(new DynamoDBClient({ region }));
+const ddbClient = xray.captureAWSv3Client(new DynamoDBClient({ region }) as any);
 const ddbDocClient = DynamoDBDocumentClient.from(ddbClient, translateConfig);
 
 const getConfig = async (name: string): Promise<string[]> => {

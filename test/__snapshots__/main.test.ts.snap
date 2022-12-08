@@ -2,6 +2,32 @@
 
 exports[`Snapshot 1`] = `
 Object {
+  "Conditions": Object {
+    "TweetProducerStreamReader1DisabledF9BFE6E9": Object {
+      "Fn::Equals": Array [
+        Object {
+          "Ref": "TweetProducerStreamReader1BearerTokenB1FAF3C8",
+        },
+        "N/A",
+      ],
+    },
+    "TweetProducerStreamReader2Disabled63DEA594": Object {
+      "Fn::Equals": Array [
+        Object {
+          "Ref": "TweetProducerStreamReader2BearerToken679CDF8C",
+        },
+        "N/A",
+      ],
+    },
+    "TweetProducerStreamReader3Disabled4F1E6EA5": Object {
+      "Fn::Equals": Array [
+        Object {
+          "Ref": "TweetProducerStreamReader3BearerToken372B9251",
+        },
+        "N/A",
+      ],
+    },
+  },
   "Mappings": Object {
     "ServiceprincipalMap": Object {
       "af-south-1": Object {
@@ -105,7 +131,21 @@ Object {
       "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
-    "TwitterBearerTokenParameter": Object {
+    "TweetProducerStreamReader1BearerTokenB1FAF3C8": Object {
+      "Default": "N/A",
+      "Description": "Bearer Token for Twitter API v2",
+      "NoEcho": true,
+      "Type": "String",
+    },
+    "TweetProducerStreamReader2BearerToken679CDF8C": Object {
+      "Default": "N/A",
+      "Description": "Bearer Token for Twitter API v2",
+      "NoEcho": true,
+      "Type": "String",
+    },
+    "TweetProducerStreamReader3BearerToken372B9251": Object {
+      "Default": "N/A",
+      "Description": "Bearer Token for Twitter API v2",
       "NoEcho": true,
       "Type": "String",
     },
@@ -3858,6 +3898,1403 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       },
       "Type": "AWS::IAM::Policy",
     },
+    "TweetProducerCluster6AB7F416": Object {
+      "Properties": Object {
+        "ClusterSettings": Array [
+          Object {
+            "Name": "containerInsights",
+            "Value": "enabled",
+          },
+        ],
+      },
+      "Type": "AWS::ECS::Cluster",
+    },
+    "TweetProducerPrimaryQueueD1FD7131": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "FifoQueue": true,
+      },
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "TweetProducerQueueToEventBusFunction63BB4639": Object {
+      "DependsOn": Array [
+        "TweetProducerQueueToEventBusFunctionServiceRoleDefaultPolicy266E49D4",
+        "TweetProducerQueueToEventBusFunctionServiceRoleF0225652",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "c4aecc88772e897b8274a74517caa0c3a0a8eaf5ce6ad067dec745c663a2af5f.zip",
+        },
+        "Description": "SocialAnalytics - Process queues from TweetProducer",
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "EVENT_BUS_ARN": Object {
+              "Fn::GetAtt": Array [
+                "TwitterEventBusC40513FF",
+                "Arn",
+              ],
+            },
+          },
+        },
+        "Handler": "index.handler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "TweetProducerQueueToEventBusFunctionServiceRoleF0225652",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs18.x",
+        "Timeout": 5,
+        "TracingConfig": Object {
+          "Mode": "Active",
+        },
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "TweetProducerQueueToEventBusFunctionServiceRoleDefaultPolicy266E49D4": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "sqs:ReceiveMessage",
+                "sqs:ChangeMessageVisibility",
+                "sqs:GetQueueUrl",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerPrimaryQueueD1FD7131",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "sqs:ReceiveMessage",
+                "sqs:ChangeMessageVisibility",
+                "sqs:GetQueueUrl",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerSecondaryQueue61E55B34",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": "events:PutEvents",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TwitterEventBusC40513FF",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TweetProducerQueueToEventBusFunctionServiceRoleDefaultPolicy266E49D4",
+        "Roles": Array [
+          Object {
+            "Ref": "TweetProducerQueueToEventBusFunctionServiceRoleF0225652",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TweetProducerQueueToEventBusFunctionServiceRoleF0225652": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TweetProducerQueueToEventBusFunctionSqsEventSourcetestTweetProducerPrimaryQueue6BEAEE9031CE7C67": Object {
+      "Properties": Object {
+        "EventSourceArn": Object {
+          "Fn::GetAtt": Array [
+            "TweetProducerPrimaryQueueD1FD7131",
+            "Arn",
+          ],
+        },
+        "FunctionName": Object {
+          "Ref": "TweetProducerQueueToEventBusFunction63BB4639",
+        },
+      },
+      "Type": "AWS::Lambda::EventSourceMapping",
+    },
+    "TweetProducerQueueToEventBusFunctionSqsEventSourcetestTweetProducerSecondaryQueueBAFE9E7E3222FD4A": Object {
+      "Properties": Object {
+        "EventSourceArn": Object {
+          "Fn::GetAtt": Array [
+            "TweetProducerSecondaryQueue61E55B34",
+            "Arn",
+          ],
+        },
+        "FunctionName": Object {
+          "Ref": "TweetProducerQueueToEventBusFunction63BB4639",
+        },
+      },
+      "Type": "AWS::Lambda::EventSourceMapping",
+    },
+    "TweetProducerSecondaryQueue61E55B34": Object {
+      "DeletionPolicy": "Delete",
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "TweetProducerSecurityGroupCE3DC5EA": Object {
+      "Properties": Object {
+        "GroupDescription": "test/TweetProducer/SecurityGroup",
+        "SecurityGroupEgress": Array [
+          Object {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "TweetProducerVPC4D4B8A57",
+        },
+      },
+      "Type": "AWS::EC2::SecurityGroup",
+    },
+    "TweetProducerStreamReader1BearerTokenParameter72F7D3ED": Object {
+      "Properties": Object {
+        "Description": "test/TweetProducer/StreamReader1/BearerTokenParameter",
+        "Name": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/",
+              Object {
+                "Ref": "AWS::StackName",
+              },
+              "/TweetProducer/StreamReader1/BearerToken",
+            ],
+          ],
+        },
+        "Type": "String",
+        "Value": Object {
+          "Ref": "TweetProducerStreamReader1BearerTokenB1FAF3C8",
+        },
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "TweetProducerStreamReader1Logs67F02D71": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "RetentionInDays": 14,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "TweetProducerStreamReader1ServiceDAE636A5": Object {
+      "Properties": Object {
+        "Cluster": Object {
+          "Ref": "TweetProducerCluster6AB7F416",
+        },
+        "DeploymentConfiguration": Object {
+          "MaximumPercent": 100,
+          "MinimumHealthyPercent": 0,
+        },
+        "DesiredCount": Object {
+          "Fn::If": Array [
+            "TweetProducerStreamReader1DisabledF9BFE6E9",
+            0,
+            1,
+          ],
+        },
+        "EnableECSManagedTags": false,
+        "LaunchType": "FARGATE",
+        "NetworkConfiguration": Object {
+          "AwsvpcConfiguration": Object {
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": Array [
+              Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerSecurityGroupCE3DC5EA",
+                  "GroupId",
+                ],
+              },
+            ],
+            "Subnets": Array [
+              Object {
+                "Ref": "TweetProducerVPCPublicSubnet1Subnet344FBEDB",
+              },
+              Object {
+                "Ref": "TweetProducerVPCPublicSubnet2SubnetD2FD2A8D",
+              },
+            ],
+          },
+        },
+        "TaskDefinition": Object {
+          "Ref": "TweetProducerStreamReader1TaskDefDFDC4B44",
+        },
+      },
+      "Type": "AWS::ECS::Service",
+    },
+    "TweetProducerStreamReader1TaskDefDFDC4B44": Object {
+      "Properties": Object {
+        "ContainerDefinitions": Array [
+          Object {
+            "Cpu": 128,
+            "DependsOn": Array [
+              Object {
+                "Condition": "START",
+                "ContainerName": "otel-collector",
+              },
+            ],
+            "Environment": Array [
+              Object {
+                "Name": "OTEL_SERVICE_NAME",
+                "Value": "TweetProducer/StreamReader1",
+              },
+              Object {
+                "Name": "QUEUE_URL_1",
+                "Value": Object {
+                  "Ref": "TweetProducerPrimaryQueueD1FD7131",
+                },
+              },
+              Object {
+                "Name": "QUEUE_URL_2",
+                "Value": Object {
+                  "Ref": "TweetProducerSecondaryQueue61E55B34",
+                },
+              },
+            ],
+            "Essential": true,
+            "Image": Object {
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:3a2d49fe93564642acb734d67e6b5adb94695bcd9f496418535cb6b721c1aac3",
+            },
+            "LogConfiguration": Object {
+              "LogDriver": "awslogs",
+              "Options": Object {
+                "awslogs-group": Object {
+                  "Ref": "TweetProducerStreamReader1Logs67F02D71",
+                },
+                "awslogs-region": Object {
+                  "Ref": "AWS::Region",
+                },
+                "awslogs-stream-prefix": "ecs",
+              },
+            },
+            "MemoryReservation": 256,
+            "Name": "app",
+            "ReadonlyRootFilesystem": true,
+            "Secrets": Array [
+              Object {
+                "Name": "TWITTER_BEARER_TOKEN",
+                "ValueFrom": Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:",
+                      Object {
+                        "Ref": "AWS::Region",
+                      },
+                      ":",
+                      Object {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":parameter",
+                      Object {
+                        "Ref": "TweetProducerStreamReader1BearerTokenParameter72F7D3ED",
+                      },
+                    ],
+                  ],
+                },
+              },
+              Object {
+                "Name": "TWITTER_FIELDS_PARAMS",
+                "ValueFrom": Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:",
+                      Object {
+                        "Ref": "AWS::Region",
+                      },
+                      ":",
+                      Object {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":parameter",
+                      Object {
+                        "Ref": "TwitterFieldsParamsDD9504EE",
+                      },
+                    ],
+                  ],
+                },
+              },
+            ],
+          },
+          Object {
+            "Command": Array [
+              "--config=/etc/ecs/ecs-xray.yaml",
+            ],
+            "Cpu": 64,
+            "Essential": true,
+            "Image": "public.ecr.aws/aws-observability/aws-otel-collector:latest",
+            "LogConfiguration": Object {
+              "LogDriver": "awslogs",
+              "Options": Object {
+                "awslogs-group": Object {
+                  "Ref": "TweetProducerStreamReader1Logs67F02D71",
+                },
+                "awslogs-region": Object {
+                  "Ref": "AWS::Region",
+                },
+                "awslogs-stream-prefix": "ecs",
+              },
+            },
+            "MemoryReservation": 128,
+            "Name": "otel-collector",
+            "ReadonlyRootFilesystem": true,
+          },
+        ],
+        "Cpu": "256",
+        "ExecutionRoleArn": Object {
+          "Fn::GetAtt": Array [
+            "TweetProducerTaskExecutionRoleD602B472",
+            "Arn",
+          ],
+        },
+        "Family": "testTweetProducerStreamReader1TaskDef778F7E6E",
+        "Memory": "512",
+        "NetworkMode": "awsvpc",
+        "RequiresCompatibilities": Array [
+          "FARGATE",
+        ],
+        "RuntimePlatform": Object {
+          "CpuArchitecture": "X86_64",
+          "OperatingSystemFamily": "LINUX",
+        },
+        "TaskRoleArn": Object {
+          "Fn::GetAtt": Array [
+            "TweetProducerTaskRole1DDCA7CB",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::ECS::TaskDefinition",
+    },
+    "TweetProducerStreamReader2BearerTokenParameterC90C5ECA": Object {
+      "Properties": Object {
+        "Description": "test/TweetProducer/StreamReader2/BearerTokenParameter",
+        "Name": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/",
+              Object {
+                "Ref": "AWS::StackName",
+              },
+              "/TweetProducer/StreamReader2/BearerToken",
+            ],
+          ],
+        },
+        "Type": "String",
+        "Value": Object {
+          "Ref": "TweetProducerStreamReader2BearerToken679CDF8C",
+        },
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "TweetProducerStreamReader2Logs5002FC8B": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "RetentionInDays": 14,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "TweetProducerStreamReader2Service808171C8": Object {
+      "Properties": Object {
+        "Cluster": Object {
+          "Ref": "TweetProducerCluster6AB7F416",
+        },
+        "DeploymentConfiguration": Object {
+          "MaximumPercent": 100,
+          "MinimumHealthyPercent": 0,
+        },
+        "DesiredCount": Object {
+          "Fn::If": Array [
+            "TweetProducerStreamReader2Disabled63DEA594",
+            0,
+            1,
+          ],
+        },
+        "EnableECSManagedTags": false,
+        "LaunchType": "FARGATE",
+        "NetworkConfiguration": Object {
+          "AwsvpcConfiguration": Object {
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": Array [
+              Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerSecurityGroupCE3DC5EA",
+                  "GroupId",
+                ],
+              },
+            ],
+            "Subnets": Array [
+              Object {
+                "Ref": "TweetProducerVPCPublicSubnet1Subnet344FBEDB",
+              },
+              Object {
+                "Ref": "TweetProducerVPCPublicSubnet2SubnetD2FD2A8D",
+              },
+            ],
+          },
+        },
+        "TaskDefinition": Object {
+          "Ref": "TweetProducerStreamReader2TaskDef94827F2E",
+        },
+      },
+      "Type": "AWS::ECS::Service",
+    },
+    "TweetProducerStreamReader2TaskDef94827F2E": Object {
+      "Properties": Object {
+        "ContainerDefinitions": Array [
+          Object {
+            "Cpu": 128,
+            "DependsOn": Array [
+              Object {
+                "Condition": "START",
+                "ContainerName": "otel-collector",
+              },
+            ],
+            "Environment": Array [
+              Object {
+                "Name": "OTEL_SERVICE_NAME",
+                "Value": "TweetProducer/StreamReader2",
+              },
+              Object {
+                "Name": "QUEUE_URL_1",
+                "Value": Object {
+                  "Ref": "TweetProducerPrimaryQueueD1FD7131",
+                },
+              },
+              Object {
+                "Name": "QUEUE_URL_2",
+                "Value": Object {
+                  "Ref": "TweetProducerSecondaryQueue61E55B34",
+                },
+              },
+            ],
+            "Essential": true,
+            "Image": Object {
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:3a2d49fe93564642acb734d67e6b5adb94695bcd9f496418535cb6b721c1aac3",
+            },
+            "LogConfiguration": Object {
+              "LogDriver": "awslogs",
+              "Options": Object {
+                "awslogs-group": Object {
+                  "Ref": "TweetProducerStreamReader2Logs5002FC8B",
+                },
+                "awslogs-region": Object {
+                  "Ref": "AWS::Region",
+                },
+                "awslogs-stream-prefix": "ecs",
+              },
+            },
+            "MemoryReservation": 256,
+            "Name": "app",
+            "ReadonlyRootFilesystem": true,
+            "Secrets": Array [
+              Object {
+                "Name": "TWITTER_BEARER_TOKEN",
+                "ValueFrom": Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:",
+                      Object {
+                        "Ref": "AWS::Region",
+                      },
+                      ":",
+                      Object {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":parameter",
+                      Object {
+                        "Ref": "TweetProducerStreamReader2BearerTokenParameterC90C5ECA",
+                      },
+                    ],
+                  ],
+                },
+              },
+              Object {
+                "Name": "TWITTER_FIELDS_PARAMS",
+                "ValueFrom": Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:",
+                      Object {
+                        "Ref": "AWS::Region",
+                      },
+                      ":",
+                      Object {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":parameter",
+                      Object {
+                        "Ref": "TwitterFieldsParamsDD9504EE",
+                      },
+                    ],
+                  ],
+                },
+              },
+            ],
+          },
+          Object {
+            "Command": Array [
+              "--config=/etc/ecs/ecs-xray.yaml",
+            ],
+            "Cpu": 64,
+            "Essential": true,
+            "Image": "public.ecr.aws/aws-observability/aws-otel-collector:latest",
+            "LogConfiguration": Object {
+              "LogDriver": "awslogs",
+              "Options": Object {
+                "awslogs-group": Object {
+                  "Ref": "TweetProducerStreamReader2Logs5002FC8B",
+                },
+                "awslogs-region": Object {
+                  "Ref": "AWS::Region",
+                },
+                "awslogs-stream-prefix": "ecs",
+              },
+            },
+            "MemoryReservation": 128,
+            "Name": "otel-collector",
+            "ReadonlyRootFilesystem": true,
+          },
+        ],
+        "Cpu": "256",
+        "ExecutionRoleArn": Object {
+          "Fn::GetAtt": Array [
+            "TweetProducerTaskExecutionRoleD602B472",
+            "Arn",
+          ],
+        },
+        "Family": "testTweetProducerStreamReader2TaskDef9DFC444F",
+        "Memory": "512",
+        "NetworkMode": "awsvpc",
+        "RequiresCompatibilities": Array [
+          "FARGATE",
+        ],
+        "RuntimePlatform": Object {
+          "CpuArchitecture": "X86_64",
+          "OperatingSystemFamily": "LINUX",
+        },
+        "TaskRoleArn": Object {
+          "Fn::GetAtt": Array [
+            "TweetProducerTaskRole1DDCA7CB",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::ECS::TaskDefinition",
+    },
+    "TweetProducerStreamReader3BearerTokenParameterF2ACA288": Object {
+      "Properties": Object {
+        "Description": "test/TweetProducer/StreamReader3/BearerTokenParameter",
+        "Name": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/",
+              Object {
+                "Ref": "AWS::StackName",
+              },
+              "/TweetProducer/StreamReader3/BearerToken",
+            ],
+          ],
+        },
+        "Type": "String",
+        "Value": Object {
+          "Ref": "TweetProducerStreamReader3BearerToken372B9251",
+        },
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "TweetProducerStreamReader3LogsA8D004C1": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "RetentionInDays": 14,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "TweetProducerStreamReader3Service6DF18CD5": Object {
+      "Properties": Object {
+        "Cluster": Object {
+          "Ref": "TweetProducerCluster6AB7F416",
+        },
+        "DeploymentConfiguration": Object {
+          "MaximumPercent": 100,
+          "MinimumHealthyPercent": 0,
+        },
+        "DesiredCount": Object {
+          "Fn::If": Array [
+            "TweetProducerStreamReader3Disabled4F1E6EA5",
+            0,
+            1,
+          ],
+        },
+        "EnableECSManagedTags": false,
+        "LaunchType": "FARGATE",
+        "NetworkConfiguration": Object {
+          "AwsvpcConfiguration": Object {
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": Array [
+              Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerSecurityGroupCE3DC5EA",
+                  "GroupId",
+                ],
+              },
+            ],
+            "Subnets": Array [
+              Object {
+                "Ref": "TweetProducerVPCPublicSubnet1Subnet344FBEDB",
+              },
+              Object {
+                "Ref": "TweetProducerVPCPublicSubnet2SubnetD2FD2A8D",
+              },
+            ],
+          },
+        },
+        "TaskDefinition": Object {
+          "Ref": "TweetProducerStreamReader3TaskDefC6A8F8B8",
+        },
+      },
+      "Type": "AWS::ECS::Service",
+    },
+    "TweetProducerStreamReader3TaskDefC6A8F8B8": Object {
+      "Properties": Object {
+        "ContainerDefinitions": Array [
+          Object {
+            "Cpu": 128,
+            "DependsOn": Array [
+              Object {
+                "Condition": "START",
+                "ContainerName": "otel-collector",
+              },
+            ],
+            "Environment": Array [
+              Object {
+                "Name": "OTEL_SERVICE_NAME",
+                "Value": "TweetProducer/StreamReader3",
+              },
+              Object {
+                "Name": "QUEUE_URL_1",
+                "Value": Object {
+                  "Ref": "TweetProducerPrimaryQueueD1FD7131",
+                },
+              },
+              Object {
+                "Name": "QUEUE_URL_2",
+                "Value": Object {
+                  "Ref": "TweetProducerSecondaryQueue61E55B34",
+                },
+              },
+            ],
+            "Essential": true,
+            "Image": Object {
+              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:3a2d49fe93564642acb734d67e6b5adb94695bcd9f496418535cb6b721c1aac3",
+            },
+            "LogConfiguration": Object {
+              "LogDriver": "awslogs",
+              "Options": Object {
+                "awslogs-group": Object {
+                  "Ref": "TweetProducerStreamReader3LogsA8D004C1",
+                },
+                "awslogs-region": Object {
+                  "Ref": "AWS::Region",
+                },
+                "awslogs-stream-prefix": "ecs",
+              },
+            },
+            "MemoryReservation": 256,
+            "Name": "app",
+            "ReadonlyRootFilesystem": true,
+            "Secrets": Array [
+              Object {
+                "Name": "TWITTER_BEARER_TOKEN",
+                "ValueFrom": Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:",
+                      Object {
+                        "Ref": "AWS::Region",
+                      },
+                      ":",
+                      Object {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":parameter",
+                      Object {
+                        "Ref": "TweetProducerStreamReader3BearerTokenParameterF2ACA288",
+                      },
+                    ],
+                  ],
+                },
+              },
+              Object {
+                "Name": "TWITTER_FIELDS_PARAMS",
+                "ValueFrom": Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:",
+                      Object {
+                        "Ref": "AWS::Region",
+                      },
+                      ":",
+                      Object {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":parameter",
+                      Object {
+                        "Ref": "TwitterFieldsParamsDD9504EE",
+                      },
+                    ],
+                  ],
+                },
+              },
+            ],
+          },
+          Object {
+            "Command": Array [
+              "--config=/etc/ecs/ecs-xray.yaml",
+            ],
+            "Cpu": 64,
+            "Essential": true,
+            "Image": "public.ecr.aws/aws-observability/aws-otel-collector:latest",
+            "LogConfiguration": Object {
+              "LogDriver": "awslogs",
+              "Options": Object {
+                "awslogs-group": Object {
+                  "Ref": "TweetProducerStreamReader3LogsA8D004C1",
+                },
+                "awslogs-region": Object {
+                  "Ref": "AWS::Region",
+                },
+                "awslogs-stream-prefix": "ecs",
+              },
+            },
+            "MemoryReservation": 128,
+            "Name": "otel-collector",
+            "ReadonlyRootFilesystem": true,
+          },
+        ],
+        "Cpu": "256",
+        "ExecutionRoleArn": Object {
+          "Fn::GetAtt": Array [
+            "TweetProducerTaskExecutionRoleD602B472",
+            "Arn",
+          ],
+        },
+        "Family": "testTweetProducerStreamReader3TaskDefFF68E053",
+        "Memory": "512",
+        "NetworkMode": "awsvpc",
+        "RequiresCompatibilities": Array [
+          "FARGATE",
+        ],
+        "RuntimePlatform": Object {
+          "CpuArchitecture": "X86_64",
+          "OperatingSystemFamily": "LINUX",
+        },
+        "TaskRoleArn": Object {
+          "Fn::GetAtt": Array [
+            "TweetProducerTaskRole1DDCA7CB",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::ECS::TaskDefinition",
+    },
+    "TweetProducerTaskExecutionRoleD602B472": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "ecs-tasks.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TweetProducerTaskExecutionRoleDefaultPolicyD0F99842": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ecr:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":repository/",
+                    Object {
+                      "Fn::Sub": "cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}",
+                    },
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": "ecr:GetAuthorizationToken",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": Array [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerStreamReader1Logs67F02D71",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter",
+                    Object {
+                      "Ref": "TweetProducerStreamReader1BearerTokenParameter72F7D3ED",
+                    },
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter",
+                    Object {
+                      "Ref": "TwitterFieldsParamsDD9504EE",
+                    },
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerStreamReader2Logs5002FC8B",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter",
+                    Object {
+                      "Ref": "TweetProducerStreamReader2BearerTokenParameterC90C5ECA",
+                    },
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerStreamReader3LogsA8D004C1",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter",
+                    Object {
+                      "Ref": "TweetProducerStreamReader3BearerTokenParameterF2ACA288",
+                    },
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TweetProducerTaskExecutionRoleDefaultPolicyD0F99842",
+        "Roles": Array [
+          Object {
+            "Ref": "TweetProducerTaskExecutionRoleD602B472",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TweetProducerTaskRole1DDCA7CB": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "ecs-tasks.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/AWSXRayDaemonWriteAccess",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TweetProducerTaskRoleDefaultPolicy43F85DDB": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "sqs:SendMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerPrimaryQueueD1FD7131",
+                  "Arn",
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "sqs:SendMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TweetProducerSecondaryQueue61E55B34",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TweetProducerTaskRoleDefaultPolicy43F85DDB",
+        "Roles": Array [
+          Object {
+            "Ref": "TweetProducerTaskRole1DDCA7CB",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TweetProducerVPC4D4B8A57": Object {
+      "Properties": Object {
+        "CidrBlock": "10.0.0.0/16",
+        "EnableDnsHostnames": true,
+        "EnableDnsSupport": true,
+        "InstanceTenancy": "default",
+        "Tags": Array [
+          Object {
+            "Key": "Name",
+            "Value": "test/TweetProducer/VPC",
+          },
+        ],
+      },
+      "Type": "AWS::EC2::VPC",
+    },
+    "TweetProducerVPCIGW96C63A02": Object {
+      "Properties": Object {
+        "Tags": Array [
+          Object {
+            "Key": "Name",
+            "Value": "test/TweetProducer/VPC",
+          },
+        ],
+      },
+      "Type": "AWS::EC2::InternetGateway",
+    },
+    "TweetProducerVPCPublicSubnet1DefaultRoute7497D0E4": Object {
+      "DependsOn": Array [
+        "TweetProducerVPCVPCGW3C72F75D",
+      ],
+      "Properties": Object {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": Object {
+          "Ref": "TweetProducerVPCIGW96C63A02",
+        },
+        "RouteTableId": Object {
+          "Ref": "TweetProducerVPCPublicSubnet1RouteTableDE26BEFB",
+        },
+      },
+      "Type": "AWS::EC2::Route",
+    },
+    "TweetProducerVPCPublicSubnet1RouteTableAssociation4E58D7CF": Object {
+      "Properties": Object {
+        "RouteTableId": Object {
+          "Ref": "TweetProducerVPCPublicSubnet1RouteTableDE26BEFB",
+        },
+        "SubnetId": Object {
+          "Ref": "TweetProducerVPCPublicSubnet1Subnet344FBEDB",
+        },
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+    },
+    "TweetProducerVPCPublicSubnet1RouteTableDE26BEFB": Object {
+      "Properties": Object {
+        "Tags": Array [
+          Object {
+            "Key": "Name",
+            "Value": "test/TweetProducer/VPC/PublicSubnet1",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "TweetProducerVPC4D4B8A57",
+        },
+      },
+      "Type": "AWS::EC2::RouteTable",
+    },
+    "TweetProducerVPCPublicSubnet1Subnet344FBEDB": Object {
+      "Properties": Object {
+        "AvailabilityZone": Object {
+          "Fn::Select": Array [
+            0,
+            Object {
+              "Fn::GetAZs": "",
+            },
+          ],
+        },
+        "CidrBlock": "10.0.0.0/24",
+        "MapPublicIpOnLaunch": true,
+        "Tags": Array [
+          Object {
+            "Key": "aws-cdk:subnet-name",
+            "Value": "Public",
+          },
+          Object {
+            "Key": "aws-cdk:subnet-type",
+            "Value": "Public",
+          },
+          Object {
+            "Key": "Name",
+            "Value": "test/TweetProducer/VPC/PublicSubnet1",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "TweetProducerVPC4D4B8A57",
+        },
+      },
+      "Type": "AWS::EC2::Subnet",
+    },
+    "TweetProducerVPCPublicSubnet2DefaultRoute8EA79C50": Object {
+      "DependsOn": Array [
+        "TweetProducerVPCVPCGW3C72F75D",
+      ],
+      "Properties": Object {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": Object {
+          "Ref": "TweetProducerVPCIGW96C63A02",
+        },
+        "RouteTableId": Object {
+          "Ref": "TweetProducerVPCPublicSubnet2RouteTableD5C3AC57",
+        },
+      },
+      "Type": "AWS::EC2::Route",
+    },
+    "TweetProducerVPCPublicSubnet2RouteTableAssociationC0E82576": Object {
+      "Properties": Object {
+        "RouteTableId": Object {
+          "Ref": "TweetProducerVPCPublicSubnet2RouteTableD5C3AC57",
+        },
+        "SubnetId": Object {
+          "Ref": "TweetProducerVPCPublicSubnet2SubnetD2FD2A8D",
+        },
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+    },
+    "TweetProducerVPCPublicSubnet2RouteTableD5C3AC57": Object {
+      "Properties": Object {
+        "Tags": Array [
+          Object {
+            "Key": "Name",
+            "Value": "test/TweetProducer/VPC/PublicSubnet2",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "TweetProducerVPC4D4B8A57",
+        },
+      },
+      "Type": "AWS::EC2::RouteTable",
+    },
+    "TweetProducerVPCPublicSubnet2SubnetD2FD2A8D": Object {
+      "Properties": Object {
+        "AvailabilityZone": Object {
+          "Fn::Select": Array [
+            1,
+            Object {
+              "Fn::GetAZs": "",
+            },
+          ],
+        },
+        "CidrBlock": "10.0.1.0/24",
+        "MapPublicIpOnLaunch": true,
+        "Tags": Array [
+          Object {
+            "Key": "aws-cdk:subnet-name",
+            "Value": "Public",
+          },
+          Object {
+            "Key": "aws-cdk:subnet-type",
+            "Value": "Public",
+          },
+          Object {
+            "Key": "Name",
+            "Value": "test/TweetProducer/VPC/PublicSubnet2",
+          },
+        ],
+        "VpcId": Object {
+          "Ref": "TweetProducerVPC4D4B8A57",
+        },
+      },
+      "Type": "AWS::EC2::Subnet",
+    },
+    "TweetProducerVPCVPCGW3C72F75D": Object {
+      "Properties": Object {
+        "InternetGatewayId": Object {
+          "Ref": "TweetProducerVPCIGW96C63A02",
+        },
+        "VpcId": Object {
+          "Ref": "TweetProducerVPC4D4B8A57",
+        },
+      },
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+    },
     "TweetTable97F090DB": Object {
       "DeletionPolicy": "Retain",
       "Properties": Object {
@@ -3906,17 +5343,6 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       },
       "Type": "AWS::DynamoDB::Table",
       "UpdateReplacePolicy": "Retain",
-    },
-    "TwitterBearerTokenCBE899A9": Object {
-      "Properties": Object {
-        "Description": "Twitter Bearer Token",
-        "Name": "/test/Twitter/BearerToken",
-        "Type": "String",
-        "Value": Object {
-          "Ref": "TwitterBearerTokenParameter",
-        },
-      },
-      "Type": "AWS::SSM::Parameter",
     },
     "TwitterEventBusArchive3E28C9EF": Object {
       "Properties": Object {
@@ -3975,972 +5401,38 @@ def submit_response(event: dict, context, response_status: str, error_message: s
     "TwitterFieldsParamsDD9504EE": Object {
       "Properties": Object {
         "Description": "Tweet fields params for API calls",
-        "Name": "/test/Twitter/FieldsParams",
+        "Name": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/",
+              Object {
+                "Ref": "AWS::StackName",
+              },
+              "/Twitter/FieldsParams",
+            ],
+          ],
+        },
         "Type": "String",
         "Value": "{\\"tweet.fields\\":[\\"id\\",\\"text\\",\\"author_id\\",\\"context_annotations\\",\\"conversation_id\\",\\"created_at\\",\\"entities\\",\\"geo\\",\\"in_reply_to_user_id\\",\\"lang\\",\\"possibly_sensitive\\",\\"public_metrics\\",\\"referenced_tweets\\",\\"reply_settings\\",\\"source\\"],\\"user.fields\\":[\\"id\\",\\"name\\",\\"username\\",\\"url\\",\\"verified\\",\\"public_metrics\\"],\\"place.fields\\":[\\"id\\",\\"full_name\\",\\"contained_within\\",\\"country\\",\\"country_code\\",\\"geo\\",\\"name\\",\\"place_type\\"],\\"expansions\\":[\\"author_id\\",\\"entities.mentions.username\\",\\"in_reply_to_user_id\\",\\"referenced_tweets.id\\",\\"referenced_tweets.id.author_id\\"]}",
       },
       "Type": "AWS::SSM::Parameter",
     },
-    "TwitterStreamingReaderCluster31726261": Object {
-      "Properties": Object {
-        "ClusterSettings": Array [
-          Object {
-            "Name": "containerInsights",
-            "Value": "enabled",
-          },
-        ],
-      },
-      "Type": "AWS::ECS::Cluster",
-    },
-    "TwitterStreamingReaderDLQC3457825": Object {
-      "DeletionPolicy": "Delete",
-      "Type": "AWS::SQS::Queue",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "TwitterStreamingReaderDLQFunction581625FB": Object {
-      "DependsOn": Array [
-        "TwitterStreamingReaderDLQFunctionServiceRoleDefaultPolicy4AD306AB",
-        "TwitterStreamingReaderDLQFunctionServiceRole3C529AD5",
-      ],
-      "Properties": Object {
-        "Architectures": Array [
-          "arm64",
-        ],
-        "Code": Object {
-          "S3Bucket": Object {
-            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
-          },
-          "S3Key": "228381e82cd7222e7e81b2d7fea6e6d85fbae44358cc504e9bab02d68e1e664c.zip",
-        },
-        "Description": "[SocialAnalytics] Process dead letter queue (DLQ)",
-        "Environment": Object {
-          "Variables": Object {
-            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "EVENT_BUS_ARN": Object {
-              "Fn::GetAtt": Array [
-                "TwitterEventBusC40513FF",
-                "Arn",
-              ],
-            },
-          },
-        },
-        "Handler": "index.handler",
-        "Role": Object {
-          "Fn::GetAtt": Array [
-            "TwitterStreamingReaderDLQFunctionServiceRole3C529AD5",
-            "Arn",
-          ],
-        },
-        "Runtime": "nodejs18.x",
-        "Timeout": 5,
-        "TracingConfig": Object {
-          "Mode": "Active",
-        },
-      },
-      "Type": "AWS::Lambda::Function",
-    },
-    "TwitterStreamingReaderDLQFunctionServiceRole3C529AD5": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "TwitterStreamingReaderDLQFunctionServiceRoleDefaultPolicy4AD306AB": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "xray:PutTraceSegments",
-                "xray:PutTelemetryRecords",
-              ],
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "sqs:ReceiveMessage",
-                "sqs:ChangeMessageVisibility",
-                "sqs:GetQueueUrl",
-                "sqs:DeleteMessage",
-                "sqs:GetQueueAttributes",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterStreamingReaderDLQC3457825",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "events:PutEvents",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterEventBusC40513FF",
-                  "Arn",
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "TwitterStreamingReaderDLQFunctionServiceRoleDefaultPolicy4AD306AB",
-        "Roles": Array [
-          Object {
-            "Ref": "TwitterStreamingReaderDLQFunctionServiceRole3C529AD5",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "TwitterStreamingReaderDLQFunctionSqsEventSourcetestTwitterStreamingReaderDLQD35862078CE80F85": Object {
-      "Properties": Object {
-        "EventSourceArn": Object {
-          "Fn::GetAtt": Array [
-            "TwitterStreamingReaderDLQC3457825",
-            "Arn",
-          ],
-        },
-        "FunctionName": Object {
-          "Ref": "TwitterStreamingReaderDLQFunction581625FB",
-        },
-      },
-      "Type": "AWS::Lambda::EventSourceMapping",
-    },
-    "TwitterStreamingReaderLogGroupFAD6413F": Object {
-      "DeletionPolicy": "Retain",
-      "Properties": Object {
-        "RetentionInDays": 14,
-      },
-      "Type": "AWS::Logs::LogGroup",
-      "UpdateReplacePolicy": "Retain",
-    },
-    "TwitterStreamingReaderServiceE64B9C32": Object {
-      "Properties": Object {
-        "Cluster": Object {
-          "Ref": "TwitterStreamingReaderCluster31726261",
-        },
-        "DeploymentConfiguration": Object {
-          "MaximumPercent": 100,
-          "MinimumHealthyPercent": 0,
-        },
-        "EnableECSManagedTags": false,
-        "LaunchType": "FARGATE",
-        "NetworkConfiguration": Object {
-          "AwsvpcConfiguration": Object {
-            "AssignPublicIp": "ENABLED",
-            "SecurityGroups": Array [
-              Object {
-                "Fn::GetAtt": Array [
-                  "TwitterStreamingReaderServiceSecurityGroupCF0E5D6B",
-                  "GroupId",
-                ],
-              },
-            ],
-            "Subnets": Array [
-              Object {
-                "Ref": "VPCPublicSubnet1SubnetB4246D30",
-              },
-              Object {
-                "Ref": "VPCPublicSubnet2Subnet74179F39",
-              },
-            ],
-          },
-        },
-        "TaskDefinition": Object {
-          "Ref": "TwitterStreamingReaderTaskDefinitionCB2925BF",
-        },
-      },
-      "Type": "AWS::ECS::Service",
-    },
-    "TwitterStreamingReaderServiceSecurityGroupCF0E5D6B": Object {
-      "Properties": Object {
-        "GroupDescription": "test/TwitterStreamingReader/Service/SecurityGroup",
-        "SecurityGroupEgress": Array [
-          Object {
-            "CidrIp": "0.0.0.0/0",
-            "Description": "Allow all outbound traffic by default",
-            "IpProtocol": "-1",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::SecurityGroup",
-    },
-    "TwitterStreamingReaderTaskDefinitionCB2925BF": Object {
-      "Properties": Object {
-        "ContainerDefinitions": Array [
-          Object {
-            "Cpu": 128,
-            "DependsOn": Array [
-              Object {
-                "Condition": "START",
-                "ContainerName": "aws-otel-collector",
-              },
-            ],
-            "Environment": Array [
-              Object {
-                "Name": "EVENT_BUS_ARN",
-                "Value": Object {
-                  "Fn::GetAtt": Array [
-                    "TwitterEventBusC40513FF",
-                    "Arn",
-                  ],
-                },
-              },
-              Object {
-                "Name": "DEAD_LETTER_QUEUE_URL",
-                "Value": Object {
-                  "Ref": "TwitterStreamingReaderDLQC3457825",
-                },
-              },
-              Object {
-                "Name": "OTEL_SERVICE_NAME",
-                "Value": "Twitter Stream Producer",
-              },
-            ],
-            "Essential": true,
-            "Image": Object {
-              "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.\${AWS::Region}.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}:59552f77d1758a500c02b4d4a4aae439296b619f5c7892c5494c8df0c1abe9cb",
-            },
-            "LogConfiguration": Object {
-              "LogDriver": "awslogs",
-              "Options": Object {
-                "awslogs-group": Object {
-                  "Ref": "TwitterStreamingReaderLogGroupFAD6413F",
-                },
-                "awslogs-region": Object {
-                  "Ref": "AWS::Region",
-                },
-                "awslogs-stream-prefix": "ecs",
-              },
-            },
-            "MemoryReservation": 256,
-            "Name": "app",
-            "ReadonlyRootFilesystem": true,
-            "Secrets": Array [
-              Object {
-                "Name": "TWITTER_BEARER_TOKEN",
-                "ValueFrom": Object {
-                  "Fn::Join": Array [
-                    "",
-                    Array [
-                      "arn:",
-                      Object {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ssm:",
-                      Object {
-                        "Ref": "AWS::Region",
-                      },
-                      ":",
-                      Object {
-                        "Ref": "AWS::AccountId",
-                      },
-                      ":parameter",
-                      Object {
-                        "Ref": "TwitterBearerTokenCBE899A9",
-                      },
-                    ],
-                  ],
-                },
-              },
-              Object {
-                "Name": "TWITTER_FIELDS_PARAMS",
-                "ValueFrom": Object {
-                  "Fn::Join": Array [
-                    "",
-                    Array [
-                      "arn:",
-                      Object {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ssm:",
-                      Object {
-                        "Ref": "AWS::Region",
-                      },
-                      ":",
-                      Object {
-                        "Ref": "AWS::AccountId",
-                      },
-                      ":parameter",
-                      Object {
-                        "Ref": "TwitterFieldsParamsDD9504EE",
-                      },
-                    ],
-                  ],
-                },
-              },
-            ],
-          },
-          Object {
-            "Command": Array [
-              "--config=/etc/ecs/ecs-xray.yaml",
-            ],
-            "Cpu": 64,
-            "Essential": true,
-            "Image": "public.ecr.aws/aws-observability/aws-otel-collector:v0.19.0",
-            "LogConfiguration": Object {
-              "LogDriver": "awslogs",
-              "Options": Object {
-                "awslogs-group": Object {
-                  "Ref": "TwitterStreamingReaderLogGroupFAD6413F",
-                },
-                "awslogs-region": Object {
-                  "Ref": "AWS::Region",
-                },
-                "awslogs-stream-prefix": "ecs",
-              },
-            },
-            "MemoryReservation": 128,
-            "Name": "aws-otel-collector",
-            "ReadonlyRootFilesystem": true,
-          },
-        ],
-        "Cpu": "256",
-        "ExecutionRoleArn": Object {
-          "Fn::GetAtt": Array [
-            "TwitterStreamingReaderTaskDefinitionExecutionRole20182CE0",
-            "Arn",
-          ],
-        },
-        "Family": "testTwitterStreamingReaderTaskDefinitionF4210DB8",
-        "Memory": "512",
-        "NetworkMode": "awsvpc",
-        "RequiresCompatibilities": Array [
-          "FARGATE",
-        ],
-        "RuntimePlatform": Object {
-          "CpuArchitecture": "X86_64",
-          "OperatingSystemFamily": "LINUX",
-        },
-        "TaskRoleArn": Object {
-          "Fn::GetAtt": Array [
-            "TwitterStreamingReaderTaskDefinitionTaskRoleDEBCAADA",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::ECS::TaskDefinition",
-    },
-    "TwitterStreamingReaderTaskDefinitionExecutionRole20182CE0": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "ecs-tasks.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "TwitterStreamingReaderTaskDefinitionExecutionRoleDefaultPolicy1C400A2A": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "ecr:BatchCheckLayerAvailability",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:BatchGetImage",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:",
-                    Object {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":ecr:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":repository/",
-                    Object {
-                      "Fn::Sub": "cdk-hnb659fds-container-assets-\${AWS::AccountId}-\${AWS::Region}",
-                    },
-                  ],
-                ],
-              },
-            },
-            Object {
-              "Action": "ecr:GetAuthorizationToken",
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "logs:CreateLogStream",
-                "logs:PutLogEvents",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterStreamingReaderLogGroupFAD6413F",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "ssm:DescribeParameters",
-                "ssm:GetParameters",
-                "ssm:GetParameter",
-                "ssm:GetParameterHistory",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:",
-                    Object {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":ssm:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":parameter",
-                    Object {
-                      "Ref": "TwitterBearerTokenCBE899A9",
-                    },
-                  ],
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "ssm:DescribeParameters",
-                "ssm:GetParameters",
-                "ssm:GetParameter",
-                "ssm:GetParameterHistory",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:",
-                    Object {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":ssm:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":parameter",
-                    Object {
-                      "Ref": "TwitterFieldsParamsDD9504EE",
-                    },
-                  ],
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "TwitterStreamingReaderTaskDefinitionExecutionRoleDefaultPolicy1C400A2A",
-        "Roles": Array [
-          Object {
-            "Ref": "TwitterStreamingReaderTaskDefinitionExecutionRole20182CE0",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "TwitterStreamingReaderTaskDefinitionTaskRoleDEBCAADA": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "ecs-tasks.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/AWSXRayDaemonWriteAccess",
-              ],
-            ],
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "TwitterStreamingReaderTaskDefinitionTaskRoleDefaultPolicy1842AE3B": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "logs:CreateLogStream",
-                "logs:PutLogEvents",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterStreamingReaderLogGroupFAD6413F",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": "events:PutEvents",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterEventBusC40513FF",
-                  "Arn",
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "sqs:SendMessage",
-                "sqs:GetQueueAttributes",
-                "sqs:GetQueueUrl",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TwitterStreamingReaderDLQC3457825",
-                  "Arn",
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "TwitterStreamingReaderTaskDefinitionTaskRoleDefaultPolicy1842AE3B",
-        "Roles": Array [
-          Object {
-            "Ref": "TwitterStreamingReaderTaskDefinitionTaskRoleDEBCAADA",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "VPCB9E5F0B4": Object {
-      "Properties": Object {
-        "CidrBlock": "10.0.0.0/16",
-        "EnableDnsHostnames": true,
-        "EnableDnsSupport": true,
-        "InstanceTenancy": "default",
-        "Tags": Array [
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC",
-          },
-        ],
-      },
-      "Type": "AWS::EC2::VPC",
-    },
-    "VPCIGWB7E252D3": Object {
-      "Properties": Object {
-        "Tags": Array [
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC",
-          },
-        ],
-      },
-      "Type": "AWS::EC2::InternetGateway",
-    },
-    "VPCPrivateSubnet1DefaultRouteAE1D6490": Object {
-      "Properties": Object {
-        "DestinationCidrBlock": "0.0.0.0/0",
-        "NatGatewayId": Object {
-          "Ref": "VPCPublicSubnet1NATGatewayE0556630",
-        },
-        "RouteTableId": Object {
-          "Ref": "VPCPrivateSubnet1RouteTableBE8A6027",
-        },
-      },
-      "Type": "AWS::EC2::Route",
-    },
-    "VPCPrivateSubnet1RouteTableAssociation347902D1": Object {
-      "Properties": Object {
-        "RouteTableId": Object {
-          "Ref": "VPCPrivateSubnet1RouteTableBE8A6027",
-        },
-        "SubnetId": Object {
-          "Ref": "VPCPrivateSubnet1Subnet8BCA10E0",
-        },
-      },
-      "Type": "AWS::EC2::SubnetRouteTableAssociation",
-    },
-    "VPCPrivateSubnet1RouteTableBE8A6027": Object {
-      "Properties": Object {
-        "Tags": Array [
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PrivateSubnet1",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::RouteTable",
-    },
-    "VPCPrivateSubnet1Subnet8BCA10E0": Object {
-      "Properties": Object {
-        "AvailabilityZone": Object {
-          "Fn::Select": Array [
-            0,
-            Object {
-              "Fn::GetAZs": "",
-            },
-          ],
-        },
-        "CidrBlock": "10.0.2.0/24",
-        "MapPublicIpOnLaunch": false,
-        "Tags": Array [
-          Object {
-            "Key": "aws-cdk:subnet-name",
-            "Value": "Private",
-          },
-          Object {
-            "Key": "aws-cdk:subnet-type",
-            "Value": "Private",
-          },
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PrivateSubnet1",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::Subnet",
-    },
-    "VPCPrivateSubnet2DefaultRouteF4F5CFD2": Object {
-      "Properties": Object {
-        "DestinationCidrBlock": "0.0.0.0/0",
-        "NatGatewayId": Object {
-          "Ref": "VPCPublicSubnet1NATGatewayE0556630",
-        },
-        "RouteTableId": Object {
-          "Ref": "VPCPrivateSubnet2RouteTable0A19E10E",
-        },
-      },
-      "Type": "AWS::EC2::Route",
-    },
-    "VPCPrivateSubnet2RouteTable0A19E10E": Object {
-      "Properties": Object {
-        "Tags": Array [
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PrivateSubnet2",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::RouteTable",
-    },
-    "VPCPrivateSubnet2RouteTableAssociation0C73D413": Object {
-      "Properties": Object {
-        "RouteTableId": Object {
-          "Ref": "VPCPrivateSubnet2RouteTable0A19E10E",
-        },
-        "SubnetId": Object {
-          "Ref": "VPCPrivateSubnet2SubnetCFCDAA7A",
-        },
-      },
-      "Type": "AWS::EC2::SubnetRouteTableAssociation",
-    },
-    "VPCPrivateSubnet2SubnetCFCDAA7A": Object {
-      "Properties": Object {
-        "AvailabilityZone": Object {
-          "Fn::Select": Array [
-            1,
-            Object {
-              "Fn::GetAZs": "",
-            },
-          ],
-        },
-        "CidrBlock": "10.0.3.0/24",
-        "MapPublicIpOnLaunch": false,
-        "Tags": Array [
-          Object {
-            "Key": "aws-cdk:subnet-name",
-            "Value": "Private",
-          },
-          Object {
-            "Key": "aws-cdk:subnet-type",
-            "Value": "Private",
-          },
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PrivateSubnet2",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::Subnet",
-    },
-    "VPCPublicSubnet1DefaultRoute91CEF279": Object {
-      "DependsOn": Array [
-        "VPCVPCGW99B986DC",
-      ],
-      "Properties": Object {
-        "DestinationCidrBlock": "0.0.0.0/0",
-        "GatewayId": Object {
-          "Ref": "VPCIGWB7E252D3",
-        },
-        "RouteTableId": Object {
-          "Ref": "VPCPublicSubnet1RouteTableFEE4B781",
-        },
-      },
-      "Type": "AWS::EC2::Route",
-    },
-    "VPCPublicSubnet1EIP6AD938E8": Object {
-      "Properties": Object {
-        "Domain": "vpc",
-        "Tags": Array [
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PublicSubnet1",
-          },
-        ],
-      },
-      "Type": "AWS::EC2::EIP",
-    },
-    "VPCPublicSubnet1NATGatewayE0556630": Object {
-      "DependsOn": Array [
-        "VPCPublicSubnet1DefaultRoute91CEF279",
-        "VPCPublicSubnet1RouteTableAssociation0B0896DC",
-      ],
-      "Properties": Object {
-        "AllocationId": Object {
-          "Fn::GetAtt": Array [
-            "VPCPublicSubnet1EIP6AD938E8",
-            "AllocationId",
-          ],
-        },
-        "SubnetId": Object {
-          "Ref": "VPCPublicSubnet1SubnetB4246D30",
-        },
-        "Tags": Array [
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PublicSubnet1",
-          },
-        ],
-      },
-      "Type": "AWS::EC2::NatGateway",
-    },
-    "VPCPublicSubnet1RouteTableAssociation0B0896DC": Object {
-      "Properties": Object {
-        "RouteTableId": Object {
-          "Ref": "VPCPublicSubnet1RouteTableFEE4B781",
-        },
-        "SubnetId": Object {
-          "Ref": "VPCPublicSubnet1SubnetB4246D30",
-        },
-      },
-      "Type": "AWS::EC2::SubnetRouteTableAssociation",
-    },
-    "VPCPublicSubnet1RouteTableFEE4B781": Object {
-      "Properties": Object {
-        "Tags": Array [
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PublicSubnet1",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::RouteTable",
-    },
-    "VPCPublicSubnet1SubnetB4246D30": Object {
-      "Properties": Object {
-        "AvailabilityZone": Object {
-          "Fn::Select": Array [
-            0,
-            Object {
-              "Fn::GetAZs": "",
-            },
-          ],
-        },
-        "CidrBlock": "10.0.0.0/24",
-        "MapPublicIpOnLaunch": true,
-        "Tags": Array [
-          Object {
-            "Key": "aws-cdk:subnet-name",
-            "Value": "Public",
-          },
-          Object {
-            "Key": "aws-cdk:subnet-type",
-            "Value": "Public",
-          },
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PublicSubnet1",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::Subnet",
-    },
-    "VPCPublicSubnet2DefaultRouteB7481BBA": Object {
-      "DependsOn": Array [
-        "VPCVPCGW99B986DC",
-      ],
-      "Properties": Object {
-        "DestinationCidrBlock": "0.0.0.0/0",
-        "GatewayId": Object {
-          "Ref": "VPCIGWB7E252D3",
-        },
-        "RouteTableId": Object {
-          "Ref": "VPCPublicSubnet2RouteTable6F1A15F1",
-        },
-      },
-      "Type": "AWS::EC2::Route",
-    },
-    "VPCPublicSubnet2RouteTable6F1A15F1": Object {
-      "Properties": Object {
-        "Tags": Array [
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PublicSubnet2",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::RouteTable",
-    },
-    "VPCPublicSubnet2RouteTableAssociation5A808732": Object {
-      "Properties": Object {
-        "RouteTableId": Object {
-          "Ref": "VPCPublicSubnet2RouteTable6F1A15F1",
-        },
-        "SubnetId": Object {
-          "Ref": "VPCPublicSubnet2Subnet74179F39",
-        },
-      },
-      "Type": "AWS::EC2::SubnetRouteTableAssociation",
-    },
-    "VPCPublicSubnet2Subnet74179F39": Object {
-      "Properties": Object {
-        "AvailabilityZone": Object {
-          "Fn::Select": Array [
-            1,
-            Object {
-              "Fn::GetAZs": "",
-            },
-          ],
-        },
-        "CidrBlock": "10.0.1.0/24",
-        "MapPublicIpOnLaunch": true,
-        "Tags": Array [
-          Object {
-            "Key": "aws-cdk:subnet-name",
-            "Value": "Public",
-          },
-          Object {
-            "Key": "aws-cdk:subnet-type",
-            "Value": "Public",
-          },
-          Object {
-            "Key": "Name",
-            "Value": "test/VPC/PublicSubnet2",
-          },
-        ],
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::Subnet",
-    },
-    "VPCVPCGW99B986DC": Object {
-      "Properties": Object {
-        "InternetGatewayId": Object {
-          "Ref": "VPCIGWB7E252D3",
-        },
-        "VpcId": Object {
-          "Ref": "VPCB9E5F0B4",
-        },
-      },
-      "Type": "AWS::EC2::VPCGatewayAttachment",
-    },
     "twitterFilterContextDomainsAC1EB275": Object {
       "Properties": Object {
         "Description": "Context domains for filtering",
-        "Name": "/test/Twitter/Filter/ContextDomains",
+        "Name": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/",
+              Object {
+                "Ref": "AWS::StackName",
+              },
+              "/Twitter/Filter/ContextDomains",
+            ],
+          ],
+        },
         "Type": "StringList",
         "Value": "Musician,Music Genre,Actor,TV Shows,Multimedia Franchise,Fictional Character,Entertainment Personality",
       },
@@ -4949,7 +5441,18 @@ def submit_response(event: dict, context, response_status: str, error_message: s
     "twitterFilterSourceLabelsEC9A582C": Object {
       "Properties": Object {
         "Description": "Tweet source labels for filtering",
-        "Name": "/test/Twitter/Filter/SourceLabels",
+        "Name": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/",
+              Object {
+                "Ref": "AWS::StackName",
+              },
+              "/Twitter/Filter/SourceLabels",
+            ],
+          ],
+        },
         "Type": "StringList",
         "Value": "Twitter for Advertisers,twittbot.net,Mk00JapanBot,Gakeppu Tweet,BelugaCampaignSEA,rare_zaiko,Wn32ShimaneBot,uhiiman_bot,atulsbots",
       },
