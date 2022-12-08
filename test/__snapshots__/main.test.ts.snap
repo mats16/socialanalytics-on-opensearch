@@ -3930,7 +3930,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "c4aecc88772e897b8274a74517caa0c3a0a8eaf5ce6ad067dec745c663a2af5f.zip",
+          "S3Key": "ceaa3eeb8d7ee26b339337aa1284791f7e5a11be86288e5281bcfbdf41722485.zip",
         },
         "Description": "SocialAnalytics - Process queues from TweetProducer",
         "Environment": Object {
