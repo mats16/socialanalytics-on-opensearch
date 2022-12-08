@@ -1,26 +1,26 @@
 //import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
-//import { Tracer } from '@aws-lambda-powertools/tracer';
+import { Tracer } from '@aws-lambda-powertools/tracer';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { EventBridgeHandler } from 'aws-lambda';
-import * as xray from 'aws-xray-sdk';
-import axios from 'axios';
 import { Promise } from 'bluebird';
 import { TweetV2SingleStreamResult, TweetV2 } from 'twitter-api-v2';
-import { TweetItem } from '../common-utils';
-
-const allowedDateAfter = new Date('2019-12-01T00:00:00.000Z');
-const region = process.env.AWS_REGION;
-const appConfigBaseUrl = process.env.APPCONFIG_BASE_URL;
-const tweetTableName = process.env.TWEET_TABLE_NAME!;
-
-let twitterFilterContextDomains: string[];
-let twitterFilterSourceLabels: string[];
+import { TweetItem, getListParameter } from './common-utils';
 
 //const logger = new Logger();
 const metrics = new Metrics();
-//const tracer = new Tracer();
+const tracer = new Tracer();
+
+const allowedDateAfter = new Date('2019-12-01T00:00:00.000Z');
+const region = process.env.AWS_REGION;
+const tweetTableName = process.env.TWEET_TABLE_NAME!;
+
+const twitterFilterContextDomainsPath = process.env.TWITTER_FILTER_CONTEXT_DOMAINS_PATH!;
+const twitterFilterSourceLabelsPath = process.env.TWITTER_FILTER_SOURCE_LABELS_PATH!;
+
+let twitterFilterContextDomains: string[];
+let twitterFilterSourceLabels: string[];
 
 const marshallOptions = {
   convertEmptyValues: true, // false, by default.
@@ -32,14 +32,8 @@ const unmarshallOptions = {
 };
 const translateConfig = { marshallOptions, unmarshallOptions };
 
-const ddbClient = xray.captureAWSv3Client(new DynamoDBClient({ region }) as any);
+const ddbClient = tracer.captureAWSv3Client(new DynamoDBClient({ region }));
 const ddbDocClient = DynamoDBDocumentClient.from(ddbClient, translateConfig);
-
-const getConfig = async (name: string): Promise<string[]> => {
-  const res = await axios.get(`${appConfigBaseUrl}/${name}`);
-  const data: string = res.data;
-  return data.split(',');
-};
 
 const putTweet = async (item: TweetItem) => {
   const cmd = new PutCommand({
@@ -120,8 +114,8 @@ const processTweetStreamResult = async (result: TweetV2SingleStreamResult) => {
 };
 
 export const handler: EventBridgeHandler<'Tweet', TweetV2SingleStreamResult, void> = async(event, _context) => {
-  twitterFilterContextDomains = await getConfig('TwitterFilterContextDomains');
-  twitterFilterSourceLabels = await getConfig('TwitterFilterSourceLabels');
+  twitterFilterContextDomains = await getListParameter(twitterFilterContextDomainsPath);
+  twitterFilterSourceLabels = await getListParameter(twitterFilterSourceLabelsPath);
 
   const result = event.detail;
   const tweet = result.data;

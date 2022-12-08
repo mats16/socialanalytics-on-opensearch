@@ -6,6 +6,7 @@ import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
@@ -56,24 +57,17 @@ export class SocialAnalyticsStack extends Stack {
       simpleName: false,
     });
 
-    const twitterParameterPolicyStatement = new iam.PolicyStatement({
-      actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
-      resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter${twitterParameterPath}/*`],
+    const twitterParamsPolicy = new iam.Policy(this, 'TwitterParamsPolicy', {
+      statements: [new iam.PolicyStatement({
+        actions: [
+          'ssm:GetParameter',
+          'ssm:GetParametersByPath',
+        ],
+        resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter${twitterParameterPath}/*`],
+      })],
     });
 
-    const app = new Application(this, 'AppConfigApplication', { name: this.stackName });
-    const appEnv = app.addEnvironment('Production');
-    const twitterFilterContextDomainsProfile = app.addSSMParameterConfigProfile('TwitterFilterContextDomains', twitterFilterContextDomains);
-    const twitterFilterSourceLabelsProfile = app.addSSMParameterConfigProfile('TwitterFilterSourceLabels', twitterFilterSourceLabels);
-    appEnv.deploy('TwitterFilterContextDomainsDeploy', twitterFilterContextDomainsProfile.configurationProfileId);
-    appEnv.deploy('TwitterFilterSourceLabelsDeploy', twitterFilterSourceLabelsProfile.configurationProfileId);
-
-    const appConfigPolicyStatement = new iam.PolicyStatement({
-      actions: ['appconfig:StartConfigurationSession', 'appconfig:GetLatestConfiguration'],
-      resources: [`arn:${Aws.PARTITION}:appconfig:${Aws.REGION}:${Aws.ACCOUNT_ID}:application/${app.applicationId}/environment/${appEnv.environmentId}/configuration/*`],
-    });
-
-    const appConfigExtension = lambda.LayerVersion.fromLayerVersionArn(this, 'AppConfig-Extension', 'arn:aws:lambda:us-west-2:359756378197:layer:AWS-AppConfig-Extension-Arm64:3');
+    const awsParametersAndSecretsLambdaExtension = lambda.LayerVersion.fromLayerVersionArn(this, 'ParametersAndSecretsLambdaExtension', 'arn:aws:lambda:us-west-2:345057560386:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2');
 
     const bucket = new s3.Bucket(this, 'Bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -149,21 +143,30 @@ export class SocialAnalyticsStack extends Stack {
       targets: [new eventsTargets.LambdaFunction(archiveEventFunction)],
     });
 
-    const dynamoLoaderFunction = new Function(this, 'DynamoLoaderFunction', {
+    const dynamoLoaderFunction = new NodejsFunction(this, 'DynamoLoaderFunction', {
       description: '[SocialAnalytics] Tweet event processor to update DynamoDB',
-      entry: './src/functions/dynamo-loader/index.ts',
-      layers: [appConfigExtension],
+      entry: './src/functions/dynamo-loader.ts',
+      bundling: {
+        externalModules: ['@aws-sdk/*'],
+        nodeModules: ['axios'],
+      },
+      runtime: lambda.Runtime.NODEJS_18_X,
+      architecture: lambda.Architecture.ARM_64,
+      layers: [awsParametersAndSecretsLambdaExtension],
       insightsVersion,
-      tracing: lambda.Tracing.ACTIVE,
+      timeout: Duration.seconds(5),
       environment: {
         POWERTOOLS_SERVICE_NAME: 'DynamoLoaderFunction',
         POWERTOOLS_METRICS_NAMESPACE: Aws.STACK_NAME,
-        APPCONFIG_BASE_URL: `http://localhost:2772/applications/${app.applicationName}/environments/${appEnv.environmentName}/configurations`,
         TWEET_TABLE_NAME: tweetTable.tableName,
+        TWITTER_FILTER_CONTEXT_DOMAINS_PATH: twitterFilterContextDomains.parameterName,
+        TWITTER_FILTER_SOURCE_LABELS_PATH: twitterFilterSourceLabels.parameterName,
       },
-      initialPolicy: [appConfigPolicyStatement],
+      tracing: lambda.Tracing.ACTIVE,
     });
+    twitterParamsPolicy.attachToRole(dynamoLoaderFunction.role!);
     tweetTable.grantWriteData(dynamoLoaderFunction);
+
     new Rule(this, 'DynamoLoaderRule', {
       eventBus: twitterEventBus,
       eventPattern: allowedEventPattern,

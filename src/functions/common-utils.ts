@@ -1,4 +1,6 @@
 import { SentimentScore, Entity } from '@aws-sdk/client-comprehend';
+import { GetParameterCommandOutput } from '@aws-sdk/client-ssm';
+import axios from 'axios';
 import { TweetV2SingleStreamResult, TweetV2, UserV2 } from 'twitter-api-v2';
 
 export interface KinesisEmulatedRecord {
@@ -50,4 +52,19 @@ export const Normalize = (text: string): string => {
   const textWithoutHtml = textWithoutUrl.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
   const textWithoutSpace = textWithoutHtml.replace(/\n/g, ' ').replace(/[\s]+/g, ' ').trimEnd();
   return textWithoutSpace;
+};
+
+export const getParameter = async (parameterPath: string): Promise<string> => {
+  const sessionToken = process.env.AWS_SESSION_TOKEN!;
+  const port = process.env.PARAMETERS_SECRETS_EXTENSION_HTTP_PORT || '2773';
+  const url = encodeURI(`http://localhost:${port}/systemsmanager/parameters/get/?name=${parameterPath}`);
+  const headers = { 'X-Aws-Parameters-Secrets-Token': sessionToken };
+  const res = await axios.get(url, { headers });
+  const output: GetParameterCommandOutput = res.data;
+  return output.Parameter?.Value!;
+};
+
+export const getListParameter = async (parameterPath: string): Promise<string[]> => {
+  const value = await getParameter(parameterPath);
+  return value.split(',')!;
 };

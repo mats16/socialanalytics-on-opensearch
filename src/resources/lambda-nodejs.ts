@@ -12,6 +12,9 @@ const defaultProps: Partial<NodejsFunctionProps> = {
   timeout: Duration.seconds(5),
   runtime: lambda.Runtime.NODEJS_18_X,
   architecture: lambda.Architecture.ARM_64,
+  bundling: {
+    externalModules: ['@aws-sdk/*'],
+  },
 };
 
 export class Function extends NodejsFunction {

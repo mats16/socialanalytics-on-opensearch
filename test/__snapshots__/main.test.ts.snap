@@ -218,7 +218,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "72102a240f66fd7b9dd9a0a927fd18c376bfe260361b18235e2aa6c4932e6669.zip",
+          "S3Key": "cc76721b8952c364c7fd14e84d4970dab3b2085234a495d5735961a61e1e26c3.zip",
         },
         "Description": "[SocialAnalytics] Amazon Comprehend",
         "Environment": Object {
@@ -409,223 +409,6 @@ Object {
       },
       "Type": "AWS::IAM::Policy",
     },
-    "AppConfigApplication559632A2": Object {
-      "Properties": Object {
-        "Name": "test",
-      },
-      "Type": "AWS::AppConfig::Application",
-    },
-    "AppConfigApplicationFastDeploy0AFC784A": Object {
-      "Properties": Object {
-        "DeploymentDurationInMinutes": 0,
-        "FinalBakeTimeInMinutes": 0,
-        "GrowthFactor": 100,
-        "Name": "test.FastDeploy",
-        "ReplicateTo": "NONE",
-      },
-      "Type": "AWS::AppConfig::DeploymentStrategy",
-    },
-    "AppConfigApplicationProduction11A5678C": Object {
-      "Properties": Object {
-        "ApplicationId": Object {
-          "Ref": "AppConfigApplication559632A2",
-        },
-        "Name": "Production",
-      },
-      "Type": "AWS::AppConfig::Environment",
-    },
-    "AppConfigApplicationProductionTwitterFilterContextDomainsDeploy14EE39A32": Object {
-      "Properties": Object {
-        "ApplicationId": Object {
-          "Ref": "AppConfigApplication559632A2",
-        },
-        "ConfigurationProfileId": Object {
-          "Ref": "AppConfigApplicationTwitterFilterContextDomainsC280D03C",
-        },
-        "ConfigurationVersion": "1",
-        "DeploymentStrategyId": Object {
-          "Ref": "AppConfigApplicationFastDeploy0AFC784A",
-        },
-        "EnvironmentId": Object {
-          "Ref": "AppConfigApplicationProduction11A5678C",
-        },
-      },
-      "Type": "AWS::AppConfig::Deployment",
-    },
-    "AppConfigApplicationProductionTwitterFilterSourceLabelsDeploy1DE08108E": Object {
-      "Properties": Object {
-        "ApplicationId": Object {
-          "Ref": "AppConfigApplication559632A2",
-        },
-        "ConfigurationProfileId": Object {
-          "Ref": "AppConfigApplicationTwitterFilterSourceLabels567004A8",
-        },
-        "ConfigurationVersion": "1",
-        "DeploymentStrategyId": Object {
-          "Ref": "AppConfigApplicationFastDeploy0AFC784A",
-        },
-        "EnvironmentId": Object {
-          "Ref": "AppConfigApplicationProduction11A5678C",
-        },
-      },
-      "Type": "AWS::AppConfig::Deployment",
-    },
-    "AppConfigApplicationRetrievalRole0D6E6903": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "appconfig.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "Description": "AppConfigServiceRole",
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "AppConfigApplicationRetrievalRoleDefaultPolicy76E93B2F": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "ssm:DescribeParameters",
-                "ssm:GetParameters",
-                "ssm:GetParameter",
-                "ssm:GetParameterHistory",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:",
-                    Object {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":ssm:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":parameter",
-                    Object {
-                      "Ref": "twitterFilterContextDomainsAC1EB275",
-                    },
-                  ],
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "ssm:DescribeParameters",
-                "ssm:GetParameters",
-                "ssm:GetParameter",
-                "ssm:GetParameterHistory",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:",
-                    Object {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":ssm:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":parameter",
-                    Object {
-                      "Ref": "twitterFilterSourceLabelsEC9A582C",
-                    },
-                  ],
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "AppConfigApplicationRetrievalRoleDefaultPolicy76E93B2F",
-        "Roles": Array [
-          Object {
-            "Ref": "AppConfigApplicationRetrievalRole0D6E6903",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "AppConfigApplicationTwitterFilterContextDomainsC280D03C": Object {
-      "DependsOn": Array [
-        "AppConfigApplicationRetrievalRoleDefaultPolicy76E93B2F",
-      ],
-      "Properties": Object {
-        "ApplicationId": Object {
-          "Ref": "AppConfigApplication559632A2",
-        },
-        "LocationUri": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "ssm-parameter://",
-              Object {
-                "Ref": "twitterFilterContextDomainsAC1EB275",
-              },
-            ],
-          ],
-        },
-        "Name": "TwitterFilterContextDomains",
-        "RetrievalRoleArn": Object {
-          "Fn::GetAtt": Array [
-            "AppConfigApplicationRetrievalRole0D6E6903",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::AppConfig::ConfigurationProfile",
-    },
-    "AppConfigApplicationTwitterFilterSourceLabels567004A8": Object {
-      "DependsOn": Array [
-        "AppConfigApplicationRetrievalRoleDefaultPolicy76E93B2F",
-      ],
-      "Properties": Object {
-        "ApplicationId": Object {
-          "Ref": "AppConfigApplication559632A2",
-        },
-        "LocationUri": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "ssm-parameter://",
-              Object {
-                "Ref": "twitterFilterSourceLabelsEC9A582C",
-              },
-            ],
-          ],
-        },
-        "Name": "TwitterFilterSourceLabels",
-        "RetrievalRoleArn": Object {
-          "Fn::GetAtt": Array [
-            "AppConfigApplicationRetrievalRole0D6E6903",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::AppConfig::ConfigurationProfile",
-    },
     "ArchiveEventFunctionA15B0833": Object {
       "DependsOn": Array [
         "ArchiveEventFunctionServiceRoleDefaultPolicy90739CF6",
@@ -639,7 +422,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "f561fa7dd410d4130215ca21cf69f3973726b44e64a5aa68b0a8af07fe1319cc.zip",
+          "S3Key": "5f0ce026ed5883c82dc5dc298cacf6557b21034b4f37be51c87d2a9bf0c5ee77.zip",
         },
         "Description": "[SocialAnalytics] Archive event for Firehose-S3",
         "Environment": Object {
@@ -1257,7 +1040,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "5d98d7dc54802c99cf9cb89806692474c90d937a0c522d5455d062db7f90846f.zip",
+          "S3Key": "fc0fa28936c3bae1d6f7bfb6fddd89be113a9629034ab150df20c7f163f32875.zip",
         },
         "Environment": Object {
           "Variables": Object {
@@ -1323,7 +1106,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "7b17add3f74ae69712cd571bd5bdc602c638dcccc7b28bf25ed1c2e9f76a0929.zip",
+          "S3Key": "08420f9d57a035024b6e9a807964f2e56829145383aa0657b4fae1d0859300b4.zip",
         },
         "Environment": Object {
           "Variables": Object {
@@ -1422,7 +1205,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "c851fd612f87edd0538fefa0347225a1cf112fb119ded0aa53cacbf4bd20582e.zip",
+          "S3Key": "22bbcca229d81064e3f1856f45f2c1a8d2b4657a57e9d862bfd47508968ca3cf.zip",
         },
         "Environment": Object {
           "Variables": Object {
@@ -2477,7 +2260,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "c4254b478647935517ae7e4cd6d7562b4d1aad1df815026570bd09b436e810e7.zip",
+          "S3Key": "5f86d05aac564f0f5de2f12b0c711ceaf97ae4f53a13c66b7eb2b218777ba7bb.zip",
         },
         "Description": "Lambda-backed custom resources - OpenSearch resources",
         "Environment": Object {
@@ -3161,12 +2944,11 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "450475ddc553c5bfd05992b1e225682dec4ff1c5de7160e63dfcb333744b3140.zip",
+          "S3Key": "5b9d147d1a318d1edbb55cfdbbb11164550a7d24b94e4c1d79c1c9bc8ad92ac7.zip",
         },
         "Description": "[SocialAnalytics] Tweet event processor to update DynamoDB",
         "Environment": Object {
           "Variables": Object {
-            "APPCONFIG_BASE_URL": "http://localhost:2772/applications/test/environments/Production/configurations",
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
             "POWERTOOLS_METRICS_NAMESPACE": Object {
               "Ref": "AWS::StackName",
@@ -3175,11 +2957,17 @@ def submit_response(event: dict, context, response_status: str, error_message: s
             "TWEET_TABLE_NAME": Object {
               "Ref": "TweetTable97F090DB",
             },
+            "TWITTER_FILTER_CONTEXT_DOMAINS_PATH": Object {
+              "Ref": "twitterFilterContextDomainsAC1EB275",
+            },
+            "TWITTER_FILTER_SOURCE_LABELS_PATH": Object {
+              "Ref": "twitterFilterSourceLabelsEC9A582C",
+            },
           },
         },
         "Handler": "index.handler",
         "Layers": Array [
-          "arn:aws:lambda:us-west-2:359756378197:layer:AWS-AppConfig-Extension-Arm64:3",
+          "arn:aws:lambda:us-west-2:345057560386:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2",
           Object {
             "Fn::Join": Array [
               "",
@@ -3254,41 +3042,6 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
-            Object {
-              "Action": Array [
-                "appconfig:StartConfigurationSession",
-                "appconfig:GetLatestConfiguration",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:",
-                    Object {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":appconfig:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":application/",
-                    Object {
-                      "Ref": "AppConfigApplication559632A2",
-                    },
-                    "/environment/",
-                    Object {
-                      "Ref": "AppConfigApplicationProduction11A5678C",
-                    },
-                    "/configuration/*",
-                  ],
-                ],
-              },
-            },
             Object {
               "Action": Array [
                 "xray:PutTraceSegments",
@@ -3417,7 +3170,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "f2c5af61058e2e528c34cce2080d0e069968d4713262724195a3355f131579af.zip",
+          "S3Key": "b89897c40bab43c17d9bde395eb6c207c18a23a2762a5cf91fa69dd555a0c789.zip",
         },
         "Description": "[SocialAnalytics] OpenSearch Bulk Loader",
         "Environment": Object {
@@ -3620,7 +3373,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "1c70bd6946704b996b31869ca54823cce9f506b78f42653df8f9c036d807b2fe.zip",
+          "S3Key": "39a7bc54b4cd21883a6070be4a8895e534bf06859b2c3a9d62064b38baef6dd9.zip",
         },
         "Description": "[SocialAnalytics] OpenSearch package register",
         "Environment": Object {
@@ -3930,7 +3683,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "ceaa3eeb8d7ee26b339337aa1284791f7e5a11be86288e5281bcfbdf41722485.zip",
+          "S3Key": "dcab74f835716c07146b3e8fcc3c335613e43c99c01ec55a1a8aaa8a37a46160.zip",
         },
         "Description": "SocialAnalytics - Process queues from TweetProducer",
         "Environment": Object {
@@ -5417,6 +5170,49 @@ def submit_response(event: dict, context, response_status: str, error_message: s
         "Value": "{\\"tweet.fields\\":[\\"id\\",\\"text\\",\\"author_id\\",\\"context_annotations\\",\\"conversation_id\\",\\"created_at\\",\\"entities\\",\\"geo\\",\\"in_reply_to_user_id\\",\\"lang\\",\\"possibly_sensitive\\",\\"public_metrics\\",\\"referenced_tweets\\",\\"reply_settings\\",\\"source\\"],\\"user.fields\\":[\\"id\\",\\"name\\",\\"username\\",\\"url\\",\\"verified\\",\\"public_metrics\\"],\\"place.fields\\":[\\"id\\",\\"full_name\\",\\"contained_within\\",\\"country\\",\\"country_code\\",\\"geo\\",\\"name\\",\\"place_type\\"],\\"expansions\\":[\\"author_id\\",\\"entities.mentions.username\\",\\"in_reply_to_user_id\\",\\"referenced_tweets.id\\",\\"referenced_tweets.id.author_id\\"]}",
       },
       "Type": "AWS::SSM::Parameter",
+    },
+    "TwitterParamsPolicyD929C066": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "ssm:GetParameter",
+                "ssm:GetParametersByPath",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:aws:ssm:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/",
+                    Object {
+                      "Ref": "AWS::StackName",
+                    },
+                    "/Twitter/*",
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TwitterParamsPolicyD929C066",
+        "Roles": Array [
+          Object {
+            "Ref": "DynamoLoaderFunctionServiceRole3B9B210F",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
     },
     "twitterFilterContextDomainsAC1EB275": Object {
       "Properties": Object {
