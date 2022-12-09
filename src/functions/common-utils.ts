@@ -1,4 +1,6 @@
+import { Tracer } from '@aws-lambda-powertools/tracer';
 import { SentimentScore, Entity } from '@aws-sdk/client-comprehend';
+import { SFNClient, StartSyncExecutionCommand } from '@aws-sdk/client-sfn';
 import { GetParameterCommandOutput } from '@aws-sdk/client-ssm';
 import axios from 'axios';
 import { TweetV2SingleStreamResult, TweetV2, UserV2 } from 'twitter-api-v2';
@@ -19,6 +21,10 @@ export interface ComprehendJobOutput {
   Sentiment?: string;
   SentimentScore?: SentimentScore;
   //KeyPhrases?: KeyPhrase[];
+}
+
+export interface TweetEvent extends TweetV2SingleStreamResult {
+  data: TweetV2 & { comprehend?: ComprehendJobOutput };
 }
 
 export interface TweetItem extends Partial<TweetV2> {
@@ -68,3 +74,29 @@ export const getListParameter = async (parameterPath: string): Promise<string[]>
   const value = await getParameter(parameterPath);
   return value.split(',')!;
 };
+
+export class ComprehendStateMachine extends SFNClient {
+  client: SFNClient;
+  stateMachineArn: string;
+  constructor(stateMachineArn: string) {
+    super({ region: process.env.AWS_REGION });
+    const tracer = new Tracer();
+    this.client = tracer.captureAWSv3Client(this);
+    this.stateMachineArn = stateMachineArn;
+  }
+
+  async analyzeText(text: string, lang?: string) {
+    const cmd = new StartSyncExecutionCommand({
+      stateMachineArn: this.stateMachineArn,
+      input: JSON.stringify({
+        Text: text,
+        LanguageCode: lang,
+      }),
+    });
+    const { output } = await this.send(cmd);
+    const result: ComprehendJobOutput = (typeof output == 'string')
+      ? JSON.parse(output)
+      : {};
+    return result;
+  }
+}

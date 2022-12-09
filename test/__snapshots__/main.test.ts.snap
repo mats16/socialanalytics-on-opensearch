@@ -218,7 +218,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "cc76721b8952c364c7fd14e84d4970dab3b2085234a495d5735961a61e1e26c3.zip",
+          "S3Key": "a0fce08676118dd29139aab252d99027ba81047bf9f8b5c5c98b551316242d11.zip",
         },
         "Description": "[SocialAnalytics] Amazon Comprehend",
         "Environment": Object {
@@ -549,25 +549,9 @@ Object {
           "Ref": "TwitterEventBusC40513FF",
         },
         "EventPattern": Object {
-          "detail": Object {
-            "data": Object {
-              "source": Array [
-                Object {
-                  "anything-but": Object {
-                    "Fn::Split": Array [
-                      ",",
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "twitterFilterSourceLabelsEC9A582C",
-                          "Value",
-                        ],
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
+          "detail-type": Array [
+            "Tweet",
+          ],
           "source": Array [
             "twitter.api.v2",
           ],
@@ -1040,7 +1024,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "fc0fa28936c3bae1d6f7bfb6fddd89be113a9629034ab150df20c7f163f32875.zip",
+          "S3Key": "be7702e3aef9162def4a7ebac564c1c61eb85167467c07303e3ccc7b79e15c66.zip",
         },
         "Environment": Object {
           "Variables": Object {
@@ -1106,7 +1090,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "08420f9d57a035024b6e9a807964f2e56829145383aa0657b4fae1d0859300b4.zip",
+          "S3Key": "bc68cf6f31ab7d6748564bdfd6da1a2e9a24402628ffcb18777028367cb89b63.zip",
         },
         "Environment": Object {
           "Variables": Object {
@@ -1205,7 +1189,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "22bbcca229d81064e3f1856f45f2c1a8d2b4657a57e9d862bfd47508968ca3cf.zip",
+          "S3Key": "15c010d5b8a2a249bfae267e746353866eb518da1c3cce4f30d96d8e962febe7.zip",
         },
         "Environment": Object {
           "Variables": Object {
@@ -2944,7 +2928,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "5b9d147d1a318d1edbb55cfdbbb11164550a7d24b94e4c1d79c1c9bc8ad92ac7.zip",
+          "S3Key": "280790e289a7d29909f77d874902fe481f88fd5ddd15b73d6dc0921daa03287f.zip",
         },
         "Description": "[SocialAnalytics] Tweet event processor to update DynamoDB",
         "Environment": Object {
@@ -3100,25 +3084,9 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "Ref": "TwitterEventBusC40513FF",
         },
         "EventPattern": Object {
-          "detail": Object {
-            "data": Object {
-              "source": Array [
-                Object {
-                  "anything-but": Object {
-                    "Fn::Split": Array [
-                      ",",
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "twitterFilterSourceLabelsEC9A582C",
-                          "Value",
-                        ],
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
+          "detail-type": Array [
+            "Tweet",
+          ],
           "source": Array [
             "twitter.api.v2",
           ],
@@ -3170,7 +3138,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "b89897c40bab43c17d9bde395eb6c207c18a23a2762a5cf91fa69dd555a0c789.zip",
+          "S3Key": "b09f849cf7ddb658e7170556c7a2a6391ba66f3f2174df726026f9a2df474afd.zip",
         },
         "Description": "[SocialAnalytics] OpenSearch Bulk Loader",
         "Environment": Object {
@@ -3683,7 +3651,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "dcab74f835716c07146b3e8fcc3c335613e43c99c01ec55a1a8aaa8a37a46160.zip",
+          "S3Key": "c22632af6e781973fe47aae34fe5fe89dd242d750cfc81abb3233335001ad88e.zip",
         },
         "Description": "SocialAnalytics - Process queues from TweetProducer",
         "Environment": Object {
@@ -5112,25 +5080,9 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
         },
         "EventPattern": Object {
-          "detail": Object {
-            "data": Object {
-              "source": Array [
-                Object {
-                  "anything-but": Object {
-                    "Fn::Split": Array [
-                      ",",
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "twitterFilterSourceLabelsEC9A582C",
-                          "Value",
-                        ],
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
+          "detail-type": Array [
+            "Tweet",
+          ],
           "source": Array [
             "twitter.api.v2",
           ],
