@@ -23,8 +23,8 @@ export class TweetProducer extends Construct {
 
     const { twitterFieldsParams, producerCount } = props;
 
-    const primaryQueue = new Queue(this, 'PrimaryQueue', { fifo: true });
-    const secondaryQueue = new Queue(this, 'SecondaryQueue');
+    const primaryQueue = new Queue(this, 'PrimaryQueue', { retentionPeriod: cdk.Duration.days(14), fifo: true });
+    const secondaryQueue = new Queue(this, 'SecondaryQueue', { retentionPeriod: cdk.Duration.days(14) });
     this.queues = [primaryQueue, secondaryQueue];
 
     const vpc = new ec2.Vpc(this, 'VPC', {

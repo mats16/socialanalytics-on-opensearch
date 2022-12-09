@@ -3842,12 +3842,16 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       "DeletionPolicy": "Delete",
       "Properties": Object {
         "FifoQueue": true,
+        "MessageRetentionPeriod": 1209600,
       },
       "Type": "AWS::SQS::Queue",
       "UpdateReplacePolicy": "Delete",
     },
     "TweetProducerSecondaryQueue61E55B34": Object {
       "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "MessageRetentionPeriod": 1209600,
+      },
       "Type": "AWS::SQS::Queue",
       "UpdateReplacePolicy": "Delete",
     },
