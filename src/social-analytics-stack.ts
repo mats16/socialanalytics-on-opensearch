@@ -178,7 +178,7 @@ export class SocialAnalyticsStack extends Stack {
 
     const analyzeFunction = new Function(this, 'AnalyzeFunction', {
       description: '[SocialAnalytics] Amazon Comprehend',
-      entry: './src/functions/analyze/index.ts',
+      entry: './src/functions/analyze.ts',
       memorySize: 256,
       timeout: Duration.minutes(1),
       insightsVersion,

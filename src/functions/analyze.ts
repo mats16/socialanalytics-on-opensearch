@@ -6,9 +6,10 @@ import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { DynamoDBStreamHandler, DynamoDBRecord } from 'aws-lambda';
 import { Promise } from 'bluebird';
-import { TweetItem, ComprehendStateMachine } from '../common-utils';
+import { TweetItem } from './types';
+import { ComprehendStateMachine } from './utils/sfn-comprehend';
 
-const region = process.env.AWS_REGION || 'us-west-2';
+const region = process.env.AWS_REGION;
 const tweetTableName = process.env.TWEET_TABLE_NAME!;
 const comprehendJobArn = process.env.COMPREHEND_JOB_ARN!;
 

@@ -218,7 +218,7 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "a0fce08676118dd29139aab252d99027ba81047bf9f8b5c5c98b551316242d11.zip",
+          "S3Key": "b99cf3c9d3abdfd376b998ec2519cde9123e4674225548595da370a6404bbba4.zip",
         },
         "Description": "[SocialAnalytics] Amazon Comprehend",
         "Environment": Object {
@@ -3651,7 +3651,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "c22632af6e781973fe47aae34fe5fe89dd242d750cfc81abb3233335001ad88e.zip",
+          "S3Key": "dcab74f835716c07146b3e8fcc3c335613e43c99c01ec55a1a8aaa8a37a46160.zip",
         },
         "Description": "SocialAnalytics - Process queues from TweetProducer",
         "Environment": Object {
