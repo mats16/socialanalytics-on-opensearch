@@ -3,7 +3,7 @@
 import { Tracer } from '@aws-lambda-powertools/tracer';
 import { EventBridgeClient, PutEventsCommand, PutEventsRequestEntry } from '@aws-sdk/client-eventbridge';
 import { SQSHandler, SQSRecord } from 'aws-lambda';
-import { TweetV2SingleStreamResult } from 'twitter-api-v2';
+import { TweetEvent } from './types';
 
 const region = process.env.AWS_REGION;
 const eventBusArn = process.env.EVENT_BUS_ARN!;
@@ -15,7 +15,7 @@ const eventBridge = tracer.captureAWSv3Client(new EventBridgeClient({ region }))
 
 const recordToEntry = (record: SQSRecord): PutEventsRequestEntry => {
   const body = record.body;
-  const event: TweetV2SingleStreamResult = JSON.parse(body);
+  const event: TweetEvent = JSON.parse(body);
   const eventTime = (typeof event.data.created_at == 'string') ? new Date(event.data.created_at) : undefined;
   const entry: PutEventsRequestEntry = {
     EventBusName: eventBusArn,

@@ -1,48 +1,31 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
-import { IEventBus } from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import { Queue, IQueue } from 'aws-cdk-lib/aws-sqs';
+import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { IStringParameter, StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { Function } from './lambda-nodejs';
 
 const xrayPolicy = iam.ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess');
 
 interface TweetProducerProps {
   twitterFieldsParams: IStringParameter;
-  eventBus: IEventBus;
   producerCount: number;
 };
 
 export class TweetProducer extends Construct {
   streamReader: StreamReader[] = [];
+  queues: Queue[];
 
   constructor(scope: Construct, id: string, props: TweetProducerProps) {
     super(scope, id);
 
-    const { twitterFieldsParams, eventBus, producerCount } = props;
+    const { twitterFieldsParams, producerCount } = props;
 
     const primaryQueue = new Queue(this, 'PrimaryQueue', { fifo: true });
     const secondaryQueue = new Queue(this, 'SecondaryQueue');
-
-    const queueToEventBusFunction = new Function(this, 'QueueToEventBusFunction', {
-      description: `SocialAnalytics - Process queues from ${id}`,
-      entry: './src/functions/sqs-to-eventbus.ts',
-      tracing: lambda.Tracing.ACTIVE,
-      environment: {
-        EVENT_BUS_ARN: eventBus.eventBusArn,
-      },
-      events: [
-        new SqsEventSource(primaryQueue),
-        new SqsEventSource(secondaryQueue),
-      ],
-    });
-    eventBus.grantPutEventsTo(queueToEventBusFunction);
+    this.queues = [primaryQueue, secondaryQueue];
 
     const vpc = new ec2.Vpc(this, 'VPC', {
       subnetConfiguration: [{
@@ -70,7 +53,7 @@ export class TweetProducer extends Construct {
         executionRole,
         image,
         twitterFieldsParams,
-        queues: [primaryQueue, secondaryQueue],
+        queues: this.queues,
       });
       this.streamReader.push(streamReader);
     }
