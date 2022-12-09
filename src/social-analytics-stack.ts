@@ -103,16 +103,12 @@ export class SocialAnalyticsStack extends Stack {
 
     const twitterEventBus = new EventBus(this, 'TwitterEventBus');
 
-    const allowedEventPattern: EventPattern = {
-      source: ['twitter.api.v2'],
-      detail: {
-        data: {
-          source: [{ 'anything-but': twitterFilterSourceLabels.stringListValue }],
-        },
+    twitterEventBus.archive('Archive', {
+      eventPattern: {
+        source: ['twitter.api.v2'],
+        detailType: ['Tweet'],
       },
-    };
-
-    twitterEventBus.archive('Archive', { eventPattern: allowedEventPattern });
+    });
 
     const archiveStream = new DeliveryStream(this, 'ArchiveStream', {
       destinationBucket: bucket,
@@ -137,10 +133,14 @@ export class SocialAnalyticsStack extends Stack {
       actions: ['firehose:PutRecord'],
       resources: [archiveStream.deliveryStreamArn],
     }));
+
     new Rule(this, 'ArchiveEventRule', {
-      eventBus: twitterEventBus,
-      eventPattern: allowedEventPattern,
       targets: [new eventsTargets.LambdaFunction(archiveEventFunction)],
+      eventBus: twitterEventBus,
+      eventPattern: {
+        source: ['twitter.api.v2'],
+        detailType: ['Tweet'],
+      },
     });
 
     const dynamoLoaderFunction = new NodejsFunction(this, 'DynamoLoaderFunction', {
@@ -168,9 +168,12 @@ export class SocialAnalyticsStack extends Stack {
     tweetTable.grantWriteData(dynamoLoaderFunction);
 
     new Rule(this, 'DynamoLoaderRule', {
-      eventBus: twitterEventBus,
-      eventPattern: allowedEventPattern,
       targets: [new eventsTargets.LambdaFunction(dynamoLoaderFunction)],
+      eventBus: twitterEventBus,
+      eventPattern: {
+        source: ['twitter.api.v2'],
+        detailType: ['Tweet'],
+      },
     });
 
     const analyzeFunction = new Function(this, 'AnalyzeFunction', {
