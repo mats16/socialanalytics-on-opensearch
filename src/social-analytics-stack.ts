@@ -5,13 +5,12 @@ import { EventBus, Rule, EventPattern } from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { SqsEventSource, DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { StringParameter, StringListParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { tweetFieldsParams } from './parameter';
-import { Application } from './resources/appconfig';
 import { Dashboard } from './resources/dashboard';
 import { DeliveryStream } from './resources/dynamic-partitioning-firehose';
 import { Function, RetryFunction } from './resources/lambda-nodejs';
@@ -67,14 +66,6 @@ export class SocialAnalyticsStack extends Stack {
       })],
     });
 
-    const tweetProducer = new TweetProducer(this, 'TweetProducer', {
-      twitterFieldsParams,
-      producerCount: 3,
-    });
-    if (typeof defaultTwitterBearerToken == 'string') {
-      tweetProducer.streamReader[0].bearerToken.default = defaultTwitterBearerToken;
-    }
-
     const awsParametersAndSecretsLambdaExtension = lambda.LayerVersion.fromLayerVersionArn(this, 'ParametersAndSecretsLambdaExtension', 'arn:aws:lambda:us-west-2:345057560386:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2');
 
     const bucket = new s3.Bucket(this, 'Bucket', {
@@ -119,23 +110,14 @@ export class SocialAnalyticsStack extends Stack {
 
     const comprehendJob = new ComprehendWithCache(this, 'ComprehendJob', { cacheExpireDays: 14 });
 
-    const tweetEventProducer = new NodejsFunction(this, 'TweetEventProducer', {
-      description: 'SocialAnalytics - Tweet event producer from SQS',
-      entry: './src/functions/tweet-event-producer.ts',
-      bundling: {
-        externalModules: ['@aws-sdk/*'],
-      },
-      runtime: lambda.Runtime.NODEJS_18_X,
-      architecture: lambda.Architecture.ARM_64,
-      timeout: Duration.seconds(30),
-      environment: {
-        EVENT_BUS_ARN: eventBus.eventBusArn,
-        COMPREHEND_SFN_ARN: comprehendJob.stateMachine.stateMachineArn,
-      },
-      events: tweetProducer.queues.map(q => new SqsEventSource(q)),
-      tracing: lambda.Tracing.ACTIVE,
+    const tweetProducer = new TweetProducer(this, 'TweetProducer', {
+      twitterFieldsParams,
+      eventBus,
+      producerCount: 3,
     });
-    eventBus.grantPutEventsTo(tweetEventProducer);
+    if (typeof defaultTwitterBearerToken == 'string') {
+      tweetProducer.streamReader[0].bearerToken.default = defaultTwitterBearerToken;
+    }
 
     const archiveStream = new DeliveryStream(this, 'ArchiveStream', {
       destinationBucket: bucket,

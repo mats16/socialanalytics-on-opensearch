@@ -1,7 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
+import { IEventBus } from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { IStringParameter, StringParameter } from 'aws-cdk-lib/aws-ssm';
@@ -11,21 +15,41 @@ const xrayPolicy = iam.ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWrit
 
 interface TweetProducerProps {
   twitterFieldsParams: IStringParameter;
+  eventBus: IEventBus;
   producerCount: number;
 };
 
 export class TweetProducer extends Construct {
   streamReader: StreamReader[] = [];
-  queues: Queue[];
 
   constructor(scope: Construct, id: string, props: TweetProducerProps) {
     super(scope, id);
 
-    const { twitterFieldsParams, producerCount } = props;
+    const { twitterFieldsParams, eventBus, producerCount } = props;
 
     const primaryQueue = new Queue(this, 'PrimaryQueue', { retentionPeriod: cdk.Duration.days(14), fifo: true });
     const secondaryQueue = new Queue(this, 'SecondaryQueue', { retentionPeriod: cdk.Duration.days(14) });
-    this.queues = [primaryQueue, secondaryQueue];
+
+    const queueConsumer = new NodejsFunction(this, 'QueueConsumer', {
+      description: 'SocialAnalytics - Tweet queue consumer',
+      entry: './src/functions/tweet-queue-consumer.ts',
+      bundling: {
+        externalModules: ['@aws-sdk/*'],
+      },
+      runtime: lambda.Runtime.NODEJS_18_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        POWERTOOLS_SERVICE_NAME: `${id}/QueueConsumer`,
+        EVENT_BUS_ARN: eventBus.eventBusArn,
+      },
+      events: [
+        new SqsEventSource(primaryQueue),
+        new SqsEventSource(secondaryQueue),
+      ],
+      tracing: lambda.Tracing.ACTIVE,
+    });
+    eventBus.grantPutEventsTo(queueConsumer);
 
     const vpc = new ec2.Vpc(this, 'VPC', {
       subnetConfiguration: [{
@@ -53,7 +77,7 @@ export class TweetProducer extends Construct {
         executionRole,
         image,
         twitterFieldsParams,
-        queues: this.queues,
+        queues: [primaryQueue, secondaryQueue],
       });
       this.streamReader.push(streamReader);
     }

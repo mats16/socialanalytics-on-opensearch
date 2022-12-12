@@ -3657,10 +3657,30 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       },
       "Type": "AWS::IAM::Policy",
     },
-    "TweetEventProducerF6AFD5DA": Object {
+    "TweetProducerCluster6AB7F416": Object {
+      "Properties": Object {
+        "ClusterSettings": Array [
+          Object {
+            "Name": "containerInsights",
+            "Value": "enabled",
+          },
+        ],
+      },
+      "Type": "AWS::ECS::Cluster",
+    },
+    "TweetProducerPrimaryQueueD1FD7131": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "FifoQueue": true,
+        "MessageRetentionPeriod": 1209600,
+      },
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "TweetProducerQueueConsumer891C84A2": Object {
       "DependsOn": Array [
-        "TweetEventProducerServiceRoleDefaultPolicyEA3B86D8",
-        "TweetEventProducerServiceRoleEEF4435B",
+        "TweetProducerQueueConsumerServiceRoleDefaultPolicy3203CCEA",
+        "TweetProducerQueueConsumerServiceRole01A7732D",
       ],
       "Properties": Object {
         "Architectures": Array [
@@ -3670,27 +3690,25 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "fdf2d7bc16ddd7d300c024ee8af0551961384b456e9fa3679d01180c253d1e4f.zip",
+          "S3Key": "a2d2b5168ceed4269a7d3ae254e3f998e356a54bbbff6d03ee45f24ef000c2ff.zip",
         },
-        "Description": "SocialAnalytics - Tweet event producer from SQS",
+        "Description": "SocialAnalytics - Tweet queue consumer",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "COMPREHEND_SFN_ARN": Object {
-              "Ref": "ComprehendJobStateMachine877998A5",
-            },
             "EVENT_BUS_ARN": Object {
               "Fn::GetAtt": Array [
                 "EventBus7B8748AA",
                 "Arn",
               ],
             },
+            "POWERTOOLS_SERVICE_NAME": "TweetProducer/QueueConsumer",
           },
         },
         "Handler": "index.handler",
         "Role": Object {
           "Fn::GetAtt": Array [
-            "TweetEventProducerServiceRoleEEF4435B",
+            "TweetProducerQueueConsumerServiceRole01A7732D",
             "Arn",
           ],
         },
@@ -3702,7 +3720,38 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       },
       "Type": "AWS::Lambda::Function",
     },
-    "TweetEventProducerServiceRoleDefaultPolicyEA3B86D8": Object {
+    "TweetProducerQueueConsumerServiceRole01A7732D": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TweetProducerQueueConsumerServiceRoleDefaultPolicy3203CCEA": Object {
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
@@ -3759,47 +3808,16 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "TweetEventProducerServiceRoleDefaultPolicyEA3B86D8",
+        "PolicyName": "TweetProducerQueueConsumerServiceRoleDefaultPolicy3203CCEA",
         "Roles": Array [
           Object {
-            "Ref": "TweetEventProducerServiceRoleEEF4435B",
+            "Ref": "TweetProducerQueueConsumerServiceRole01A7732D",
           },
         ],
       },
       "Type": "AWS::IAM::Policy",
     },
-    "TweetEventProducerServiceRoleEEF4435B": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "TweetEventProducerSqsEventSourcetestTweetProducerPrimaryQueue6BEAEE901058D5E6": Object {
+    "TweetProducerQueueConsumerSqsEventSourcetestTweetProducerPrimaryQueue6BEAEE9097F7E4ED": Object {
       "Properties": Object {
         "EventSourceArn": Object {
           "Fn::GetAtt": Array [
@@ -3808,12 +3826,12 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
         },
         "FunctionName": Object {
-          "Ref": "TweetEventProducerF6AFD5DA",
+          "Ref": "TweetProducerQueueConsumer891C84A2",
         },
       },
       "Type": "AWS::Lambda::EventSourceMapping",
     },
-    "TweetEventProducerSqsEventSourcetestTweetProducerSecondaryQueueBAFE9E7EF41C521C": Object {
+    "TweetProducerQueueConsumerSqsEventSourcetestTweetProducerSecondaryQueueBAFE9E7EE358D5C9": Object {
       "Properties": Object {
         "EventSourceArn": Object {
           "Fn::GetAtt": Array [
@@ -3822,30 +3840,10 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
         },
         "FunctionName": Object {
-          "Ref": "TweetEventProducerF6AFD5DA",
+          "Ref": "TweetProducerQueueConsumer891C84A2",
         },
       },
       "Type": "AWS::Lambda::EventSourceMapping",
-    },
-    "TweetProducerCluster6AB7F416": Object {
-      "Properties": Object {
-        "ClusterSettings": Array [
-          Object {
-            "Name": "containerInsights",
-            "Value": "enabled",
-          },
-        ],
-      },
-      "Type": "AWS::ECS::Cluster",
-    },
-    "TweetProducerPrimaryQueueD1FD7131": Object {
-      "DeletionPolicy": "Delete",
-      "Properties": Object {
-        "FifoQueue": true,
-        "MessageRetentionPeriod": 1209600,
-      },
-      "Type": "AWS::SQS::Queue",
-      "UpdateReplacePolicy": "Delete",
     },
     "TweetProducerSecondaryQueue61E55B34": Object {
       "DeletionPolicy": "Delete",
