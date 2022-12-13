@@ -1,56 +1,39 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
-//import { Tracer } from '@aws-lambda-powertools/tracer';
+import { Tracer } from '@aws-lambda-powertools/tracer';
 import { AttributeValue } from '@aws-sdk/client-dynamodb';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
-import { Client, Connection } from '@opensearch-project/opensearch';
+import { Client } from '@opensearch-project/opensearch';
+import { AwsSigv4Signer } from '@opensearch-project/opensearch/aws';
 import { Handler, DynamoDBStreamEvent, DynamoDBRecord } from 'aws-lambda';
-import * as xray from 'aws-xray-sdk';
-import * as aws4 from 'aws4';
-import { TweetItem } from '../common-utils';
-import { Document, toDocument } from './utils';
+import { TweetItem } from '../types';
+import { Document, toDocument } from './opensearch-utils';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-xray.captureHTTPsGlobal(require('https'));
-
+const region = process.env.AWS_REGION!;
 const opensearchDomainEndpoint = process.env.OPENSEARCH_DOMAIN_ENDPOINT!;
 
 const logger = new Logger();
 const metrics = new Metrics();
-//const tracer = new Tracer();
+const tracer = new Tracer();
 
 const unmarshallOptions = {
   wrapNumbers: false, // false, by default.
 };
 
-const createAwsConnector = (credentials: aws4.Credentials) => {
-  class AmazonConnection extends Connection {
-    buildRequestObject(params: any) {
-      const request = super.buildRequestObject(params) as aws4.Request;
-      request.service = 'es';
-      request.region = process.env.AWS_REGION || 'us-east-1';
-      request.headers = request.headers || {};
-      request.headers.host = request.hostname;
+const client = new Client({
+  ...AwsSigv4Signer({
+    region,
+    getCredentials: () => {
+      // Any other method to acquire a new Credentials object can be used.
+      const credentialsProvider = defaultProvider();
+      return credentialsProvider();
+    },
+  }),
+  node: `https://${opensearchDomainEndpoint}`,
+});
 
-      return aws4.sign(request, credentials);
-    }
-  }
-  return {
-    Connection: AmazonConnection,
-  };
-};
-
-const getClient = async (host: string) => {
-  const credentials = await defaultProvider()();
-  return new Client({
-    ...createAwsConnector(credentials),
-    node: `https://${host}`,
-  });
-};
-
-const bulk = async (host: string, docs: Document[]) => {
-  const client = await getClient(host);
+const bulk = async (docs: Document[]) => {
   const stats = await client.helpers.bulk({
     datasource: docs,
     onDocument (doc: Document) {
@@ -78,11 +61,10 @@ const toTweetItem = (record: DynamoDBRecord): TweetItem => {
 export const handler: Handler<DynamoDBStreamEvent> = async(event, _context) => {
   metrics.addMetric('IncomingRecordCount', MetricUnits.Count, event.Records.length);
 
-  const records = event.Records.filter(record => record.eventName == 'MODIFY');
-  const tweetItems = records.map(toTweetItem).filter(tweet => typeof tweet.created_at == 'string');
+  const tweetItems = event.Records.map(toTweetItem);
   const docs = tweetItems.map(toDocument);
 
-  const stats = await bulk(opensearchDomainEndpoint, docs);
+  const stats = await bulk(docs);
   metrics.addMetric('RequestTotalDocCount', MetricUnits.Count, stats.total);
   metrics.addMetric('RequestFailedDocCount', MetricUnits.Count, stats.failed);
   metrics.addMetric('RequestSuccessfulDocCount', MetricUnits.Count, stats.successful);

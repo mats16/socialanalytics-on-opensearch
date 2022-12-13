@@ -19,15 +19,12 @@ export interface ComprehendJobOutput {
   //KeyPhrases?: KeyPhrase[];
 }
 
-export interface TweetEvent extends TweetV2SingleStreamResult {
-  data: TweetV2 & { comprehend?: ComprehendJobOutput };
-}
-
 export interface TweetItem extends Partial<TweetV2> {
   id: string;
   updated_at: number;
-  created_at_year?: string;
+  //created_at_year?: string;
   normalized_text?: string;
   comprehend?: ComprehendJobOutput;
   author?: UserV2;
+  _all?: 'stub';
 }

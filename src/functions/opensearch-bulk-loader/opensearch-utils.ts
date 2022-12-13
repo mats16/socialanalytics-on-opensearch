@@ -1,6 +1,7 @@
 import { Entity } from '@aws-sdk/client-comprehend';
 import { UserV2, TweetPublicMetricsV2, TTweetReplySettingsV2, ReferencedTweetV2, TweetGeoV2, TweetEntitiesV2, TweetContextAnnotationV2 } from 'twitter-api-v2';
-import { TweetItem, ComprehendJobOutput, Deduplicate } from '../common-utils';
+import { TweetItem, ComprehendJobOutput } from '../types';
+import { Deduplicate } from '../utils';
 
 const entityScoreThreshold = 0.8;
 

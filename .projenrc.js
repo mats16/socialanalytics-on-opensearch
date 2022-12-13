@@ -37,7 +37,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
     '@aws-lambda-powertools/metrics',
     '@aws-lambda-powertools/tracer',
     '@types/aws-lambda',
-    '@opensearch-project/opensearch@2.0.0',
+    '@opensearch-project/opensearch@2.1.0',
     '@opentelemetry/api',
     '@opentelemetry/core',
     '@opentelemetry/exporter-trace-otlp-http',

@@ -205,210 +205,6 @@ Object {
       },
       "Type": "AWS::IAM::Role",
     },
-    "AnalyzeFunction5A98DC09": Object {
-      "DependsOn": Array [
-        "AnalyzeFunctionServiceRoleDefaultPolicyC2F006BE",
-        "AnalyzeFunctionServiceRole2A2C257B",
-      ],
-      "Properties": Object {
-        "Architectures": Array [
-          "arm64",
-        ],
-        "Code": Object {
-          "S3Bucket": Object {
-            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
-          },
-          "S3Key": "b99cf3c9d3abdfd376b998ec2519cde9123e4674225548595da370a6404bbba4.zip",
-        },
-        "Description": "[SocialAnalytics] Amazon Comprehend",
-        "Environment": Object {
-          "Variables": Object {
-            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "COMPREHEND_JOB_ARN": Object {
-              "Ref": "ComprehendJobStateMachine877998A5",
-            },
-            "POWERTOOLS_METRICS_NAMESPACE": Object {
-              "Ref": "AWS::StackName",
-            },
-            "POWERTOOLS_SERVICE_NAME": "AnalyzeFunction",
-            "TWEET_TABLE_NAME": Object {
-              "Ref": "TweetTable97F090DB",
-            },
-          },
-        },
-        "Handler": "index.handler",
-        "Layers": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:aws:lambda:",
-                Object {
-                  "Ref": "AWS::Region",
-                },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
-              ],
-            ],
-          },
-        ],
-        "MemorySize": 256,
-        "Role": Object {
-          "Fn::GetAtt": Array [
-            "AnalyzeFunctionServiceRole2A2C257B",
-            "Arn",
-          ],
-        },
-        "Runtime": "nodejs18.x",
-        "Timeout": 60,
-        "TracingConfig": Object {
-          "Mode": "Active",
-        },
-      },
-      "Type": "AWS::Lambda::Function",
-    },
-    "AnalyzeFunctionDynamoDBEventSourcetestTweetTable04D577993C12838A": Object {
-      "Properties": Object {
-        "BatchSize": 100,
-        "EventSourceArn": Object {
-          "Fn::GetAtt": Array [
-            "TweetTable97F090DB",
-            "StreamArn",
-          ],
-        },
-        "FunctionName": Object {
-          "Ref": "AnalyzeFunction5A98DC09",
-        },
-        "MaximumBatchingWindowInSeconds": 5,
-        "MaximumRecordAgeInSeconds": 86400,
-        "StartingPosition": "LATEST",
-      },
-      "Type": "AWS::Lambda::EventSourceMapping",
-    },
-    "AnalyzeFunctionServiceRole2A2C257B": Object {
-      "Properties": Object {
-        "AssumeRolePolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": Object {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
-              ],
-            ],
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
-    "AnalyzeFunctionServiceRoleDefaultPolicyC2F006BE": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "xray:PutTraceSegments",
-                "xray:PutTelemetryRecords",
-              ],
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-            Object {
-              "Action": "dynamodb:ListStreams",
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-            Object {
-              "Action": Array [
-                "dynamodb:DescribeStream",
-                "dynamodb:GetRecords",
-                "dynamodb:GetShardIterator",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::GetAtt": Array [
-                  "TweetTable97F090DB",
-                  "StreamArn",
-                ],
-              },
-            },
-            Object {
-              "Action": Array [
-                "dynamodb:BatchWriteItem",
-                "dynamodb:PutItem",
-                "dynamodb:UpdateItem",
-                "dynamodb:DeleteItem",
-                "dynamodb:DescribeTable",
-              ],
-              "Effect": "Allow",
-              "Resource": Array [
-                Object {
-                  "Fn::GetAtt": Array [
-                    "TweetTable97F090DB",
-                    "Arn",
-                  ],
-                },
-                Object {
-                  "Fn::Join": Array [
-                    "",
-                    Array [
-                      Object {
-                        "Fn::GetAtt": Array [
-                          "TweetTable97F090DB",
-                          "Arn",
-                        ],
-                      },
-                      "/index/*",
-                    ],
-                  ],
-                },
-              ],
-            },
-            Object {
-              "Action": "states:StartSyncExecution",
-              "Effect": "Allow",
-              "Resource": Object {
-                "Ref": "ComprehendJobStateMachine877998A5",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "AnalyzeFunctionServiceRoleDefaultPolicyC2F006BE",
-        "Roles": Array [
-          Object {
-            "Ref": "AnalyzeFunctionServiceRole2A2C257B",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
     "ArchiveEventFunctionA15B0833": Object {
       "DependsOn": Array [
         "ArchiveEventFunctionServiceRoleDefaultPolicy90739CF6",
@@ -422,9 +218,9 @@ Object {
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "5f0ce026ed5883c82dc5dc298cacf6557b21034b4f37be51c87d2a9bf0c5ee77.zip",
+          "S3Key": "b6e2de125a5927b2ec057a6ee3189caaf944868df3638473eec1e6f66a4e3ddc.zip",
         },
-        "Description": "[SocialAnalytics] Archive event for Firehose-S3",
+        "Description": "SocialAnalytics - Archive event for Firehose-S3",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
@@ -438,20 +234,6 @@ Object {
           },
         },
         "Handler": "index.handler",
-        "Layers": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:aws:lambda:",
-                Object {
-                  "Ref": "AWS::Region",
-                },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
-              ],
-            ],
-          },
-        ],
         "Role": Object {
           "Fn::GetAtt": Array [
             "ArchiveEventFunctionServiceRoleC71B0630",
@@ -459,7 +241,7 @@ Object {
           ],
         },
         "Runtime": "nodejs18.x",
-        "Timeout": 5,
+        "Timeout": 10,
         "TracingConfig": Object {
           "Mode": "Active",
         },
@@ -490,18 +272,6 @@ Object {
                   "Ref": "AWS::Partition",
                 },
                 ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
               ],
             ],
           },
@@ -551,6 +321,11 @@ Object {
         "EventPattern": Object {
           "detail-type": Array [
             "Tweet",
+          ],
+          "replay-name": Array [
+            Object {
+              "exists": false,
+            },
           ],
           "source": Array [
             "twitter.api.v2",
@@ -1847,7 +1622,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "backend_roles": Array [
             Object {
               "Fn::GetAtt": Array [
-                "OpenSearchLoaderFunctionServiceRole32276686",
+                "OpenSearchBulkLoaderServiceRole561592DC",
                 "Arn",
               ],
             },
@@ -2915,10 +2690,48 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       },
       "Type": "AWS::IAM::Policy",
     },
-    "DynamoLoaderFunctionDDDB5041": Object {
+    "EventBus7B8748AA": Object {
+      "Properties": Object {
+        "Name": "testEventBusD3C7AA2F",
+      },
+      "Type": "AWS::Events::EventBus",
+    },
+    "EventBusTweetArchiveF96B5118": Object {
+      "Properties": Object {
+        "Description": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "Event Archive for ",
+              Object {
+                "Ref": "EventBus7B8748AA",
+              },
+              " Event Bus",
+            ],
+          ],
+        },
+        "EventPattern": Object {
+          "detail-type": Array [
+            "Tweet",
+          ],
+          "source": Array [
+            "twitter.api.v2",
+          ],
+        },
+        "RetentionDays": 0,
+        "SourceArn": Object {
+          "Fn::GetAtt": Array [
+            "EventBus7B8748AA",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Events::Archive",
+    },
+    "IncludedTweetConsumerC2C60D20": Object {
       "DependsOn": Array [
-        "DynamoLoaderFunctionServiceRoleDefaultPolicy0FDF330E",
-        "DynamoLoaderFunctionServiceRole3B9B210F",
+        "IncludedTweetConsumerServiceRoleDefaultPolicy6F82E7F8",
+        "IncludedTweetConsumerServiceRole09B81829",
       ],
       "Properties": Object {
         "Architectures": Array [
@@ -2928,58 +2741,43 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "280790e289a7d29909f77d874902fe481f88fd5ddd15b73d6dc0921daa03287f.zip",
+          "S3Key": "1b1f17b08fc95d03bd919daea5ced85d2a4f566ed965e4183049a1a06ff11e25.zip",
         },
-        "Description": "[SocialAnalytics] Tweet event processor to update DynamoDB",
+        "Description": "SocialAnalytics - Included tweets consumer to update DynamoDB",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "NEW_TWEET_CONSUMER_ARN": Object {
+              "Fn::GetAtt": Array [
+                "NewTweetConsumer8AAC5EB9",
+                "Arn",
+              ],
+            },
             "POWERTOOLS_METRICS_NAMESPACE": Object {
               "Ref": "AWS::StackName",
             },
-            "POWERTOOLS_SERVICE_NAME": "DynamoLoaderFunction",
+            "POWERTOOLS_SERVICE_NAME": "IncludedTweetConsumer",
             "TWEET_TABLE_NAME": Object {
               "Ref": "TweetTable97F090DB",
-            },
-            "TWITTER_FILTER_CONTEXT_DOMAINS_PATH": Object {
-              "Ref": "twitterFilterContextDomainsAC1EB275",
-            },
-            "TWITTER_FILTER_SOURCE_LABELS_PATH": Object {
-              "Ref": "twitterFilterSourceLabelsEC9A582C",
             },
           },
         },
         "Handler": "index.handler",
-        "Layers": Array [
-          "arn:aws:lambda:us-west-2:345057560386:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2",
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:aws:lambda:",
-                Object {
-                  "Ref": "AWS::Region",
-                },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
-              ],
-            ],
-          },
-        ],
         "Role": Object {
           "Fn::GetAtt": Array [
-            "DynamoLoaderFunctionServiceRole3B9B210F",
+            "IncludedTweetConsumerServiceRole09B81829",
             "Arn",
           ],
         },
         "Runtime": "nodejs18.x",
-        "Timeout": 5,
+        "Timeout": 10,
         "TracingConfig": Object {
           "Mode": "Active",
         },
       },
       "Type": "AWS::Lambda::Function",
     },
-    "DynamoLoaderFunctionServiceRole3B9B210F": Object {
+    "IncludedTweetConsumerServiceRole09B81829": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
@@ -3006,23 +2804,11 @@ def submit_response(event: dict, context, response_status: str, error_message: s
               ],
             ],
           },
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:",
-                Object {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
-              ],
-            ],
-          },
         ],
       },
       "Type": "AWS::IAM::Role",
     },
-    "DynamoLoaderFunctionServiceRoleDefaultPolicy0FDF330E": Object {
+    "IncludedTweetConsumerServiceRoleDefaultPolicy6F82E7F8": Object {
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
@@ -3066,107 +2852,48 @@ def submit_response(event: dict, context, response_status: str, error_message: s
                 },
               ],
             },
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "NewTweetConsumer8AAC5EB9",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "NewTweetConsumer8AAC5EB9",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "DynamoLoaderFunctionServiceRoleDefaultPolicy0FDF330E",
+        "PolicyName": "IncludedTweetConsumerServiceRoleDefaultPolicy6F82E7F8",
         "Roles": Array [
           Object {
-            "Ref": "DynamoLoaderFunctionServiceRole3B9B210F",
+            "Ref": "IncludedTweetConsumerServiceRole09B81829",
           },
         ],
       },
       "Type": "AWS::IAM::Policy",
     },
-    "DynamoLoaderRule50A9E517": Object {
-      "Properties": Object {
-        "EventBusName": Object {
-          "Ref": "EventBus7B8748AA",
-        },
-        "EventPattern": Object {
-          "detail-type": Array [
-            "Tweet",
-          ],
-          "source": Array [
-            "twitter.api.v2",
-          ],
-        },
-        "State": "ENABLED",
-        "Targets": Array [
-          Object {
-            "Arn": Object {
-              "Fn::GetAtt": Array [
-                "DynamoLoaderFunctionDDDB5041",
-                "Arn",
-              ],
-            },
-            "Id": "Target0",
-          },
-        ],
-      },
-      "Type": "AWS::Events::Rule",
-    },
-    "DynamoLoaderRuleAllowEventRuletestDynamoLoaderFunction595C0CA759FA82B9": Object {
-      "Properties": Object {
-        "Action": "lambda:InvokeFunction",
-        "FunctionName": Object {
-          "Fn::GetAtt": Array [
-            "DynamoLoaderFunctionDDDB5041",
-            "Arn",
-          ],
-        },
-        "Principal": "events.amazonaws.com",
-        "SourceArn": Object {
-          "Fn::GetAtt": Array [
-            "DynamoLoaderRule50A9E517",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::Lambda::Permission",
-    },
-    "EventBus7B8748AA": Object {
-      "Properties": Object {
-        "Name": "testEventBusD3C7AA2F",
-      },
-      "Type": "AWS::Events::EventBus",
-    },
-    "EventBusTweetArchiveF96B5118": Object {
-      "Properties": Object {
-        "Description": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "Event Archive for ",
-              Object {
-                "Ref": "EventBus7B8748AA",
-              },
-              " Event Bus",
-            ],
-          ],
-        },
-        "EventPattern": Object {
-          "detail-type": Array [
-            "Tweet",
-          ],
-          "source": Array [
-            "twitter.api.v2",
-          ],
-        },
-        "RetentionDays": 0,
-        "SourceArn": Object {
-          "Fn::GetAtt": Array [
-            "EventBus7B8748AA",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::Events::Archive",
-    },
-    "OpenSearchLoaderFunction713423B0": Object {
+    "IncludedTweetFanoutProducer95B2B305": Object {
       "DependsOn": Array [
-        "OpenSearchLoaderFunctionServiceRoleDefaultPolicyE6EF7929",
-        "OpenSearchLoaderFunctionServiceRole32276686",
+        "IncludedTweetFanoutProducerServiceRoleDefaultPolicy09B81322",
+        "IncludedTweetFanoutProducerServiceRole97B47A89",
       ],
       "Properties": Object {
         "Architectures": Array [
@@ -3176,73 +2903,40 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           "S3Bucket": Object {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "b09f849cf7ddb658e7170556c7a2a6391ba66f3f2174df726026f9a2df474afd.zip",
+          "S3Key": "5b2603acd20482c3716fc0320c28389818a3e4b52b9992794fde6031caaf760d.zip",
         },
-        "Description": "[SocialAnalytics] OpenSearch Bulk Loader",
+        "Description": "SocialAnalytics - Included tweet fanout producer",
         "Environment": Object {
           "Variables": Object {
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
-            "OPENSEARCH_DOMAIN_ENDPOINT": Object {
+            "EVENT_BUS_ARN": Object {
               "Fn::GetAtt": Array [
-                "DashboardDomainED696CAB",
-                "DomainEndpoint",
+                "EventBus7B8748AA",
+                "Arn",
               ],
             },
             "POWERTOOLS_METRICS_NAMESPACE": Object {
               "Ref": "AWS::StackName",
             },
-            "POWERTOOLS_SERVICE_NAME": "OpenSearchLoaderFunction",
+            "POWERTOOLS_SERVICE_NAME": "IncludedTweetFanoutProducer",
           },
         },
         "Handler": "index.handler",
-        "Layers": Array [
-          Object {
-            "Fn::Join": Array [
-              "",
-              Array [
-                "arn:aws:lambda:",
-                Object {
-                  "Ref": "AWS::Region",
-                },
-                ":580247275435:layer:LambdaInsightsExtension-Arm64:2",
-              ],
-            ],
-          },
-        ],
-        "MemorySize": 256,
         "Role": Object {
           "Fn::GetAtt": Array [
-            "OpenSearchLoaderFunctionServiceRole32276686",
+            "IncludedTweetFanoutProducerServiceRole97B47A89",
             "Arn",
           ],
         },
         "Runtime": "nodejs18.x",
-        "Timeout": 60,
+        "Timeout": 10,
         "TracingConfig": Object {
           "Mode": "Active",
         },
       },
       "Type": "AWS::Lambda::Function",
     },
-    "OpenSearchLoaderFunctionDynamoDBEventSourcetestTweetTable04D57799E7FA3624": Object {
-      "Properties": Object {
-        "BatchSize": 100,
-        "EventSourceArn": Object {
-          "Fn::GetAtt": Array [
-            "TweetTable97F090DB",
-            "StreamArn",
-          ],
-        },
-        "FunctionName": Object {
-          "Ref": "OpenSearchLoaderFunction713423B0",
-        },
-        "MaximumBatchingWindowInSeconds": 5,
-        "MaximumRecordAgeInSeconds": 86400,
-        "StartingPosition": "LATEST",
-      },
-      "Type": "AWS::Lambda::EventSourceMapping",
-    },
-    "OpenSearchLoaderFunctionServiceRole32276686": Object {
+    "IncludedTweetFanoutProducerServiceRole97B47A89": Object {
       "Properties": Object {
         "AssumeRolePolicyDocument": Object {
           "Statement": Array [
@@ -3269,6 +2963,286 @@ def submit_response(event: dict, context, response_status: str, error_message: s
               ],
             ],
           },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "IncludedTweetFanoutProducerServiceRoleDefaultPolicy09B81322": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": "events:PutEvents",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "EventBus7B8748AA",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "IncludedTweetFanoutProducerServiceRoleDefaultPolicy09B81322",
+        "Roles": Array [
+          Object {
+            "Ref": "IncludedTweetFanoutProducerServiceRole97B47A89",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "IncludedTweetsRule6FCF6B91": Object {
+      "Properties": Object {
+        "EventBusName": Object {
+          "Ref": "EventBus7B8748AA",
+        },
+        "EventPattern": Object {
+          "detail": Object {
+            "data": Object {
+              "context_annotations": Object {
+                "domain": Object {
+                  "name": Array [
+                    Object {
+                      "anything-but": Object {
+                        "Fn::Split": Array [
+                          ",",
+                          Object {
+                            "Fn::GetAtt": Array [
+                              "TwitterContextDomainDenyList93C7E527",
+                              "Value",
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+              "created_at": Array [
+                Object {
+                  "prefix": "202",
+                },
+              ],
+            },
+          },
+          "detail-type": Array [
+            "IncludedTweet",
+          ],
+          "source": Array [
+            "twitter.api.v2",
+          ],
+        },
+        "State": "ENABLED",
+        "Targets": Array [
+          Object {
+            "Arn": Object {
+              "Fn::GetAtt": Array [
+                "IncludedTweetConsumerC2C60D20",
+                "Arn",
+              ],
+            },
+            "Id": "Target0",
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "IncludedTweetsRuleAllowEventRuletestIncludedTweetConsumerFA1FA7A81427CA24": Object {
+      "Properties": Object {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": Object {
+          "Fn::GetAtt": Array [
+            "IncludedTweetConsumerC2C60D20",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": Object {
+          "Fn::GetAtt": Array [
+            "IncludedTweetsRule6FCF6B91",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "NewTweetArrival3D90EA5C": Object {
+      "Properties": Object {
+        "Description": "SocialAnalytics - New tweet arrival",
+        "EventBusName": Object {
+          "Ref": "EventBus7B8748AA",
+        },
+        "EventPattern": Object {
+          "detail": Object {
+            "data": Object {
+              "context_annotations": Object {
+                "domain": Object {
+                  "name": Array [
+                    Object {
+                      "anything-but": Object {
+                        "Fn::Split": Array [
+                          ",",
+                          Object {
+                            "Fn::GetAtt": Array [
+                              "TwitterContextDomainDenyList93C7E527",
+                              "Value",
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+            "matching_rules": Object {
+              "id": Array [
+                Object {
+                  "exists": true,
+                },
+              ],
+            },
+          },
+          "detail-type": Array [
+            "Tweet",
+          ],
+          "source": Array [
+            "twitter.api.v2",
+          ],
+        },
+        "State": "ENABLED",
+        "Targets": Array [
+          Object {
+            "Arn": Object {
+              "Fn::GetAtt": Array [
+                "NewTweetConsumer8AAC5EB9",
+                "Arn",
+              ],
+            },
+            "Id": "Target0",
+          },
+          Object {
+            "Arn": Object {
+              "Fn::GetAtt": Array [
+                "IncludedTweetFanoutProducer95B2B305",
+                "Arn",
+              ],
+            },
+            "Id": "Target1",
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "NewTweetArrivalAllowEventRuletestIncludedTweetFanoutProducerA82F83B50E5934D2": Object {
+      "Properties": Object {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": Object {
+          "Fn::GetAtt": Array [
+            "IncludedTweetFanoutProducer95B2B305",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": Object {
+          "Fn::GetAtt": Array [
+            "NewTweetArrival3D90EA5C",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "NewTweetArrivalAllowEventRuletestNewTweetConsumerBDA39341877C5A03": Object {
+      "Properties": Object {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": Object {
+          "Fn::GetAtt": Array [
+            "NewTweetConsumer8AAC5EB9",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": Object {
+          "Fn::GetAtt": Array [
+            "NewTweetArrival3D90EA5C",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "NewTweetConsumer8AAC5EB9": Object {
+      "DependsOn": Array [
+        "NewTweetConsumerServiceRoleDefaultPolicy5492232F",
+        "NewTweetConsumerServiceRoleDE0E4760",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "ef251e35eef5bfb2aa469f48188b056dc03003b88d5fe8cc4417da30bad82f51.zip",
+        },
+        "Description": "SocialAnalytics - New tweet event consumer to update DynamoDB",
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "COMPREHEND_SFN_ARN": Object {
+              "Ref": "ComprehendJobStateMachine877998A5",
+            },
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "NewTweetConsumer",
+            "TWEET_TABLE_NAME": Object {
+              "Ref": "TweetTable97F090DB",
+            },
+          },
+        },
+        "Handler": "index.handler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "NewTweetConsumerServiceRoleDE0E4760",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs18.x",
+        "Timeout": 10,
+        "TracingConfig": Object {
+          "Mode": "Active",
+        },
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "NewTweetConsumerServiceRoleDE0E4760": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
           Object {
             "Fn::Join": Array [
               "",
@@ -3277,7 +3251,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
                 Object {
                   "Ref": "AWS::Partition",
                 },
-                ":iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy",
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
               ],
             ],
           },
@@ -3285,7 +3259,173 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       },
       "Type": "AWS::IAM::Role",
     },
-    "OpenSearchLoaderFunctionServiceRoleDefaultPolicyE6EF7929": Object {
+    "NewTweetConsumerServiceRoleDefaultPolicy5492232F": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": "states:StartSyncExecution",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Ref": "ComprehendJobStateMachine877998A5",
+              },
+            },
+            Object {
+              "Action": Array [
+                "dynamodb:BatchWriteItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:DescribeTable",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TweetTable97F090DB",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TweetTable97F090DB",
+                          "Arn",
+                        ],
+                      },
+                      "/index/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "NewTweetConsumerServiceRoleDefaultPolicy5492232F",
+        "Roles": Array [
+          Object {
+            "Ref": "NewTweetConsumerServiceRoleDE0E4760",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "OpenSearchBulkLoaderDE612777": Object {
+      "DependsOn": Array [
+        "OpenSearchBulkLoaderServiceRoleDefaultPolicyC734B85B",
+        "OpenSearchBulkLoaderServiceRole561592DC",
+      ],
+      "Properties": Object {
+        "Architectures": Array [
+          "arm64",
+        ],
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "f7c33d762bbaf137ae51fdb52b8a8627b727438be7489dcfe7779d22608f6f92.zip",
+        },
+        "Description": "SocialAnalytics - OpenSearch Bulk Loader",
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "OPENSEARCH_DOMAIN_ENDPOINT": Object {
+              "Fn::GetAtt": Array [
+                "DashboardDomainED696CAB",
+                "DomainEndpoint",
+              ],
+            },
+            "POWERTOOLS_METRICS_NAMESPACE": Object {
+              "Ref": "AWS::StackName",
+            },
+            "POWERTOOLS_SERVICE_NAME": "OpenSearchBulkLoader",
+          },
+        },
+        "Handler": "index.handler",
+        "MemorySize": 256,
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "OpenSearchBulkLoaderServiceRole561592DC",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs18.x",
+        "Timeout": 60,
+        "TracingConfig": Object {
+          "Mode": "Active",
+        },
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "OpenSearchBulkLoaderDynamoDBEventSourcetestTweetTable04D577993EC3F163": Object {
+      "Properties": Object {
+        "BatchSize": 100,
+        "EventSourceArn": Object {
+          "Fn::GetAtt": Array [
+            "TweetTable97F090DB",
+            "StreamArn",
+          ],
+        },
+        "FilterCriteria": Object {
+          "Filters": Array [
+            Object {
+              "Pattern": "{\\"eventName\\":[\\"INSERT\\",\\"MODIFY\\"],\\"dynamodb\\":{\\"NewImage\\":{\\"text\\":{\\"S\\":[{\\"exists\\":true}]},\\"created_at\\":{\\"S\\":[{\\"exists\\":true}]}}}}",
+            },
+          ],
+        },
+        "FunctionName": Object {
+          "Ref": "OpenSearchBulkLoaderDE612777",
+        },
+        "MaximumBatchingWindowInSeconds": 5,
+        "MaximumRecordAgeInSeconds": 86400,
+        "StartingPosition": "LATEST",
+      },
+      "Type": "AWS::Lambda::EventSourceMapping",
+    },
+    "OpenSearchBulkLoaderServiceRole561592DC": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "OpenSearchBulkLoaderServiceRoleDefaultPolicyC734B85B": Object {
       "Properties": Object {
         "PolicyDocument": Object {
           "Statement": Array [
@@ -3319,10 +3459,10 @@ def submit_response(event: dict, context, response_status: str, error_message: s
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "OpenSearchLoaderFunctionServiceRoleDefaultPolicyE6EF7929",
+        "PolicyName": "OpenSearchBulkLoaderServiceRoleDefaultPolicyC734B85B",
         "Roles": Array [
           Object {
-            "Ref": "OpenSearchLoaderFunctionServiceRole32276686",
+            "Ref": "OpenSearchBulkLoaderServiceRole561592DC",
           },
         ],
       },
@@ -3518,7 +3658,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
               ":states:::lambda:invoke\\",\\"Parameters\\":{\\"FunctionName\\":\\"",
               Object {
                 "Fn::GetAtt": Array [
-                  "OpenSearchLoaderFunction713423B0",
+                  "OpenSearchBulkLoaderDE612777",
                   "Arn",
                 ],
               },
@@ -3625,7 +3765,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
               "Resource": Array [
                 Object {
                   "Fn::GetAtt": Array [
-                    "OpenSearchLoaderFunction713423B0",
+                    "OpenSearchBulkLoaderDE612777",
                     "Arn",
                   ],
                 },
@@ -3635,7 +3775,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
                     Array [
                       Object {
                         "Fn::GetAtt": Array [
-                          "OpenSearchLoaderFunction713423B0",
+                          "OpenSearchBulkLoaderDE612777",
                           "Arn",
                         ],
                       },
@@ -5068,7 +5208,7 @@ def submit_response(event: dict, context, response_status: str, error_message: s
             "AttributeType": "S",
           },
           Object {
-            "AttributeName": "created_at_year",
+            "AttributeName": "_all",
             "AttributeType": "S",
           },
           Object {
@@ -5079,10 +5219,10 @@ def submit_response(event: dict, context, response_status: str, error_message: s
         "BillingMode": "PAY_PER_REQUEST",
         "GlobalSecondaryIndexes": Array [
           Object {
-            "IndexName": "created_at-index",
+            "IndexName": "created_at",
             "KeySchema": Array [
               Object {
-                "AttributeName": "created_at_year",
+                "AttributeName": "_all",
                 "KeyType": "HASH",
               },
               Object {
@@ -5108,6 +5248,26 @@ def submit_response(event: dict, context, response_status: str, error_message: s
       "Type": "AWS::DynamoDB::Table",
       "UpdateReplacePolicy": "Retain",
     },
+    "TwitterContextDomainDenyList93C7E527": Object {
+      "Properties": Object {
+        "Description": "Context domains for filtering",
+        "Name": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/",
+              Object {
+                "Ref": "AWS::StackName",
+              },
+              "/Twitter/DenyList/ContextDomain",
+            ],
+          ],
+        },
+        "Type": "StringList",
+        "Value": "Musician,Music Genre,Actor,TV Shows,Multimedia Franchise,Fictional Character,Entertainment Personality",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
     "TwitterFieldsParamsDD9504EE": Object {
       "Properties": Object {
         "Description": "Tweet fields params for API calls",
@@ -5125,89 +5285,6 @@ def submit_response(event: dict, context, response_status: str, error_message: s
         },
         "Type": "String",
         "Value": "{\\"tweet.fields\\":[\\"id\\",\\"text\\",\\"author_id\\",\\"context_annotations\\",\\"conversation_id\\",\\"created_at\\",\\"entities\\",\\"geo\\",\\"in_reply_to_user_id\\",\\"lang\\",\\"possibly_sensitive\\",\\"public_metrics\\",\\"referenced_tweets\\",\\"reply_settings\\",\\"source\\"],\\"user.fields\\":[\\"id\\",\\"name\\",\\"username\\",\\"url\\",\\"verified\\",\\"public_metrics\\"],\\"place.fields\\":[\\"id\\",\\"full_name\\",\\"contained_within\\",\\"country\\",\\"country_code\\",\\"geo\\",\\"name\\",\\"place_type\\"],\\"expansions\\":[\\"author_id\\",\\"entities.mentions.username\\",\\"in_reply_to_user_id\\",\\"referenced_tweets.id\\",\\"referenced_tweets.id.author_id\\"]}",
-      },
-      "Type": "AWS::SSM::Parameter",
-    },
-    "TwitterParamsPolicyD929C066": Object {
-      "Properties": Object {
-        "PolicyDocument": Object {
-          "Statement": Array [
-            Object {
-              "Action": Array [
-                "ssm:GetParameter",
-                "ssm:GetParametersByPath",
-              ],
-              "Effect": "Allow",
-              "Resource": Object {
-                "Fn::Join": Array [
-                  "",
-                  Array [
-                    "arn:aws:ssm:",
-                    Object {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    Object {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":parameter/",
-                    Object {
-                      "Ref": "AWS::StackName",
-                    },
-                    "/Twitter/*",
-                  ],
-                ],
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "TwitterParamsPolicyD929C066",
-        "Roles": Array [
-          Object {
-            "Ref": "DynamoLoaderFunctionServiceRole3B9B210F",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "twitterFilterContextDomainsAC1EB275": Object {
-      "Properties": Object {
-        "Description": "Context domains for filtering",
-        "Name": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "/",
-              Object {
-                "Ref": "AWS::StackName",
-              },
-              "/Twitter/Filter/ContextDomains",
-            ],
-          ],
-        },
-        "Type": "StringList",
-        "Value": "Musician,Music Genre,Actor,TV Shows,Multimedia Franchise,Fictional Character,Entertainment Personality",
-      },
-      "Type": "AWS::SSM::Parameter",
-    },
-    "twitterFilterSourceLabelsEC9A582C": Object {
-      "Properties": Object {
-        "Description": "Tweet source labels for filtering",
-        "Name": Object {
-          "Fn::Join": Array [
-            "",
-            Array [
-              "/",
-              Object {
-                "Ref": "AWS::StackName",
-              },
-              "/Twitter/Filter/SourceLabels",
-            ],
-          ],
-        },
-        "Type": "StringList",
-        "Value": "Twitter for Advertisers,twittbot.net,Mk00JapanBot,Gakeppu Tweet,BelugaCampaignSEA,rare_zaiko,Wn32ShimaneBot,uhiiman_bot,atulsbots",
       },
       "Type": "AWS::SSM::Parameter",
     },
